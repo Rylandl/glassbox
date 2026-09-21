@@ -1,0 +1,552 @@
+{
+  "attribution": "Same shared-v1 initial weights, cached data/objective and bounded optimizer budget as saved unbounded refinement. Compare selected candidate to saved unbounded refinement and shared-v1/public-v4 context; finite-budget trajectory differences remain part of this intervention.",
+  "base_commit": "7209937339c32f535f5d90b31d3cd82b863d1c86",
+  "cached_preparation": {
+    "cascade": {
+      "arrays": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/preparation.npz",
+        "sha256": "99b3d21a0b768b60c0f477f9782f87b47851a1b57fa9db1ac3c85d8d2f434464"
+      },
+      "initial": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/capture/initial.npz",
+        "sha256": "c17c79b0a24c568d78fd7a57b5084005c75909d33fcf6e1b4f0962d0f6fb144f"
+      },
+      "metadata": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/preparation.json",
+        "sha256": "04d67d2390a9169cf7899801c37bb36e82ad3e9850ff5cdf03599da3b93219e4"
+      },
+      "stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/run.json",
+        "sha256": "56bc19af9fc560fc4e207cecae8f70d0567e407dd84e508bbd20d9afe5989970"
+      }
+    },
+    "crazyflow": {
+      "arrays": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/preparation.npz",
+        "sha256": "0932e6684ac0f05add5df5d86105cd8d4bb0800fbb78ab20ba1ee9a75675286d"
+      },
+      "initial": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/capture/initial.npz",
+        "sha256": "ffb0a3798406f313321b6dfb5f822304e46a598695ac51b7220abe1fe55baa4c"
+      },
+      "metadata": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/preparation.json",
+        "sha256": "5e2dc811289185d8080c894cb538efd2adab34cc6f7b3f823a600badcf79bc00"
+      },
+      "stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/run.json",
+        "sha256": "643db45099ab8a92fff055f0cdd6dd14f75aded417e8c91570a271e995e5aefb"
+      }
+    },
+    "dart": {
+      "arrays": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/preparation.npz",
+        "sha256": "19d653b9ff4906b4f12427262ba2f1abec0964bb31b323cf3a4b9711ea3d28ba"
+      },
+      "initial": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/capture/initial.npz",
+        "sha256": "3d07f5c3b1628dc021e159c0b87ce5c4f394d10a95ba8549137ea950353f1ccd"
+      },
+      "metadata": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/preparation.json",
+        "sha256": "fbad452cf623c2e5d27bcb059b11c2b07a42f3fe7c857f6eb00a47e9df2017f6"
+      },
+      "stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/dart/run.json",
+        "sha256": "8b22d4d8054ed9909a69e939017beafd65c6cd9c5022fbc4625a1429159048b6"
+      }
+    }
+  },
+  "dart": {
+    "control": "Exactly one candidate nominal trial after fits pass feasibility and direct evaluation completes. Same original Dart planner, target, bounds, seed and causal prelude. Separate task verdict; failures do not become accuracy passes.",
+    "fresh_response": {
+      "arms": [
+        "candidate",
+        "unbounded_refined",
+        "shared_v1",
+        "public_v4"
+      ],
+      "branch_initial_state": "Exact full simulator state at parent origin reconstructed from saved initial plant state and issued commands; never reset actuator lag. Learners receive only motion and issued history.",
+      "commands": "Factual recorded next1.2s commands plus one branch per channel per lower/upper bound: u_branch[:,j]=0.9*u[:,j]+0.1*bound_j, other channels unchanged.",
+      "duration_s": 3.0,
+      "generator": "Unchanged crazydart.learning.collect pilot count6 seed20260921. All6parents evaluation-only.",
+      "horizons_s": [
+        0.05,
+        0.15,
+        0.25,
+        0.6,
+        1.2
+      ],
+      "origins_s": [
+        0.5,
+        1.5
+      ],
+      "rollouts": 108,
+      "scores": "Endpoint and prefix component RMSE for velocity,body rates,rotation; signed branch-minus-factual response; equal parents then origins then branches/horizons/groups. Ratios use v1 physical floors.",
+      "seed": 20260921,
+      "truth_failure": "Keep earlier finite valid horizons when a later state fails; report planned/available counts and no numerical clipping of truth."
+    },
+    "inherited_task": {
+      "arms": [
+        "shared_vehicle",
+        "v4_research_extrapolation",
+        "structured_causal_history"
+      ],
+      "candidate_pose": "Trapezoidal position from canonical15 velocity; quaternion from intrinsicSO3. Return initial plus120states; no second dynamics formulation.",
+      "controller": "Unchanged original Dart DirectPlanner/strike_cost:120 intervals dt.01,blocks3,replan3,maxiter100,shared original learned_prediction commands and controller bounds. Rollout accepts observation plus arbitrary history pytree; optimizer trial states never alter live history.",
+      "diagnostics": "Untouchedtest10/11 forecasts at50/150/250ms and1.2s wherever actual history/truth permits, same inputs for both fittedarms. Report physical errors, gradients, optimizer convergence/failure, task metrics and time; no tuning from test results.",
+      "files": {
+        "artifacts/demo/fit/belief.json": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/fit/belief.json",
+          "sha256": "0c0a36dbba84d1b0b29c6d05261e56313be9633c6862049688abdce1922a0754"
+        },
+        "artifacts/demo/learned_prediction.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/learned_prediction.npz",
+          "sha256": "d714efe18da89b3ee4d723ed4fd8bc492393edea9a2d87fa5e63c33dd38f133c"
+        },
+        "artifacts/demo/report.json": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/report.json",
+          "sha256": "0ce12bea2fd1920401eb395295e8fb65012351e5d8fa22250d322a218b3c9ba7"
+        },
+        "artifacts/demo/telemetry/calibration-08.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/calibration-08.npz",
+          "sha256": "237c756a4b63483c2b529b7c99ec0d2d52a012bd32baff277c1ce454374591f7"
+        },
+        "artifacts/demo/telemetry/calibration-09.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/calibration-09.npz",
+          "sha256": "ed7d82853bebf302c91ea56e7149a03764c36f99c9b928cad5a2de8d6e4d66b1"
+        },
+        "artifacts/demo/telemetry/manifest.json": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/manifest.json",
+          "sha256": "52b53c690e838b050a9b827f2ef7a1f3cc3543205b7c5606e22a68d1b0c5a53a"
+        },
+        "artifacts/demo/telemetry/test-10.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/test-10.npz",
+          "sha256": "decc8ebbd86b551108c12b0c6bd42f6e7eebc94d6c4569659c08c37354f1915a"
+        },
+        "artifacts/demo/telemetry/test-11.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/test-11.npz",
+          "sha256": "62d2e47d6a0540caa7b7969500ce7ad5eeebff74e390b344f26d908cbd1ece18"
+        },
+        "artifacts/demo/telemetry/train-00.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-00.npz",
+          "sha256": "bfef8d509410c6c5cde0dcd825e57af7395f63f6b5698b3f61089f94a11bc971"
+        },
+        "artifacts/demo/telemetry/train-01.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-01.npz",
+          "sha256": "d7063c71efaad5ee1c76f672d8fb5a55a53833e53e2b806eebdb09fb402d00b2"
+        },
+        "artifacts/demo/telemetry/train-02.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-02.npz",
+          "sha256": "57c7e5f54e7b9a6280d4552b8089265beee4b09ce27353865d2ca56169a6dd63"
+        },
+        "artifacts/demo/telemetry/train-03.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-03.npz",
+          "sha256": "31c7eec611d0c8f889bc7585759d9ae170f96f78ee941231daa0c8d1fa85f1a1"
+        },
+        "artifacts/demo/telemetry/train-04.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-04.npz",
+          "sha256": "2ea043deb3c0f7c5514a649717c90b5f47eccc1fe180c74a998edb5497defd98"
+        },
+        "artifacts/demo/telemetry/train-05.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-05.npz",
+          "sha256": "11adc5cfd01d7614041d6fd4449bed6b0e1ba0aba729a7beee5b6b4f40d90468"
+        },
+        "artifacts/demo/telemetry/train-06.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-06.npz",
+          "sha256": "35e14358f9d4aa0ff09a38c2ec3f23bc9b63e4affb68b2cd61aa602381fedd41"
+        },
+        "artifacts/demo/telemetry/train-07.npz": {
+          "path": "/Users/ryland/autonomy/dart/artifacts/demo/telemetry/train-07.npz",
+          "sha256": "c3da9ef6930368509b49502c03153377ea4a5f201c8af008ecc7a8d6f5c2eb81"
+        }
+      },
+      "initial_observation": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "prelude": "Actual50steps of train00 command prefix hover .65195631980896 per channel. Save51 observations/50 issuedcommands; fork same resulting plant state without reset/padding. Structured latent from issued history only, never simulator applied thrust.",
+      "qualification": "Nominal task success separate from residual acceptance/evidence integrity/promotion. One success does not establish allvehicles or calibrated longhorizon evidence.",
+      "root": "/Users/ryland/autonomy/dart",
+      "source_policy": "Dart root has no git repository; bind exact relevant source files and runtime before science, alongside the new Glassbox commit.",
+      "target": {
+        "axis_error_deg_max": 5,
+        "body_contact_offset_m": [
+          0,
+          0,
+          0.04
+        ],
+        "center_m": [
+          0.65,
+          0,
+          1
+        ],
+        "contact": "first front-to-back crossing",
+        "deadline_s": 1.2,
+        "normal": [
+          -1,
+          0,
+          0
+        ],
+        "normal_speed_m_s_range": [
+          0.2,
+          2.5
+        ],
+        "radius_m_max": 0.02,
+        "tangential_speed_m_s_max": 0.2
+      },
+      "trials": "Exactly one matched nominal trial perarm; no perturbation or planner sweep. Historical1.47mm used simulator-applied thrust and remains context only.",
+      "v4_horizon": "Unchanged underlying SequenceModel.rollout120 steps; existing trapezoidal position/rotation-quaternion bridge. Singular/improper/nonfinite rotations are visible failures. This is research extrapolation, not new public v4 support."
+    },
+    "known_data": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/run.json",
+      "sha256": "17774fce14efef92b96b3c4e98dbdc2f59055c5b376a85b930c461d79610c391"
+    },
+    "known_diagnostics": "Re-evaluate all189 saved previous Dart queries with new candidate and pinned comparators; explicitly inspected regression evidence. No refitting or selection on these results.",
+    "proposal_evidence": "Persist flattened optimizer proposal, expanded commands, active_steps, and causal-input anchor before every actual gradient kernel call; save objective and full gradient arrays afterward, preserving NaNs and exceptions. No extra model forwards for logging.",
+    "real_time_claim": false,
+    "replay": "Native state trajectories, causal inputs, saved selected means and contact score, never optimizer repetition."
+  },
+  "date": "2026-09-21",
+  "decision": {
+    "candidate_numerical_gate": "Every eligible known/fresh Dart and physical prediction finite. At all120known/fresh Dart steps velocity and angular-rate norms each <1000 in m/s and rad/s. This extreme-growth guard is not an application accuracy tolerance.",
+    "failure_policy": "Bounded stop or failed metric closes with exact outcomes and no promotion. No new bound rule, seed, horizon, fit restart or post-hoc relaxation in this iteration.",
+    "fresh_dart_accuracy": {
+      "coverage": "For each horizon/kind/group report total paired-eligible, reference-nonfinite, candidate-nonfinite, common-finite count and physical residuals. Candidate failure fails numerical gate. At1.2s compute conditional ratios only on reference-finite queries, require at least50% planned eligible pairs for each kind. Never describe conditional ratios as unconditional population error. Require candidate failures<=reference failures, and strict reduction when reference has failures. Missing/undefined short comparisons fail accuracy qualification; no dropping them.",
+      "denominator": "unbounded_refined",
+      "long_horizon_s": 1.2,
+      "long_paired_finite_each_group_ratio_max": 1.5,
+      "long_paired_finite_each_kind_ratio_max": 1.15,
+      "long_paired_finite_joint_ratio_max": 0.9,
+      "short_each_kind_ratio_max": 1.15,
+      "short_horizons_s": [
+        0.05,
+        0.15,
+        0.25,
+        0.6
+      ],
+      "short_joint_forecast_response_geometric_ratio_max": 1.05
+    },
+    "fresh_physical_retention": {
+      "coverage": "Use inherited physical-unit scoring/floors/hierarchy on all planned queries, preserve truth eligibility and failures. Undefined required comparison fails qualification. Report shared-v1/v4 comparisons and wind/response-tail obligations separately.",
+      "denominator": "unbounded_refined",
+      "each_kind_geometric_ratio_max": 1.05,
+      "each_scope_kind_ratio_max": 1.5,
+      "each_simulator_primary_kind_ratio_max": 1.15,
+      "primary_parent_p95_ratio_max": 1.5
+    },
+    "optimizer_progress_gate": "All3inherited20-attempt feasibility checks pass; source-bound selected models saved. No fresh simulation on failed feasibility. No restart or alternative bound/seed/fit.",
+    "public_promotion": false,
+    "reference_policy": "All four arms use identical truth and eligibility. Unbounded refined loaded through pinned original core; shared-v1 and public-v4 are context, never silently changed by candidate code.",
+    "research_acceptance": "Require optimizer progress, candidate numerical gate, fresh Dart accuracy, fresh physical retention and all evidence integrity. Contact verdict separate. No public promotion. Failing known regressions visible; no fit selection from evaluation."
+  },
+  "dependencies": {
+    "independent_protocol": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/independent-training-recordings-v1.json",
+      "sha256": "b5fae12bf2b25c88d7a1758214d1faf11749e7a88d8ce4d4e397b04265272adf"
+    },
+    "old_core": {
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "sha256": "bc52b8304d1cbe8a76fc9f282dd60729ec5f695e33a7c24858e0e73828e04b53"
+    },
+    "old_helper_source": {
+      "commit": "67764ce80a2d1cfd79c97321de440b3b5f9fd1a3",
+      "root": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox"
+    },
+    "parent_optimizer_protocol": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/optimizer-step-selection-v1.json",
+      "sha256": "fa1e105f81619e75c5d73140ddcdd7177ddd36ee68ba84f9d7f6226b98789b7c"
+    },
+    "parent_optimizer_result": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/optimizer-step-selection-v1-result.json",
+      "sha256": "fb55d970a718ece95a1a0764fd0e95833b1557c434b4fa5d7b946d8c495b1e7d"
+    },
+    "previous_long_horizon_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/binding.json",
+      "sha256": "d7604840cd0dce6aee3007ab7f8112f1ac0caaef71b71adacbeb534932ebc9ad"
+    },
+    "previous_long_horizon_protocol": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/task-horizon-supervision-v1.json",
+      "sha256": "ea0cacdd735a355bafafeee4dad56afab71bcc2301e9fc51f25a1fd5e47503fc"
+    },
+    "previous_long_horizon_result": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/task-horizon-supervision-v1-result.json",
+      "sha256": "6a2b8824161ade4c2da87c2825787627834ab70d8c658a49ed8ee01508898294"
+    },
+    "recurrence_result": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/recurrence-attribution-v1-result.json",
+      "sha256": "84c439d06863d7b376d530741e613f2af5a0c156876f70f7fef14eda38a3f9d9"
+    },
+    "task_diagnosis": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/glassbox-dart-task-horizon-diagnosis-2026-09-20.json",
+      "sha256": "1f4cf44564bf758a43425e73921f8aa9a0f31809ca62faaf05491c8742adcf4a"
+    },
+    "v1_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/implementation-binding.json",
+      "sha256": "22d0594a2d98f05c12d5cfa2765ec13c931a85073660d397cd8d4a387526bbd9"
+    },
+    "v1_control": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/control/run.json",
+      "sha256": "13db75eea963e308609f2e6d9888f38c6aeb358eb85c8fc18fa32d1245772dc4"
+    },
+    "v1_protocol": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/shared-vehicle-physics-v1.json",
+      "sha256": "90f0c418379c62a6fc1b9a4f1ae094f74de8868a6e77f7370138cc6533dd0053"
+    },
+    "v1_result": {
+      "path": "/Users/ryland/autonomy/glassbox/docs/harness/shared-vehicle-physics-v1-result.json",
+      "sha256": "1d2fe3be875914333565fa519154e14c9b78e0b38e408b0f71f84483974a3155"
+    }
+  },
+  "evidence": {
+    "alterations": [
+      "condition bound in candidate archive",
+      "training trial step scale or raw directional derivative",
+      "native command/truth",
+      "saved prediction",
+      "decision metric"
+    ],
+    "analytic_checks": [
+      "train-only6-vector scale, derivative/bounds in float32/64",
+      "unchanged gravity/command/filter/history timing and known mechanics",
+      "all current/history/quadratic paths conditioned",
+      "new strict archive/fingerprint roundtrip",
+      "fixed Armijo optimizer and call accounting unchanged",
+      "failed-reference coverage/conditional-score handling and candidate failure visibility"
+    ],
+    "before_science": "Freeze protocol before implementation; commit all source/tests and bind source/runtime/inputs before any real objective/gradient/prediction/native call. Preflight analytic and mock fixtures only.",
+    "contract": "No vehicle family/configuration data, consumer option, controller change, training data change or selected integration-step change. Public v4 unchanged. Known inspected cohorts stay diagnostic.",
+    "integrity": "Frozen external hashes, committed clean source and runtime, complete inventories and durable actual call events. Each science stage executes once; preserve failures and partial work.",
+    "replays": "Saved training arithmetic, selected checkpoint objectives/predictions and exact cached candidate forecasts, native truth trajectories and independent physical/Dart reductions; controller replay without another solve; no refits/optimizer repetition."
+  },
+  "feature_conditioning": {
+    "application": "Inside current_features, before concatenating issued/filtered commands. History, historical differences, quadratic terms and hidden updates all consume the conditioned motion features. No bypass. Gravity direction, command inputs, actuator filtering, dt and SO3 integration unchanged.",
+    "archive": "New strict core format and required positive finite motion_bound_scale shape(6,). Reject absent/invalid bound. No old/new inference switch. Pinned comparator core loaded only by evaluation harness.",
+    "coordinates": "first six normalized body features: body velocity R.T @ v_world and body angular rate; normalized gravity direction is unchanged",
+    "initialization": "Warmstart copies every shared-v1 parameter and existing norm bitwise; add the bound only. Full fit initialize derives the same bound before feature/quadratic scales. Existing optimizer code unchanged.",
+    "properties": "Smooth; normalized derivative at most1; for every recorded training coordinate argument<=.25, compression<=2.04%. Bounded feature/acceleration arguments do not establish useful accuracy, damping or controller adequacy.",
+    "rule": "L_j = 4 * max(1, max_training_states(abs((body_j - body_mean_j)/body_scale_j))); phi_j(z)=L_j*tanh(z/L_j)",
+    "statistics": "Union of all past_states and future_states in frozen TRAIN cache, including final targets. No development, prior evaluation or fresh evaluation data. Repeated windows do not affect coordinatewise maximum."
+  },
+  "frozen_at_utc": "2026-09-21T12:50:23.384783+00:00",
+  "id": "bounded-motion-features-v1",
+  "iteration_parent_commit": "7209937339c32f535f5d90b31d3cd82b863d1c86",
+  "mechanism": "One smooth training-derived bound on normalized body velocity and angular-rate features, before all current/history/quadratic readout paths.",
+  "named_gap": "Growth of the complete learned motion-state feedback",
+  "physical": {
+    "arms": [
+      "candidate",
+      "unbounded_refined",
+      "shared_v1",
+      "public_v4"
+    ],
+    "collection_gate": "All three bounded fits pass inherited20-attempt feasibility and produce finite selected checkpoints. Collect each fresh simulator cohort exactly once; no recollection on model/scoring failure.",
+    "collection_order": "All three refinement attempts sealed; all feasibility gates pass and Dart selects changed weights before ANY new confirmation, forecast evaluation or nominal control. Otherwise close optimizer-feasibility iteration without fresh collection or acceptance verdict.",
+    "excluded_offsets": "Original test seeds +0..15000000 in1000000 increments and every training/development parent.",
+    "fresh_seed_shift": 16000000,
+    "known_regression_set": {
+      "cascade": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/cascade/confirmation/data/seal.json",
+        "sha256": "c1b53361d92281219c744804a019b5d9ae0964fa878d96e712cd69680b327d60"
+      },
+      "crazyflow": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/crazyflow/confirmation/data/seal.json",
+        "sha256": "19d49cadabc147796d1abf3300d194e9f0995fe840d2dd8e27b33979f3593ce8"
+      }
+    },
+    "parents_per_simulator": 84,
+    "roster": "Inherited84parents/simulator, same conditions/pilot/queryplans, +16M only. Known +14M and +15M remain diagnostic context, never fresh evidence.",
+    "scoring": "Inherited physical component endpoint/prefix RMSEs, hierarchical geometric aggregates, floors and parent p95. Fresh confirmation scored separately from inspected+14M.",
+    "source_policy": "Native collection/replay in pinned historical oracle source; baseline inference in pinned source or proven unchanged complete inference closure; no fit through reference importer.",
+    "truth": "Identical native truth and eligibility masks for every arm; preserve failures and missing parents."
+  },
+  "pre_science_clarification": {
+    "previous_protocol_sha256": "39bb80d8b388517478da924006d69845a6683ab4d474acad835de723a11850a5",
+    "reason": "Correct inherited physical.arms list to the four arms already required by decision.reference_policy and primary unbounded-refined denominator. No scientific design change.",
+    "scientific_calls_started": 0
+  },
+  "recordings": {
+    "cascade": {
+      "added_seal": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/training/data/seal.json",
+        "sha256": "819ca79af34bd1962c822503efdb8a7495b4e1c347e0de8d28b480baefcb71cc"
+      },
+      "original": {
+        "path": "/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-flight-fit-cascade-attempt1/recordings.npz",
+        "sha256": "b9a92288cb181a224bce47b81a42bde37c970a6127c89e696af47465227f2ddb"
+      }
+    },
+    "crazyflow": {
+      "added_seal": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/training/data/seal.json",
+        "sha256": "148d238ac0c79e505525c4a0c2130ea3faf06b4606a3b09c06f7623a620271a0"
+      },
+      "original": {
+        "path": "/private/tmp/glassbox-public-mean-qualification/artifacts/2026-09-19/public-mean-qualification-v1-flight-fit-crazyflow-attempt1/recordings.npz",
+        "sha256": "c3738f90bd268db3be569b4bf1d1d1f525f3c43bd1bd954b4151589d7d0998e1"
+      }
+    }
+  },
+  "references": {
+    "cascade": {
+      "model": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/cascade/candidate/model.npz",
+        "sha256": "58138ffa51b1201d3e87a62728431eec313f23036ea536c29cc2b31e9aaad3c4"
+      },
+      "report": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/cascade/candidate/report.json",
+        "sha256": "887964be63588cd949fa3a577dda4eae883766ef713c1cddad4e53f798f4e657"
+      },
+      "run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/cascade/candidate/run.json",
+        "sha256": "61819ef61cfd23e85b4405c6a7472b60de7c19bf0e4e2fb988948738b4000631"
+      },
+      "unbounded_refined": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/cascade/model.npz",
+        "sha256": "1bdea23e2691ecfe9ea1d8a0ec7f1f287b227d002837c2ab5e678635188f5ea9"
+      },
+      "unbounded_refined_run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/cascade/run.json",
+        "sha256": "4168a15b97c9e534b48c0d179802d5b59c1df28b2c0b10ca53318fa2558a8ed9"
+      },
+      "v4": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/cascade/candidate/model.npz",
+        "sha256": "4b00d2f381d2fb95abc0bf549bbbf35ab6c88a50bf9b159751b06306ea90f0fe"
+      }
+    },
+    "crazyflow": {
+      "model": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/crazyflow/candidate/model.npz",
+        "sha256": "cd5008c3ecb42010e53674ecf2a431ee9c069a96049ec76f58e1c5415e09e07d"
+      },
+      "report": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/crazyflow/candidate/report.json",
+        "sha256": "f8b07071159595eaa4da245bf646111881d46bc93109d574c0f6b50d88f8ac9e"
+      },
+      "run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/crazyflow/candidate/run.json",
+        "sha256": "0025dca060147a1eb076491746682987bf196b88247faf536cf9c11785e70d1d"
+      },
+      "unbounded_refined": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/crazyflow/model.npz",
+        "sha256": "bc0ecebab6af34b7354b8bdedac136ea338bdfe4bd73677fb45b473bbf0d6ea3"
+      },
+      "unbounded_refined_run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/crazyflow/run.json",
+        "sha256": "9a9fed1a74cdcb7291ddbb8223d4cf49d5a887dcfd4c0f7da74e70e42185c4ae"
+      },
+      "v4": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-19/independent-training-recordings-v1-evidence/experiment/crazyflow/candidate/model.npz",
+        "sha256": "d031b9e626385c38419846e2dacb172cf4b5560a37f8a2e95113a1d5f6f69686"
+      }
+    },
+    "dart": {
+      "model": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/candidate/model.npz",
+        "sha256": "24bb47d01cc6677d248a51e9602563368fef6eea17c3e4d97cd8efd75df0e73b"
+      },
+      "report": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/candidate/report.json",
+        "sha256": "34ad3972bf817806880510abb95b592bf7bc3bc2abe083b211b35aa2fe389b9d"
+      },
+      "run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/candidate/run.json",
+        "sha256": "3c9f5d8d9c6a946efd55e665e53f9e93c6c90ab61e409d0e30b98aa838b148ec"
+      },
+      "unbounded_refined": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/dart/model.npz",
+        "sha256": "e1878b2aa015c15a304581025e01e731ba975222f7d3cc946ee19fb5d275cf6a"
+      },
+      "unbounded_refined_run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/dart/run.json",
+        "sha256": "97ffbb2f5726467c368c9baf6f51b22390379b4a49c94147b757801ae9f7e870"
+      },
+      "v4": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/v4/model.npz",
+        "sha256": "a1261cd3126b836dc7a0924286cc69a088dafa6ad815a540eb9ecc4068ee6534"
+      },
+      "v4_run": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/v4/run.json",
+        "sha256": "81ca88004280b70367e2127fb8c1da6a651c796b7db7da6d66c0257a51c2694e"
+      }
+    }
+  },
+  "training": {
+    "capture": "Retain tested original capture + exact checkpoint/objective witnesses and NumPy training-step replay. No additional fits/gradients for bookkeeping. Pre-call events count interrupted work.",
+    "channel_weights": "Exact15 fixed weights from each stage-one fit report.",
+    "checkpoint_every": 100,
+    "checkpoint_selection": "Minimum finite weighted long-development loss at step0, every100 completed attempts and actual terminal parameter state. No test selection.",
+    "configurations": [
+      "crazyflow",
+      "cascade",
+      "dart"
+    ],
+    "development_window_cap": 256,
+    "error_scale": "Per future step/channel maximum of training persistence RMS and0.01*saved initial state_scale. Training data only; freeze before refinement.",
+    "failure_policy": "One call per configuration with prefix feasibility gate and in-place continuation; no restart, alternate horizon, seed or fallback fit. Save model/report/checkpoint and explicit termination for bounded stops; preserve exceptions/partial calls. Invalid initialization/development/nonfinite-gradient is failure, never convergence.",
+    "gradient_attempts": 1000,
+    "history_s": 0.5,
+    "horizon_s": 1.2,
+    "initializers": 0,
+    "loss": "Uniform mean over all future time steps and15 channels of fixed channel_weight * ((prediction-truth)/error_scale)^2.",
+    "new_refinements": 3,
+    "optimizer": "Persistent bounded backtracking Adam defined in step_selection; unchanged lr, moment coefficients, epsilon and gradient clip.",
+    "optimizer_wall_time_limit_s": 1800,
+    "parent_roles": "Same train/development parents and recording content as each saved v1 fit; no confirmation data enter fitting.",
+    "precision": "float64 fitting; default float32 Dart and inherited physical application precision; independent workers with unchanged optimizer ceilings",
+    "repeat_warmup_fits": 0,
+    "ridge_solves": 0,
+    "starting_models": "Exact original saved shared-v1 weights and normalization plus only train-derived motion_bound_scale; same starting weights as unbounded 1000-step experiment.",
+    "step_selection": {
+      "acceptance": "Trial objective finite, strictly below current objective AND <= current + c1*alpha*raw_gradient_dot_displacement.",
+      "adam": {
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "clock": "accepted updates since last moment reset; tentative moments commit only after acceptance",
+        "epsilon": 1e-08,
+        "gradient_norm_clip": 5.0,
+        "initial_moments": "zero",
+        "learning_rate": 0.002
+      },
+      "armijo_c1": 0.0001,
+      "backtracking_factor": 0.5,
+      "counting": "Initial objective separate; gradient calls counted separately including returned objective values. Count every initiated and returned trial/gradient, including NaN/failure; emit pre-call event. Check1800s optimizer-wall and call budgets before each expensive optimization call. Mandatory final development checkpoint and finite checkpoint-evidence/replay work occur outside the optimization budget; report their elapsed time separately. No additional gradient or search call after optimization expires.",
+      "descent": "Use raw unclipped objective gradient dotted with directly computed Adam displacement. If non-descent, reset both moments and bias clock, recompute once from SAME gradient at clock1; record reset. Stop if still not finite/descent.",
+      "feasibility": {
+        "completed_attempt": 20,
+        "continuation": "Same invocation/parameters/moments/counters; no repeated prefix. Record feasibility event.",
+        "minimum_relative_training_reduction": 0.001,
+        "otherwise": "feasibility_failed; stop without long continuation"
+      },
+      "initial_scale": 1.0,
+      "max_trials_per_attempt": 32,
+      "next_initial_scale": "min(1,2*last accepted scale)",
+      "numerical_stagnation": "Identical candidate/current parameter arrays or nonrepresentable positive scale; stop, not convergence.",
+      "search_failure": "No accepted step within32 trials => line_search_failed; do not repeat unchanged direction.",
+      "stagnation": {
+        "first_checked_attempt": 40,
+        "otherwise": "Continue until next stop or ceiling. A triggered stop is stagnation, not convergence.",
+        "relative_training_reduction_max": 1e-06,
+        "rolling_completed_attempts": 20
+      },
+      "stationarity": "Exactly zero raw gradient only; report stationary_zero_gradient, not an accuracy/optimality claim.",
+      "termination": "Always record exact reason and final checkpoint at actual completed attempt; budget exhaustion, search failure, stagnation, feasibility failure and zero-gradient stationarity are distinct.",
+      "trial_objective_call_ceiling": 8000,
+      "value_consistency": "Assert returned full-cache gradient value equals current accepted objective with rtol1e-10, atol1e-12; failure stops.",
+      "zero_loss": "Avoid division by zero; exactly zero objective with zero gradient yields stationary_zero_gradient, otherwise explicit numerical stop. No invented reduction."
+    },
+    "training_window_cap": 1536,
+    "window_selection": "Load exact SHA-anchored prior preparation arrays and metadata, never regenerate or reselection. Validate reference initial fingerprint and saved normalization/weights. Crazyflow and Cascade1536/256 windows; Dart1048/256. Seven Crazyflow training parents lack complete1.2s windows and remain excluded; overlapping windows are not independent."
+  }
+}
