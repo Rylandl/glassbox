@@ -1,0 +1,2408 @@
+{
+  "anchors": {
+    "candidate_refinement_run": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/dart/run.json",
+      "sha256": "97ffbb2f5726467c368c9baf6f51b22390379b4a49c94147b757801ae9f7e870"
+    },
+    "data_run": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/run.json",
+      "sha256": "17774fce14efef92b96b3c4e98dbdc2f59055c5b376a85b930c461d79610c391"
+    },
+    "diagnostic": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/diagnostics/dart-response-nonfinite.json",
+      "sha256": "e92cd54c9e8a73567e67d47c7c0d92f00047b3fac2ca8889dfd1db649a1b8fa5"
+    },
+    "evaluation_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/binding.json",
+      "sha256": "1104e4efc89f293eb0cc2007e1e86561436011f92761219a5f854942311b951e"
+    },
+    "evaluation_run": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/run.json",
+      "sha256": "c077bdcac960c33da9162aee8e3f78445c97a936fe9c540e0698027ca92732e8"
+    },
+    "optimizer_protocol": {
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/docs/harness/optimizer-step-selection-v1.json",
+      "sha256": "fa1e105f81619e75c5d73140ddcdd7177ddd36ee68ba84f9d7f6226b98789b7c"
+    },
+    "queries_roster": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries.json",
+      "sha256": "11fb904d9b6a1d7bfa0c375da3e5cd247b27dee1fb247b4b1abe702710f5afb3"
+    },
+    "shared_reference_run": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/candidate/run.json",
+      "sha256": "3c9f5d8d9c6a946efd55e665e53f9e93c6c90ab61e409d0e30b98aa838b148ec"
+    },
+    "src/glassbox/experimental/shared_vehicle_core.py": {
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "sha256": "bc52b8304d1cbe8a76fc9f282dd60729ec5f695e33a7c24858e0e73828e04b53"
+    },
+    "src/glassbox/experimental/shared_vehicle_dart.py": {
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/shared_vehicle_dart.py",
+      "sha256": "4f1b3ee93f3a83b96bbeccdf5a7b5e4e9dad954f75d5addb18dbdec7d4d4b41a"
+    },
+    "src/glassbox/experimental/task_horizon_common.py": {
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/task_horizon_common.py",
+      "sha256": "e47bb1d61d445cf73c6a558730d663426957eca338a3b90919bcbc30689646e1"
+    },
+    "src/glassbox/experimental/task_horizon_dart.py": {
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/task_horizon_dart.py",
+      "sha256": "dddfcfa6b5a0f9c30fd5b4dc4afe183c8fa6524b841b3bdf8fd7ad58ac21baba"
+    },
+    "training_binding": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/binding.json",
+      "sha256": "703356b4bd380343490a2318bcfd5c29b033eebf16765703b6d70a42be0efb32"
+    }
+  },
+  "conventions": {
+    "array_hash_definition": "SHA256 of NumPy array.tobytes(order=C); dtype and shape stored separately",
+    "base_integrator": "explicit midpoint with SO(3) rotation exponential and exact exponential actuator filtering; one base substep at dt .01 because max substep .025",
+    "canonical_state_order": [
+      "v_world_x",
+      "v_world_y",
+      "v_world_z",
+      "omega_body_x",
+      "omega_body_y",
+      "omega_body_z",
+      "R00",
+      "R01",
+      "R02",
+      "R10",
+      "R11",
+      "R12",
+      "R20",
+      "R21",
+      "R22"
+    ],
+    "effective_application_dtype": "float32, jax.config.x64_enabled false; params, norms and inputs cast by model.rollout",
+    "future_commands": [
+      120,
+      4
+    ],
+    "history_issued_commands": [
+      50,
+      4
+    ],
+    "history_reconstruction": "filtered command initialized from first past command then exponential lag scan over all 50 past commands; hidden initialized zero then updated over contexts 10..49; last 10 current-feature rows become explicit history",
+    "history_slice": "parent states[origin-50:origin+1], parent commands[origin-50:origin]",
+    "history_states": [
+      51,
+      15
+    ],
+    "initial_condition": "last observed canonical history state; no native actuator state supplied to learner",
+    "model_parameter_archive_dtype": "float64",
+    "native_states": [
+      121,
+      17
+    ],
+    "observation_interval_s": 0.01,
+    "observation_intervals": 120,
+    "observation_memory_timing": "history and hidden fixed during substeps; advance each once from observation-start features, after all substeps",
+    "query_future_inputs_dtype": "float64",
+    "query_past_inputs_dtype": "float64",
+    "query_past_states_dtype": "float32",
+    "query_target_dtype": "float32",
+    "saved_prediction_dtype": "float32",
+    "target_alignment": "target is observed native_states[1:]; predictions contain 120 future states, excluding initial state",
+    "target_location": "each query NPZ, array target; no separate target files"
+  },
+  "counts": {
+    "matched_factual_queries": 6,
+    "model_arms": 2,
+    "proposed_substep_counts": [
+      1,
+      2,
+      4
+    ],
+    "proposed_trace_query_arm_substep_combinations": 90,
+    "total_queries": 15,
+    "union_failed_response_queries": 9
+  },
+  "failed_response_ids_by_arm": {
+    "candidate": [
+      "fresh-fresh-00-0150-channel-3-lower",
+      "fresh-fresh-01-0050-channel-3-lower",
+      "fresh-fresh-02-0150-channel-0-lower",
+      "fresh-fresh-02-0150-channel-3-lower",
+      "fresh-fresh-03-0150-channel-0-lower",
+      "fresh-fresh-03-0150-channel-3-lower",
+      "fresh-fresh-04-0150-channel-3-lower",
+      "fresh-fresh-05-0150-channel-3-lower"
+    ],
+    "shared_v1": [
+      "fresh-fresh-00-0150-channel-3-lower",
+      "fresh-fresh-01-0050-channel-3-lower",
+      "fresh-fresh-02-0150-channel-0-lower",
+      "fresh-fresh-02-0150-channel-3-lower",
+      "fresh-fresh-03-0150-channel-0-lower",
+      "fresh-fresh-03-0150-channel-3-lower",
+      "fresh-fresh-04-0150-channel-3-lower",
+      "fresh-fresh-05-0150-channel-0-lower",
+      "fresh-fresh-05-0150-channel-3-lower"
+    ]
+  },
+  "format": "glassbox-recurrence-roster-proposal-v1",
+  "matched_factual_ids": [
+    "fresh-fresh-00-0150-factual",
+    "fresh-fresh-01-0050-factual",
+    "fresh-fresh-02-0150-factual",
+    "fresh-fresh-03-0150-factual",
+    "fresh-fresh-04-0150-factual",
+    "fresh-fresh-05-0150-factual"
+  ],
+  "minimum_proof_recommendations": [
+    "Authenticate external protocol, binding, model, query, target and saved prediction anchors before any rollout; no repaired local inventory can replace external anchor.",
+    "Require base n=1 traced endpoint predictions to reproduce each of the 30 saved query/arm predictions, dtype/shape/finite masks and np.array_equal(equal_nan=True); instrumentation that changes arithmetic fusion may require distinct uninstrumented exact replay plus explicitly bounded traced agreement. Freeze that policy prospectively.",
+    "Replay trace generation from the saved 2 models and 15 queries without fits, simulators or controller calls; preserve all 90 combinations, including finite huge trajectories and nonfinite results.",
+    "Use an independent NumPy-only reducer to recompute contribution sums, norms/state growth, first nonfinite steps and convergence comparisons from saved trace arrays; report predeclared comparisons without choosing substeps by score.",
+    "Execute at least an externally anchored input/model alteration rejection and a valid saved-trace or summary alteration rejected by replay/reducer after local inventory repair. Corrupt an actual meaningful finite numeric value, not syntax or only NaN payload bits.",
+    "No new native-truth replay needed if consuming the already sealed and verified native artifacts unchanged; retain existing native replay receipts as provenance."
+  ],
+  "models": {
+    "candidate": {
+      "archive_format": "glassbox-task-horizon-core-v1",
+      "arrays": {
+        "metadata": {
+          "data_sha256": "abc3f684b48a2375a40583694adcefeb651be9e8f586da45172ffb844baa83a3",
+          "dtype": "<U240",
+          "shape": []
+        },
+        "norm_body_mean": {
+          "data_sha256": "ec2fd2650b0477cea2e18e5eecb77182a8cb58354e914dc0f2f83f4adc4fd253",
+          "dtype": "float64",
+          "shape": [
+            9
+          ]
+        },
+        "norm_body_scale": {
+          "data_sha256": "60a20cc3c8f888ed876529b356d8de4407eb0ab024268edd0091a44e36bd639a",
+          "dtype": "float64",
+          "shape": [
+            9
+          ]
+        },
+        "norm_feature_scale": {
+          "data_sha256": "e26e291f5f9b2245fa6e12d738ddfd28f0038823b23fae6ce8418da5ba746ec5",
+          "dtype": "float64",
+          "shape": [
+            195
+          ]
+        },
+        "norm_input_mean": {
+          "data_sha256": "e73e0d25298a396c63ef95e7981943887a8567233b03feb29e106a8c97c0c923",
+          "dtype": "float64",
+          "shape": [
+            4
+          ]
+        },
+        "norm_input_scale": {
+          "data_sha256": "629b5be9aaa3fc83e3b2ba38d3a7da23339a90797df7cca28ec44db0dadd9d6a",
+          "dtype": "float64",
+          "shape": [
+            4
+          ]
+        },
+        "norm_output_scale": {
+          "data_sha256": "e050b563c1787869328147f3f092b060b8afedf0294a984ec7be633c2b039e7e",
+          "dtype": "float64",
+          "shape": [
+            6
+          ]
+        },
+        "norm_quadratic_scale": {
+          "data_sha256": "860d97658a0d771a43e44f86c479327a05eb6ed74853c42430304bde0ec745b8",
+          "dtype": "float64",
+          "shape": [
+            153
+          ]
+        },
+        "norm_state_mean": {
+          "data_sha256": "eb4d4f7ccfbd55492d9682646629671be230722a5f28ff33c85b16ac486b2a74",
+          "dtype": "float64",
+          "shape": [
+            15
+          ]
+        },
+        "norm_state_scale": {
+          "data_sha256": "a3a3432b9103adeacd652fa007c114b74b7782741f379e55f4e97e8f48182920",
+          "dtype": "float64",
+          "shape": [
+            15
+          ]
+        },
+        "param_b1": {
+          "data_sha256": "27e4b293d70d46ef25429fb8235f0e697354fb3426a41469b5a8c1db01f2b9ef",
+          "dtype": "float64",
+          "shape": [
+            32
+          ]
+        },
+        "param_bias": {
+          "data_sha256": "199579e2d8b8ec96b9d8bedab427fb07535fbff618ee2d1d33d9759a5a0413f0",
+          "dtype": "float64",
+          "shape": [
+            6
+          ]
+        },
+        "param_linear": {
+          "data_sha256": "6a66a82803793ba84994da75f290db1e6d932917ef7ae0eac8dc9ffac8feafc9",
+          "dtype": "float64",
+          "shape": [
+            195,
+            6
+          ]
+        },
+        "param_memory": {
+          "data_sha256": "f7f737961be77a82b2ff3e3291dc2e7d2e6f25a6095058168222c5d271bb1021",
+          "dtype": "float64",
+          "shape": [
+            195,
+            8
+          ]
+        },
+        "param_memory_bias": {
+          "data_sha256": "2c554337b72cb46169403b2491e4cf3997f5828233a973f0c85bbf94bda81b1a",
+          "dtype": "float64",
+          "shape": [
+            8
+          ]
+        },
+        "param_quadratic": {
+          "data_sha256": "a4737733bd03c4a53f201279eeea6b16e9fec09c63dc69bba8b76b716567158c",
+          "dtype": "float64",
+          "shape": [
+            153,
+            6
+          ]
+        },
+        "param_raw_tau": {
+          "data_sha256": "7a723143f81382e9f71242f459353836d885e59634aa8d833c03e60f946d0a88",
+          "dtype": "float64",
+          "shape": [
+            4
+          ]
+        },
+        "param_w1": {
+          "data_sha256": "419b5665473a5ddfa4d8ad8ac23dc89ed7346ef8034b96d58ab7ffb6e5302ea3",
+          "dtype": "float64",
+          "shape": [
+            195,
+            32
+          ]
+        },
+        "param_w2": {
+          "data_sha256": "0019ee44df23656d22f16ef94f9ce208a0f5c7f07942a0a17df04afa18af18ed",
+          "dtype": "float64",
+          "shape": [
+            32,
+            6
+          ]
+        }
+      },
+      "model_contract": {
+        "delay_steps": 10,
+        "dt_s": 0.01,
+        "format": "glassbox-shared-vehicle-sequence-v1",
+        "history_steps": 50
+      },
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/refinements/dart/model.npz",
+      "sha256": "e1878b2aa015c15a304581025e01e731ba975222f7d3cc946ee19fb5d275cf6a"
+    },
+    "shared_v1": {
+      "archive_format": "glassbox-shared-vehicle-revision-v1",
+      "arrays": {
+        "development_future_inputs": {
+          "data_sha256": "37da66d6133c6c70615fa51cdea35d0a3586026beeb9fc623633234182155d37",
+          "dtype": "float64",
+          "shape": [
+            256,
+            25,
+            4
+          ]
+        },
+        "development_future_states": {
+          "data_sha256": "045ed22b2456d8f74f4a2586af0f8eb1374d3cf9406cc0e0a7e075e3a9ac31eb",
+          "dtype": "float64",
+          "shape": [
+            256,
+            25,
+            15
+          ]
+        },
+        "development_past_inputs": {
+          "data_sha256": "4ef0f9bfb88747a9a2ba18dd36e9ecd3a354a008ca8b7a2536a9ff2c099e200d",
+          "dtype": "float64",
+          "shape": [
+            256,
+            50,
+            4
+          ]
+        },
+        "development_past_states": {
+          "data_sha256": "3268d211438f1c788b5ba58ddfeb96de6877d4698a8f7e96005cf381796745d5",
+          "dtype": "float64",
+          "shape": [
+            256,
+            51,
+            15
+          ]
+        },
+        "envelope_half_width": {
+          "data_sha256": "6397231e7a000b3c5dda88d9bfd6eb1580efdc614ba362f5a2d1a716fd67b0b4",
+          "dtype": "float64",
+          "shape": [
+            25,
+            15
+          ]
+        },
+        "metadata": {
+          "data_sha256": "59f6f9cfe5de33cee9fe8929b870faa790e06bd6d25f2b6c1b15e19f071a911a",
+          "dtype": "<U196047",
+          "shape": []
+        },
+        "norm_body_mean": {
+          "data_sha256": "ec2fd2650b0477cea2e18e5eecb77182a8cb58354e914dc0f2f83f4adc4fd253",
+          "dtype": "float64",
+          "shape": [
+            9
+          ]
+        },
+        "norm_body_scale": {
+          "data_sha256": "60a20cc3c8f888ed876529b356d8de4407eb0ab024268edd0091a44e36bd639a",
+          "dtype": "float64",
+          "shape": [
+            9
+          ]
+        },
+        "norm_feature_scale": {
+          "data_sha256": "e26e291f5f9b2245fa6e12d738ddfd28f0038823b23fae6ce8418da5ba746ec5",
+          "dtype": "float64",
+          "shape": [
+            195
+          ]
+        },
+        "norm_input_mean": {
+          "data_sha256": "e73e0d25298a396c63ef95e7981943887a8567233b03feb29e106a8c97c0c923",
+          "dtype": "float64",
+          "shape": [
+            4
+          ]
+        },
+        "norm_input_scale": {
+          "data_sha256": "629b5be9aaa3fc83e3b2ba38d3a7da23339a90797df7cca28ec44db0dadd9d6a",
+          "dtype": "float64",
+          "shape": [
+            4
+          ]
+        },
+        "norm_output_scale": {
+          "data_sha256": "e050b563c1787869328147f3f092b060b8afedf0294a984ec7be633c2b039e7e",
+          "dtype": "float64",
+          "shape": [
+            6
+          ]
+        },
+        "norm_quadratic_scale": {
+          "data_sha256": "860d97658a0d771a43e44f86c479327a05eb6ed74853c42430304bde0ec745b8",
+          "dtype": "float64",
+          "shape": [
+            153
+          ]
+        },
+        "norm_state_mean": {
+          "data_sha256": "eb4d4f7ccfbd55492d9682646629671be230722a5f28ff33c85b16ac486b2a74",
+          "dtype": "float64",
+          "shape": [
+            15
+          ]
+        },
+        "norm_state_scale": {
+          "data_sha256": "a3a3432b9103adeacd652fa007c114b74b7782741f379e55f4e97e8f48182920",
+          "dtype": "float64",
+          "shape": [
+            15
+          ]
+        },
+        "param_b1": {
+          "data_sha256": "3cfe93f64b3ed8791417f43d6f93ae44fa02451324a76892d13b985bb61ef3ef",
+          "dtype": "float64",
+          "shape": [
+            32
+          ]
+        },
+        "param_bias": {
+          "data_sha256": "a1e7818ae1cecf6c70da9295d6ed0c5b0dcfbb9cc99269c6b43fca82dcf2ab8a",
+          "dtype": "float64",
+          "shape": [
+            6
+          ]
+        },
+        "param_linear": {
+          "data_sha256": "4f9d97a5e92176619fb38b3834b4fee4b7d0ba3a63e0ebcafc32179372309a97",
+          "dtype": "float64",
+          "shape": [
+            195,
+            6
+          ]
+        },
+        "param_memory": {
+          "data_sha256": "e67454ac38ca46a96ba87947c5e3b04bd94f13b5d0631a58046a307cc1d23c98",
+          "dtype": "float64",
+          "shape": [
+            195,
+            8
+          ]
+        },
+        "param_memory_bias": {
+          "data_sha256": "ebf4a91939b57083f8a47bc9ed5ebe37bcc3ba3e4a0ad7722f1dd52654aacb3d",
+          "dtype": "float64",
+          "shape": [
+            8
+          ]
+        },
+        "param_quadratic": {
+          "data_sha256": "a82b0bc50d0610c408c2b332f730c96726318f9508b0cf375e97151718617d93",
+          "dtype": "float64",
+          "shape": [
+            153,
+            6
+          ]
+        },
+        "param_raw_tau": {
+          "data_sha256": "5ea6570a65b344318ed5eab4781e84531e9017b29d21f04807a07ea0a9c643a3",
+          "dtype": "float64",
+          "shape": [
+            4
+          ]
+        },
+        "param_w1": {
+          "data_sha256": "cc5db7d1e0f835a2bc3bb110cc9b5eeec8256e31a54649b3750ab27bd42d16a6",
+          "dtype": "float64",
+          "shape": [
+            195,
+            32
+          ]
+        },
+        "param_w2": {
+          "data_sha256": "a85c902716ba3be5fe1bd04d56bfd13225f45d64ec7f984cebe9f3d81daadf47",
+          "dtype": "float64",
+          "shape": [
+            32,
+            6
+          ]
+        },
+        "train_future_inputs": {
+          "data_sha256": "0a8bb977d3d5e60cd2be0be9b0e618035647e1c909f567ef1c451526653d3882",
+          "dtype": "float64",
+          "shape": [
+            1536,
+            25,
+            4
+          ]
+        },
+        "train_future_states": {
+          "data_sha256": "908ec972b09aee27e7880859afeeb7365fb19244c14ed4ba0a7fad25f1be93f8",
+          "dtype": "float64",
+          "shape": [
+            1536,
+            25,
+            15
+          ]
+        },
+        "train_past_inputs": {
+          "data_sha256": "484d704a2bdd5bd584b8f1b15211a71866ebd21ae3affb03dcbb06e32865e4fe",
+          "dtype": "float64",
+          "shape": [
+            1536,
+            50,
+            4
+          ]
+        },
+        "train_past_states": {
+          "data_sha256": "385fa99b245385ab7d275b696bdc6f60da52e5620f2ef8fecded404f8816265e",
+          "dtype": "float64",
+          "shape": [
+            1536,
+            51,
+            15
+          ]
+        }
+      },
+      "model_contract": {
+        "delay_steps": 10,
+        "dt_s": 0.01,
+        "format": "glassbox-shared-vehicle-sequence-v1",
+        "history_steps": 50
+      },
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/candidate/model.npz",
+      "sha256": "24bb47d01cc6677d248a51e9602563368fef6eea17c3e4d97cd8efd75df0e73b"
+    }
+  },
+  "query_entries": [
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-3-lower",
+      "factual": "fresh-fresh-00-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-00-0150-channel-3-lower",
+      "initial_state": {
+        "data_sha256": "73f9483dead99d3306d6607a8746e81d7b98e3910f1007636598587a08910f5d",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-00",
+      "path": "queries/fresh-fresh-00-0150-channel-3-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "60d0508ef1fd5801b3c9948c25f19917cf833e25ffab52a0aa0000433182f8aa",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 106,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-channel-3-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-channel-3-lower-candidate.npz",
+          "sha256": "19dfd3f6504b3a5906ceb7a59be26aca9bb333118f7b5835d0bb40b26e089391"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "e80bfb26b51b44347075c59b76181df512af38a184ddefb6ae17ad73ed9a3656",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 106,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-channel-3-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-channel-3-lower-shared_v1.npz",
+          "sha256": "3fa30bef6cf949f437953f767cff949721d7bf7da329fa95e137f9f2426a54db"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "1d17e7d34d0376cb3760a970c915665ed7b4be2ed8f5c3c18c94fe1f3fd53652",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "30754f551c9a820fabd46cccc5d13e6da819bea98098277648c240446bdc5eab",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "3255ef6a212019034ff757dce2b206a919303be893a1fcf4ba019ee38e592566",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "72353ea6994619e6e77e42e0e81e1a1f2276b1b8e4cb94243e3ab530aa46602d",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "a0ee65973e031e2ea07aa51ff9ecaf17814aa95923f3e78f4c12e0adc010fe78",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-00-0150-channel-3-lower.npz",
+        "sha256": "2b54a0dfda757797921a600ed18b7aec5710d0ab5dd791ef1a0e4249776cb3a3"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-3-lower",
+      "factual": "fresh-fresh-01-0050-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-01-0050-channel-3-lower",
+      "initial_state": {
+        "data_sha256": "798c9a77fe3255f8728bed6e4111137ff41dac59b409a6a2889b66700c39989e",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 50,
+      "parent": "fresh-01",
+      "path": "queries/fresh-fresh-01-0050-channel-3-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "1b4d4e73561c6ba56be9c1065a6dd5a4993fcbfe78746bbf5986a67066534356",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 116,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-channel-3-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-channel-3-lower-candidate.npz",
+          "sha256": "651ac6266450b882f5ca8d6dfa55239675629e2a0035782de97c0f35d5cc507d"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "6e9b03eafc8fe28cdf951ac2ddc462c5e529795faf77da3e0977f491cfc218dc",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 115,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-channel-3-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-channel-3-lower-shared_v1.npz",
+          "sha256": "8fea30c0982d97c6fd7ffddad237d7d0259fe78869794d7eb3a2079bde657a97"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "d82e6f6837fc2c0b3cddd762b39f41df73df23f3752d20189f78fe5d232182e8",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "f7dcf9183b90ba414ee72c3b6a1b87ac1497d2ac8c5c8245c9f82b449ba53860",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "e89e8313748662a44dcfeefaa69280363f596c43490498d43e2734f4f6065912",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "89775caf826a1628db28794b47cff1c64ba4fa862313e45ba61bb26b0181e58f",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "04c9c8c1109fcc756e539776622d57b6c5fa8535c2caed187b2059e08bd82999",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-01-0050-channel-3-lower.npz",
+        "sha256": "dcf8a9ff6fa3a32ce2a07ff11a41652edf7fcdcb8e96ecc0c82d143b357252e6"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-0-lower",
+      "factual": "fresh-fresh-02-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-02-0150-channel-0-lower",
+      "initial_state": {
+        "data_sha256": "9739d4f6ae2d4bb4d4ada47cf5615a47a7a1fd3de6041a53e75c25ab2e2c36eb",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-02",
+      "path": "queries/fresh-fresh-02-0150-channel-0-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "43f05fe4e3ad239e060dc1947ee6bbc35345c4b65cb401f83dc7589c5891ca23",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 115,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-0-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-0-lower-candidate.npz",
+          "sha256": "5fce9b6c9b17f1bcb87a7e6e0bf5ab0115729f19400366e72a5aa8aecdc57391"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "528c0ab5e44c6d230ae9202a2f0f6352119b8a9375964aee5ed2880a433dd64d",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 112,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-0-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-0-lower-shared_v1.npz",
+          "sha256": "93da91051b2ace5037703273cf420bb3a4c83ddd6e1fd7f9eaefe10ceade534f"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "ef5e9d93eb36fcc7046b3c55222b2c897ea908c186fa6e9bf27004f07ba392de",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "8148664a90fa142ec1205a45d6448a36df0fe79a1c309f0cb2214906ca10541d",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "1beb5bbddec7868d734cc0870f5403c39b1d0cda997398c981566b178b9ba697",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "23cf7f0f0f2464f3879744f71bea29f0f1a9690b606ae6ba9b73f66c8e434a04",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "86ac075f123f99b1afc0d021bf466abe6a06cac6a01fb9cf67f5c767bd509c4c",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-02-0150-channel-0-lower.npz",
+        "sha256": "d35be763d9a4a83cda452eff70d9a6cbc098065bea2ee0020905de4f22026b03"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-3-lower",
+      "factual": "fresh-fresh-02-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-02-0150-channel-3-lower",
+      "initial_state": {
+        "data_sha256": "9739d4f6ae2d4bb4d4ada47cf5615a47a7a1fd3de6041a53e75c25ab2e2c36eb",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-02",
+      "path": "queries/fresh-fresh-02-0150-channel-3-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "8352657edda484783ac0876f86d342e9963f3c8f6a0e855b003635e036cb6679",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 112,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-3-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-3-lower-candidate.npz",
+          "sha256": "1c48369d148a1777a48f57b57bd172ee8fb4e415c1585d7047a8d6f399d7b8dc"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "a5b0594aabb7fbcbf44240a77505b0146314aacd17271f3fb17a62e295f052e5",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 110,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-3-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-channel-3-lower-shared_v1.npz",
+          "sha256": "fd1f2a307c3416951b8e014940bc342ae381003e2ecca760337c38b6f619ded2"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "330abc10a7cabee54f60b9c4c25fec494dd9eb3381b207e187deaad3ee3db681",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "2dfadb601528d58f2e9814267100deca237c6546b3bbd8753dac59786e6d2e66",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "1beb5bbddec7868d734cc0870f5403c39b1d0cda997398c981566b178b9ba697",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "23cf7f0f0f2464f3879744f71bea29f0f1a9690b606ae6ba9b73f66c8e434a04",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "22d59c18e404122a22ed6d81aa45f14780cc5384e82ae403cce2317b2e75afdf",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-02-0150-channel-3-lower.npz",
+        "sha256": "81c657eec2c6f009c0b707a1d2b0d06cf5a92a80cbf98d460d8cf13c1f3f754d"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-0-lower",
+      "factual": "fresh-fresh-03-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-03-0150-channel-0-lower",
+      "initial_state": {
+        "data_sha256": "cc2b687caf4ff688afbdd24ec69ae85e7e3c7493f0d1d41868f9c0bcd79b4a5c",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-03",
+      "path": "queries/fresh-fresh-03-0150-channel-0-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "f3c993b7c094fc2c30b6b8042de21af4cce8602968faa3c40c756d1c33d02c94",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 92,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-0-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-0-lower-candidate.npz",
+          "sha256": "34f0022904378dc93382669b210aff7dd44fcdcc19d70ace39d44dfd1ef79a4c"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "4100e194dd5e189583fc5fe6c8130e8dd3d4063ceddc65ad921fd599916cb196",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 91,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-0-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-0-lower-shared_v1.npz",
+          "sha256": "1157ee89c432be043b2837e2da62fa6681a6d9edc9c0d72022f6f7f239398814"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "6e16fec31456cc3b5c6e383ef37c052fc69a1bd775b1b78c5aa94748e1131016",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "1391087afdb669672320c9c596722a3b1a26700dda6c65ffec948dbcc74a8534",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "1f7679b5f911b1046b28ec51fde7b2afd218896e9051fb850696639e2fc51233",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "482fa6c031a801cd55c43e19156fc298c918b8d03741c0bd8d43f6b4d91984c4",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "e298d95d18a26318b959e3c1f0c1bab6cea1d958fb867bad78d6d9029fe0ab61",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-03-0150-channel-0-lower.npz",
+        "sha256": "5fa0241bb36fb7f18f4c077166ba67b9028ea0e7587c49f34459e416aee510a1"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-3-lower",
+      "factual": "fresh-fresh-03-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-03-0150-channel-3-lower",
+      "initial_state": {
+        "data_sha256": "cc2b687caf4ff688afbdd24ec69ae85e7e3c7493f0d1d41868f9c0bcd79b4a5c",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-03",
+      "path": "queries/fresh-fresh-03-0150-channel-3-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "dffa48c4ce782e16510f9c6ae75648c1284294295f9a371325dd00a5587d66f4",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 95,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-3-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-3-lower-candidate.npz",
+          "sha256": "c7c6e1ede0d12f8cc89de6d6b24ad7e9bd6b5d56a2e29c1e29a56fa59cf3c412"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "b12592af73c272f1d87814dd891c59d9a4d7fb2846d8c66d1058a4ae61a0b48e",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 94,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-3-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-channel-3-lower-shared_v1.npz",
+          "sha256": "dc54ec14dc213e2ab9bbf80bb30deffd5afc672e6ad7a077851daa0d7605e549"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "1014f5df2d922849f68ac7f7f75d3853fb9d1f6278d955e298a831e6228c45db",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "3e71e46600e4ac4f8b040ded900869bcc837c24507b4f24116d05ef8893293a0",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "1f7679b5f911b1046b28ec51fde7b2afd218896e9051fb850696639e2fc51233",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "482fa6c031a801cd55c43e19156fc298c918b8d03741c0bd8d43f6b4d91984c4",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "ebae6ecac7012b62c90dfddddcb0f0cbd46cad388869089a48ba2280f3d7357f",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-03-0150-channel-3-lower.npz",
+        "sha256": "af2ecc08f047ab42811659e24f69d6d6b7dcc28ce6eeb1830e8e51116bbb2e44"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-3-lower",
+      "factual": "fresh-fresh-04-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-04-0150-channel-3-lower",
+      "initial_state": {
+        "data_sha256": "9eafd7eab7482471419cd4ff2779544874949fab5e19f74ddc759b668a679374",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-04",
+      "path": "queries/fresh-fresh-04-0150-channel-3-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "aa47a6e4421be5b72c18538d04e6cbf4f3a8f9c7d658c23c436f2925208e3ce4",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 100,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-channel-3-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-channel-3-lower-candidate.npz",
+          "sha256": "a2f9e3182eb60c61209705b071c66b15b353c72ad442d74682f0c07d0295f3d0"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "e848d35b6f1cd03f412279492c6c509c85315f12d730b5caf9fe038e82cf7e2f",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 100,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-channel-3-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-channel-3-lower-shared_v1.npz",
+          "sha256": "7f1a012b846bf51131eff55af4a233d4bde2241bc45bf6f8be3381ef6884093d"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "474f8a80c496df3943495cb39c99db7f8bd02ca5d3d5463fb9fbf6a01da13fd3",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "841b77fc8c63a00118ca5c2e2592bbb5357672dacec07173e3e606aa3f92e74f",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "084dc7e371472d4c90986ff1a4e7467167da3fa2615797cb591375722c1d1ba7",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "8ea20bd096f5cd1a1d10bd193205c01572257b804bc75d84fdb054c790d06554",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "5d4eb57dca52677c23dab1fe779d25351546a12b55152dead871729d0a01be6a",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-04-0150-channel-3-lower.npz",
+        "sha256": "47aa03742fb273061de7d99c6c42cc1ca8ed29c23df3226984dcd5094c442c91"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-0-lower",
+      "factual": "fresh-fresh-05-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-05-0150-channel-0-lower",
+      "initial_state": {
+        "data_sha256": "2f7c5ee0b47fd19952d2ca254326f9521a4d4c4a94a92cea0ea465a9501307ce",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-05",
+      "path": "queries/fresh-fresh-05-0150-channel-0-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "52e0d01254cb399d0d3b2333ae47c0b74afc667d33a9f77990493862c124fdee",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-0-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-0-lower-candidate.npz",
+          "sha256": "56e7c8f01166d9db9f44be543963726ed76ebbfa982a9413f392eae294a76f5a"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "c0f4ed878bb8bc43a66fca9a48e930050ccad65b1c8afed1139621e094d5cfce",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 119,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-0-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-0-lower-shared_v1.npz",
+          "sha256": "61cdf63892b6ab2e08229e2d217710051ec746bcec63cd962179f21dfd7fde3c"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "03740cc6a0c28e277262ab921f953fa9dcb15b6d6c8313fb923d1d0c25acc079",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "26a75fa6761e81d56851528bd8849a463f16f7935096f1401a808aeca1947e64",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "9c1c36e357bfe5411acdedb412ba3a04f922bde584594c1f1a89a778bb1a71f6",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "4f0d109407f42785da2b18d15892eaf90bdbdc3785003c5c4624f336881eee72",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "1bb5e3aff18679d68a57ab99453e156c206056e38762afb3f8cd20a1b54aa00f",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-05-0150-channel-0-lower.npz",
+        "sha256": "bb1abe862142655f7d3795e140cd9bc6f78351770a9d659c842f6a97a48e66cc"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "channel-3-lower",
+      "factual": "fresh-fresh-05-0150-factual",
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-05-0150-channel-3-lower",
+      "initial_state": {
+        "data_sha256": "2f7c5ee0b47fd19952d2ca254326f9521a4d4c4a94a92cea0ea465a9501307ce",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "response",
+      "origin": 150,
+      "parent": "fresh-05",
+      "path": "queries/fresh-fresh-05-0150-channel-3-lower.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "5f1953b9892e76f8eb5fdd53269d9a1ea8cc3e9e935daa2891f726d2888d8fba",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 105,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-3-lower-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-3-lower-candidate.npz",
+          "sha256": "dd8dda5ce414b441bfb3107939ae25131032b761448e19e21f2263c7db192d6c"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "20c896cb2d8353dd63bab4fce4f8ba9b41619a9401bc2e3a133222d8495d80ef",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": 104,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-3-lower-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-channel-3-lower-shared_v1.npz",
+          "sha256": "a7b94de9665d937a329209868e72ab9d36e537513dd0602111bd9dc358af4fa8"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "a3784139c1d7f5b47758c9fe71541476c681c4f539a8275f7cf9a9c4b110bb01",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "7ac0f7b98b773d9e36c0690da1e182de3d03c44d4c076269d3ab998e8ef2d665",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "9c1c36e357bfe5411acdedb412ba3a04f922bde584594c1f1a89a778bb1a71f6",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "4f0d109407f42785da2b18d15892eaf90bdbdc3785003c5c4624f336881eee72",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "4f749e2d0a8e363f53a518b02af286ec64e51d6a4f0435a0eec86c486d1d802f",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-05-0150-channel-3-lower.npz",
+        "sha256": "d4d35eec3b90ace60958486e61158270b12a42b9bb3bc98df4dee1971a547f14"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "factual",
+      "factual": null,
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-00-0150-factual",
+      "initial_state": {
+        "data_sha256": "73f9483dead99d3306d6607a8746e81d7b98e3910f1007636598587a08910f5d",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "forecast",
+      "origin": 150,
+      "parent": "fresh-00",
+      "path": "queries/fresh-fresh-00-0150-factual.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "40daf4f656821c60e5779a66376f221cc964b57e2396ff118bcecb9c91ac14c8",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-factual-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-factual-candidate.npz",
+          "sha256": "81aa127d81555f8359bdd96cc885f39d7dd17d6667ff07cd573305712117f3df"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "e4bdf262b5c2568a43ef020f18a1c14d3d5418b8750a3451446dab0d4e013041",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-factual-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-00-0150-factual-shared_v1.npz",
+          "sha256": "7e33ba6d6b39183dff66b9c19d76976e5b275483eee7650bababfadd9958b9c7"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "48249136b27d46f87f7c03d18f08cad4c4bcf7217f4fd98247769c7532f23454",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "dddc4e3f7ab5da1b3b6d20f9b8bcbe4fb6c2b6a77787be611b0c9464045c0d26",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "3255ef6a212019034ff757dce2b206a919303be893a1fcf4ba019ee38e592566",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "72353ea6994619e6e77e42e0e81e1a1f2276b1b8e4cb94243e3ab530aa46602d",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "22ab64ddd61d629123f24cb74f7ddd396085d7f9a6dd4fc3004ac3a34f661c58",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-00-0150-factual.npz",
+        "sha256": "8f0623b9a67f59f67ff365e3e4de8734a894b1bf09572dbde6c7e7baf2b27bb6"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "factual",
+      "factual": null,
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-01-0050-factual",
+      "initial_state": {
+        "data_sha256": "798c9a77fe3255f8728bed6e4111137ff41dac59b409a6a2889b66700c39989e",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "forecast",
+      "origin": 50,
+      "parent": "fresh-01",
+      "path": "queries/fresh-fresh-01-0050-factual.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "811881b1e2b1d4d3bcbd3504124a1290c99cc13f37e2caf644b81dda5d36ebd0",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-factual-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-factual-candidate.npz",
+          "sha256": "35290219091f8e033cd0689be75d82173136357bd6f92de0514dcd518e4c2e42"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "4c5837796720b028f6560be049c3cd5935bcaa31a4d197bb263e52104980d11a",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-factual-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-01-0050-factual-shared_v1.npz",
+          "sha256": "416c8f54e3e8c853bb1f21a5ea6427a15a002006b475fc5a5e7d60537e2dc08b"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "0ae89adb385e182dbe67b7f517acfb484f9605ca5d489b7ad849c1709f08ad88",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "77dbc74853520c7843784611814f404198699270df8d0d270cbead437b36313b",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "e89e8313748662a44dcfeefaa69280363f596c43490498d43e2734f4f6065912",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "89775caf826a1628db28794b47cff1c64ba4fa862313e45ba61bb26b0181e58f",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "bb861d71f6c88e810f9a029d86d739880fd39b3bf235a5f88f386c6cc3342d79",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-01-0050-factual.npz",
+        "sha256": "f0a4789afc6c26571aa95fe316af1806c98401076013d31e686e931bc49a16a9"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "factual",
+      "factual": null,
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-02-0150-factual",
+      "initial_state": {
+        "data_sha256": "9739d4f6ae2d4bb4d4ada47cf5615a47a7a1fd3de6041a53e75c25ab2e2c36eb",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "forecast",
+      "origin": 150,
+      "parent": "fresh-02",
+      "path": "queries/fresh-fresh-02-0150-factual.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "2c21e654365bf471fcb628a71fbb91c3c393879dab59e07cce10ea1c95b4e1c2",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-factual-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-factual-candidate.npz",
+          "sha256": "98420052e5c51cd88f943ec122493b9ff31d76de4ff03c79fb186ef9a0672b60"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "f2471247f850c9f04a8fbb003eb34a9da81d20208a0fc33150f12424992ede2f",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-factual-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-02-0150-factual-shared_v1.npz",
+          "sha256": "99f6c502a89f12db9ff57cb426dbbb1a0e2f6e1b578cfe62446cafb8b2233971"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "aea9d6a18ad2f56c726853826d52a451d6da0ed98a17a4da241fede36137fb18",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "4fa78caf56dd2d9876fec37e85d0c180f4b969746a5a67e8841bb20cfa8edf85",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "1beb5bbddec7868d734cc0870f5403c39b1d0cda997398c981566b178b9ba697",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "23cf7f0f0f2464f3879744f71bea29f0f1a9690b606ae6ba9b73f66c8e434a04",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "b2b3d1fa59a97978fa15d7f267aa607c163037ce9f1341bc5911c28d7f5e7b97",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-02-0150-factual.npz",
+        "sha256": "75a40965f2bc3c5eccb4f23510ce5bec2967f732227f22ada52669fe43eb683d"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "factual",
+      "factual": null,
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-03-0150-factual",
+      "initial_state": {
+        "data_sha256": "cc2b687caf4ff688afbdd24ec69ae85e7e3c7493f0d1d41868f9c0bcd79b4a5c",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "forecast",
+      "origin": 150,
+      "parent": "fresh-03",
+      "path": "queries/fresh-fresh-03-0150-factual.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "317bd2f06d8b771584847c83801ca96a01efdce589645c761f8fb5e87ad5e701",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-factual-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-factual-candidate.npz",
+          "sha256": "096780af14337060d3afc2833c1e5d6abfdc78737bb7b7dacf5f1ed0a5276245"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "c79936225d2ad002ee0004416cbcb7738887e9e5307676e27a1be4fd3c24c3b4",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-factual-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-03-0150-factual-shared_v1.npz",
+          "sha256": "99aff27addaa8426432ba457a217705cc84536874e4d53e02732e220fe38dc0a"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "c989f2eabb21cbdde37bc2c0fcd498b1c2c95014933dd6d6560c3ffb18e7b5bb",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "833e3463d9a0de1a16641a3f7c09e3cc5becaf2bf8cfb4dbd303dafec070fae1",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "1f7679b5f911b1046b28ec51fde7b2afd218896e9051fb850696639e2fc51233",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "482fa6c031a801cd55c43e19156fc298c918b8d03741c0bd8d43f6b4d91984c4",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "b8c147bdc91cb23295f094d5d27ad4ee5e7323f3aa38b0f4704bb85b6427e1bd",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-03-0150-factual.npz",
+        "sha256": "c208c8ca665d480e3b84cef798036bdf2575a5e6b1c75f9585b2aed8f73a286d"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "factual",
+      "factual": null,
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-04-0150-factual",
+      "initial_state": {
+        "data_sha256": "9eafd7eab7482471419cd4ff2779544874949fab5e19f74ddc759b668a679374",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "forecast",
+      "origin": 150,
+      "parent": "fresh-04",
+      "path": "queries/fresh-fresh-04-0150-factual.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "a312ccdf7a2b98d7953b340baf6ecea2fe00ab660eedfd1be755066f30bff681",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-factual-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-factual-candidate.npz",
+          "sha256": "10a003790956ee6fac77a722f737eeef807af718297352fdec022923156334a2"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "0e393cc42723076a1ccd67a89e0f63ddb27842d20aebcd04942068b126a39329",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-factual-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-04-0150-factual-shared_v1.npz",
+          "sha256": "081a46727d300d4fa4f6a6076840b4deda9c711321b5352d71ef14a97f6fed38"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "4540735321a5b82ed6978c8cdcc8a271271a37f53e14544b78aa53dc0e82a378",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "05cedbf4261e4c866e02db24dbbd429e3c4f1911d2b7c906651ce9e334e25881",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "084dc7e371472d4c90986ff1a4e7467167da3fa2615797cb591375722c1d1ba7",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "8ea20bd096f5cd1a1d10bd193205c01572257b804bc75d84fdb054c790d06554",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "bab1b2d34dac5958f7000b488f7279aca447174133ec87ddd239584404802bb1",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-04-0150-factual.npz",
+        "sha256": "fbaf76eeaa84d566662962d62c891866c889bbd015ee29aec81f886602768806"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    },
+    {
+      "all_inputs_and_native_truth_finite": true,
+      "available_steps": 120,
+      "branch": "factual",
+      "factual": null,
+      "horizons": [
+        5,
+        15,
+        25,
+        60,
+        120
+      ],
+      "id": "fresh-fresh-05-0150-factual",
+      "initial_state": {
+        "data_sha256": "2f7c5ee0b47fd19952d2ca254326f9521a4d4c4a94a92cea0ea465a9501307ce",
+        "dtype": "float32",
+        "shape": [
+          15
+        ]
+      },
+      "initial_state_array": "past_states[-1]",
+      "kind": "forecast",
+      "origin": 150,
+      "parent": "fresh-05",
+      "path": "queries/fresh-fresh-05-0150-factual.npz",
+      "planned_steps": 120,
+      "predictions": {
+        "candidate": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "7db9099900a49d2eef38da56d5aacc4b37f810620703888a987485dbba37f3d1",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-factual-candidate.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-factual-candidate.npz",
+          "sha256": "ca6640742863e6fc22a4064c218cde8c7f0c2fedd95a20d6a233be17b7a2e66a"
+        },
+        "shared_v1": {
+          "arrays": {
+            "prediction": {
+              "data_sha256": "76c1eeb2d0c6ad95490d45eb94e537487ddf2c8fa15602ef5e575ab402df245e",
+              "dtype": "float32",
+              "shape": [
+                120,
+                15
+              ]
+            }
+          },
+          "first_nonfinite_step": null,
+          "metadata": {
+            "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-factual-shared_v1.json",
+            "sha256": "7caeefe05c039f6c30bd0593d321171609c89cb15ac218f9e059154b1c8a035a"
+          },
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-evaluation/predictions/fresh-fresh-05-0150-factual-shared_v1.npz",
+          "sha256": "a33257795c86473ea2fb38954ef3602087663c035978a7ee94f40d814106660b"
+        }
+      },
+      "query_payload": {
+        "arrays": {
+          "future_inputs": {
+            "data_sha256": "458576446b5f448071b2f60e00665577508f8feef56ac82bb6796e81e739f6d0",
+            "dtype": "float64",
+            "shape": [
+              120,
+              4
+            ]
+          },
+          "native_states": {
+            "data_sha256": "1b15685bb673db4de515d756aaf547d4e6aa5232cda7913359eda30bd6fa53a0",
+            "dtype": "float32",
+            "shape": [
+              121,
+              17
+            ]
+          },
+          "past_inputs": {
+            "data_sha256": "9c1c36e357bfe5411acdedb412ba3a04f922bde584594c1f1a89a778bb1a71f6",
+            "dtype": "float64",
+            "shape": [
+              50,
+              4
+            ]
+          },
+          "past_states": {
+            "data_sha256": "4f0d109407f42785da2b18d15892eaf90bdbdc3785003c5c4624f336881eee72",
+            "dtype": "float32",
+            "shape": [
+              51,
+              15
+            ]
+          },
+          "target": {
+            "data_sha256": "04351810b645335b527c1a686a349294141b1b89e9de173f7710e9e4403ba33c",
+            "dtype": "float32",
+            "shape": [
+              120,
+              15
+            ]
+          },
+          "valid": {
+            "data_sha256": "8714e41752f7cfc482508b7090da3e09e9c40bd63b14aca3aa43be2a9756696b",
+            "dtype": "bool",
+            "shape": [
+              120
+            ]
+          }
+        },
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/dart-data/queries/fresh-fresh-05-0150-factual.npz",
+        "sha256": "5e0b285703cb19442ef525472f32502faf26f9dfde9a22e04221b819d68060b0"
+      },
+      "scope": "fresh",
+      "target_array": "target",
+      "validity_array": "valid"
+    }
+  ],
+  "read_only_counts": {
+    "controller_calls": 0,
+    "fits": 0,
+    "fresh_response_prediction_payloads_checked_against_external_stage_inventory": 192,
+    "initializers": 0,
+    "model_predictions": 0,
+    "native_rollouts": 0,
+    "optimizer_calls": 0
+  },
+  "status": "proposed_not_frozen",
+  "union_failed_response_ids": [
+    "fresh-fresh-00-0150-channel-3-lower",
+    "fresh-fresh-01-0050-channel-3-lower",
+    "fresh-fresh-02-0150-channel-0-lower",
+    "fresh-fresh-02-0150-channel-3-lower",
+    "fresh-fresh-03-0150-channel-0-lower",
+    "fresh-fresh-03-0150-channel-3-lower",
+    "fresh-fresh-04-0150-channel-3-lower",
+    "fresh-fresh-05-0150-channel-0-lower",
+    "fresh-fresh-05-0150-channel-3-lower"
+  ]
+}

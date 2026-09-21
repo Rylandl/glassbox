@@ -36,44 +36,40 @@ success or live model replacement. Public v4 remains the adopted public recipe.
 
 ## Latest iteration
 
-The [optimizer step-selection experiment](optimizer-step-selection.md) is
-**complete and not accepted**. Persistent bounded Armijo backtracking resolves
-rejected updates: all three configurations accept 1,000 updates, and selected
-weighted development loss falls 3.68% for Dart, 35.19% for Crazyflow and 73.84%
-for Cascade. Fresh physical forecast/response errors improve 11.10%/19.91% for
-Cascade but worsen 11.15%/17.04% for Crazyflow; the joint aggregate hides those
-opposing changes. Crazyflow's velocity-forecast parent-p95 rises 1.94×. Dart
-still produces nonfinite predictions on eight of 96 fresh response branches
-at 1.2 s, although simulator truth and commands are finite and commands remain
-within training coordinate ranges. The unchanged controller fails after 0.78 s
-without contact. All 39 required evidence receipts and five actual alteration
-classes are verified; the failed control outcome remains failed. The
-[result record](harness/optimizer-step-selection-v1-result.json) anchors the
-complete evidence and separate training/evaluation source identities. An
-import-only evaluation correction reused the three saved fits and nine completed
-training checks without refitting. No new model is promoted or integrated.
+The [no-fit recurrence diagnostic](recurrence-attribution.md) is **complete**.
+All 30 saved original predictions reproduce exactly, all 90 local traces meet
+the frozen agreement check, and the full raw replay and four alteration tests
+pass. Smaller integration steps make the nine selected response branches fail
+earlier; four substeps also make two of six matched factual controls nonfinite
+for each model. All 54 response trajectories cross 1,000 m/s and 1,000 rad/s,
+so a finite endpoint alone does not indicate recovery. Quadratic features are
+the first recorded nonfinite quantity in all 58 failures, but linear state/history
+feedback contributes most of the earlier angular-speed growth. Finite-prefix
+step differences contract, which strengthens the case against using smaller
+steps alone as a remedy without proving continuous-time blowup. The
+[result record](harness/recurrence-attribution-v1-result.json) anchors the source
+and evidence. No fitting, simulator or controller runs occurred; no model is
+promoted. The preceding [optimizer experiment](optimizer-step-selection.md)
+remains complete and not accepted, with its measured accuracy/control outcomes
+unchanged.
 
 ## Next named gap
 
-**Dart recursive command-response stability.** The optimizer blocker is resolved;
-further long fitting is not the next step. The next iteration should freeze a
-bounded **no-fit recurrence-attribution diagnostic** using the nine failed
-candidate/shared branch identities, matched factual controls and both saved
-models. Trace affine, quadratic and nonlinear acceleration contributions and
-state growth; compare 1/2/4 integration substeps while preserving command and
-history updates at the original observation intervals. This is a convergence
-diagnostic, not a menu from which to select a better-scoring model. No successor
-protocol is frozen yet.
+**Growth of the complete learned motion-state feedback.** Freeze one smooth
+bounded representation of normalized motion-state features, applied consistently
+to the current, historical and quadratic acceleration-readout paths. Derive its
+scale from training recordings only. Preserve direct command inputs, learned
+response timing and shared mechanics; introduce no consumer option or vehicle
+branch. This single feature-conditioning intervention addresses both early
+affine amplification and terminal quadratic growth. Its exact rule and evaluation
+must be frozen before fitting; no successor protocol is frozen yet.
 
-Saved predictions show huge velocity/rate growth before NaNs while rotation
-matrices remain nearly orthogonal. Unrestricted learned state feedback and
-explicit integration are plausible contributors; the existing outputs do not
-isolate the cause. All eight candidate failures occur within recorded command
-coordinate ranges, which does not establish joint state/action coverage. One
-additional branch stays finite only by reaching millions in motion units, so
-finiteness alone is insufficient. Use the diagnostic to choose one model
-intervention before another fit. Retain Crazyflow short-horizon response/tail
-regressions and Cascade crosswind accuracy as explicit obligations.
+Bounded features are a hypothesis, not proof of accurate or stable dynamics.
+Measure physical residuals and extreme finite outputs, retain Crazyflow response
+and tail regressions and Cascade crosswind accuracy, and qualify Dart control
+separately. The inspected response branches are now diagnostic regression cases,
+not fresh held-out evidence for the next model. Commands within recorded
+coordinate ranges still do not establish joint state/action coverage.
 
 ## Preserved boundaries
 

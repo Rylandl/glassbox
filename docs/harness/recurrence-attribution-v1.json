@@ -1,0 +1,79 @@
+{
+  "design": {
+    "arms": [
+      "candidate",
+      "shared_v1"
+    ],
+    "authoritative": "n=1 uses jax.jit(saved_core.rollout) in float32, same history and input casting as historical evaluation; n=2/4 use the same midpoint/SO3 equations with mechanical subdivision only",
+    "bound": "90 authoritative predictions plus 90 local traces; replay permits exactly the same 180 calls once. Synthetic analytic tests are separate. No fits, gradients, simulator or controller calls.",
+    "dt_s": 0.01,
+    "filter": "At each original interval, evaluate applied command from the same interval-start value and analytic exponential at substep start/midpoint; end with original full-interval exponential. Preserve exact original start applied value at t=0. History and hidden advance once per original 0.01 s interval from observation-start features.",
+    "future_steps": 120,
+    "no_changes": [
+      "saved weights",
+      "model equations",
+      "normalization",
+      "queries",
+      "native truth",
+      "issued commands",
+      "consumer contract"
+    ],
+    "substeps": [
+      1,
+      2,
+      4
+    ],
+    "trace": "One separate observation-boundary-forced local trace per authoritative trajectory. Force only physical state at each original observation boundary, reconstruct original causal filter/history/hidden, integrate inner stages freely. Record local next state and residual against authoritative next state. This avoids recursive amplification of instrumentation-only roundoff."
+  },
+  "format": "glassbox-recurrence-attribution-v1",
+  "kind": "no-fit diagnostic; no model promotion",
+  "measurements": {
+    "contributions": "At start, each growth threshold and last finite stages, report six-vector norms and quadratic share of sum of component norms; descriptive, not causal ablation.",
+    "convergence": "Report all 1/2/4 finite flags, crossing/failure times, finite common-prefix discrepancies, endpoint and prefix physical residuals. No choosing a best n, no forced aggregate win count, no missing failures.",
+    "growth": "First crossing of velocity and angular-rate norms 10,100,1000,1000000 in respective physical units, plus physical error vs saved truth. Thresholds describe growth, not application adequacy.",
+    "head": "At both head stages: current/scaled sampled/scaled quadratic features, tanh preactivation/activation, separate linear/quadratic/bias/nonlinear contributions and scaled acceleration. Original summation association retained. Record history/hidden and analytic filter states.",
+    "rotation": "Midpoint/end rotation increment vectors, float32 squared norms and resulting matrices to distinguish downstream Rodrigues overflow",
+    "state": "Every boundary and substep physical state, velocity/rate norm, rotation orthogonality/determinant, first nonfinite interval; all failures retained"
+  },
+  "named_gap": "Dart recursive command-response stability",
+  "next_decision": "Select one prospective learner or integrator intervention only after diagnosis; freeze any subsequent fit as a separate iteration.",
+  "parent_commit": "600da7607d4f4bb15fb5975eeac94537c39ce2a7",
+  "population": {
+    "matched_factual_queries": 6,
+    "model_arms": 2,
+    "proposed_substep_counts": [
+      1,
+      2,
+      4
+    ],
+    "proposed_trace_query_arm_substep_combinations": 90,
+    "total_queries": 15,
+    "union_failed_response_queries": 9
+  },
+  "proof": {
+    "alterations": [
+      "numeric query change rejected against frozen external anchor",
+      "numeric model change rejected against frozen external anchor",
+      "numeric trace change rejected against bound replay receipt even if a local seal is repaired",
+      "summary metric change rejected by independent reducer"
+    ],
+    "fixtures": [
+      "constant acceleration/rotation analytic behavior",
+      "nonzero linear/quadratic/tanh/memory source equivalence",
+      "filter endpoint and one memory/history update across subdivision",
+      "causality",
+      "stable state-dependent midpoint convergence",
+      "quadratic feature versus rotation norm overflow"
+    ],
+    "inputs": "Verify every roster anchor and query/model/prediction hash before inference. Bind committed diagnostic source, unchanged inference functions, Python/JAX/runtime, protocol and roster.",
+    "replay": "Re-execute 90 authoritative and 90 local trace calls with saved inputs, compare raw arrays equal_nan and independently recompute summaries without refitting."
+  },
+  "qualification": {
+    "completion": "All 90 combinations attempted once with durable call records, all raw traces saved (including nonfinite), sealed provenance, independent NumPy reduction, deterministic replay, actual input/model/trace/summary alteration rejection. No public promotion. A failed equivalence gate yields bounded inconclusive attribution rather than post-hoc tolerance changes.",
+    "historical_replay": "All 30 n=1 predictions must match saved dtype/shape and array_equal(equal_nan=True); mismatches make original-recurrence attribution inconclusive and are not repaired by changing dtype/tolerance/model.",
+    "local_trace": "Record exact equality, finite masks, maximum finite local discrepancy, and allclose rtol=0.0001 atol=0.00001. A trace is numerically qualified only if finite masks match and all finite next-state elements meet this fixed tolerance. Unqualified traces are explicitly descriptive and cannot establish original recurrence attribution.",
+    "science_interpretation": "Persistent runaway under 1/2/4 supports recurrence pathology but does not prove continuous-time blowup. Improvement under refinement indicates numerical sensitivity, not a qualified remedy. Component magnitude alone does not establish causality. State/action coverage is not inferred from command coordinate ranges."
+  },
+  "roster_path": "docs/harness/recurrence-attribution-v1-roster.json",
+  "roster_sha256": "2223f610d77218732cad737ec00802c355387ca41fedfedb987bc867a96c56f4"
+}
