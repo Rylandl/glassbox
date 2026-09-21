@@ -5,7 +5,7 @@ Updated 2026-09-21. Read [the charter](charter.md) first.
 The supported shared-physics learner is the **adopted single implementation**.
 This follows the user's explicit decision after the successful Dart trial.
 Public v4, structured model catalogs, belief objects and old experiment/control
-frameworks are being removed in the current maintenance iteration. Adoption
+frameworks have been removed. Adoption
 does not rewrite prior frozen failures or establish arbitrary-system readiness.
 
 | Area | Evidence and remaining gap |
@@ -18,19 +18,21 @@ does not rewrite prior frozen failures or establish arbitrary-system readiness.
 | Calibration | Fresh fits estimate envelopes on development data also used for checkpoint selection. Independent coverage remains open. Adopted migrated revisions carry no transferred old-map envelope. |
 | System scope | Canonical rigid-body velocity, angular rate and orientation with arbitrary ordered command dimensions. Articulated/flexible systems and broad JSBSim coverage remain unproved. |
 
-## Current iteration
+## Completed iteration
 
-**Single implementation and repository cleanup.** The user has adopted the
-supported learner and authorized removal of dead experiments, corresponding
-artifacts, unused interfaces and tooling. The [frozen maintenance contract](harness/single-learner-adoption-v1.json)
-requires identical saved model arrays, all preserved flight predictions and
-Dart means/gradients; a small active test suite; an installed-package check;
-and protected baseline evidence before deletion. No new long fit, controller
-optimization or simulator trial is part of this iteration.
+**Single implementation and repository cleanup.** The package is now 14 Python
+modules / 2,216 lines with one dynamics implementation. All 12,768 saved flight
+arrays, 40 selected Dart means and 4,144 actual objective/gradient callbacks
+reproduce exactly. The installed wheel passes 76 tests on Python 3.12 and 3.13.
+Five obsolete artifact roots and 60 retired experiment worktrees were deleted
+after preserving the models, relevant recordings and current proof in the
+192 MB baseline pack. See [the cleanup result](cleanup.md),
+[baseline identity](baseline.json) and [replay instructions](../CONTRIBUTING.md#replay-the-adopted-baseline).
+No new long fit, controller optimization or simulator trial was run.
 
 ## Next scientific gap
 
-After cleanup, freeze neighborhood reliability and prediction accuracy around
+Freeze neighborhood reliability and prediction accuracy around
 the successful Dart task, keeping the model/controller fixed and reporting every
 attempted condition. Measure direct model residuals alongside control outcomes.
 The narrow tangential-speed margin and fourteen budget-limited solves motivate

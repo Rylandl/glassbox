@@ -6,6 +6,8 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
+- [Cleanup result](cleanup.md): adopted implementation, preserved evidence and
+  verification of the removal of superseded experiments.
 - [Onboarding example](../examples/onboarding.py): the public API on analytic
   rigid-body recordings.
 
