@@ -76,14 +76,35 @@ spike and persistent later error; no sample is excluded. Quad update p95 is
 No current-learner closed-loop trial has run. See [the report](online-fitting.md)
 and [evidence identities](online-fitting.json).
 
-## Active scientific gap
+## Completed consistency experiment
 
-**Forecast spikes and rotation/rate consistency.** Saved final-model diagnostics
-show large internal acceleration cancellation and forecasts sensitive to numerical
-step size. They cannot reconstruct the exact weights at the earlier spike.
-The frozen [v5 protocol](harness/online-fit-v5.json) tests a learning-only penalty
-for coarse/refined first-step disagreement, preserving deployed inference and
-the single shared model. Primary comparison is working v4. Tail and truth-relative
-rotation/rate metrics are measured prospectively for every case, separately from
-the unchanged accuracy gate. No v5 fit has started. Latency and live control
-remain separate qualifications.
+The separately frozen [v5 result](online-fit-v5.json) is **not adopted**. Adding a
+learning-only coarse/refined integration penalty improves aggregate velocity/rate
+error 4.66% against v4, missing the declared 20% target. The separate robustness
+flag passes: upper-decile error improves 4.23%, orientation 1.59% and truth-relative
+rotation/rate discrepancy 13.71% in the equal-family aggregate. This does not
+resolve all failures: fixed-wing orientation worsens 13.13%, and quad tail error
+worsens 0.41%.
+
+Quad-arm-115 orientation improves 47.38%, but fixedwing-81 rate RMSE worsens
+22.98% to 3.573 rad/s. Its maximum velocity error falls 31.14 to 16.55 m/s while
+maximum rate error grows 17.19 to 33.76 rad/s. Quad update p95 grows to
+43.91–45.83 ms. The modest aggregate gain and greater cost do not justify
+replacing v4; no individual-cell veto was used. All 3,137 rows and unchanged
+inputs, initial models and fixed comparators verify independently with zero fits
+or model calls. The candidate passed 175 tests and is reproducible from source
+`5db9059`; only v4 remains maintained. All 169 maintained tests pass after restoring v4
+and retaining the archive verifier. The core and offline predictions are exact.
+
+## Next scientific gap
+
+**Causal fixed-wing forecast failures.** The consistency experiment suppresses the
+inspected quiet-hover numerical artifact, but fixed-wing nonlinear stage failure
+remains. Saved final-model snapshots cannot reconstruct the parameters that
+produced an earlier causal spike; a milder local Jacobian also does not guarantee
+accurate integration along the whole step. Freeze a diagnostic replay that saves
+the actual pre-prediction models at the declared v4 velocity/rate spikes and
+nearby ordinary origins. Inspect each integration stage, motion-support
+compression and available command excitation before selecting another correction.
+Do not tune a stronger penalty from these aggregate scores. Latency and live
+control remain separate qualifications. No successor fit has run.

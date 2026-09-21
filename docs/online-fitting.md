@@ -95,16 +95,56 @@ Evidence identities and physical metrics are in
 [frozen v4](harness/online-fit-v4.json). See
 [replay instructions](../CONTRIBUTING.md#reproduce-streaming-fitting).
 
+## Consistency experiment: v5 not adopted
+
+A separate [frozen v5 experiment](harness/online-fit-v5.json) added a training
+penalty for disagreement between the first predicted transition and the same
+transition integrated with twice as many internal steps. Observation history and
+hidden memory stayed fixed within that interval. Both paths were differentiated;
+the deployed predictor, initialization and physics were unchanged.
+
+Against working v4, the primary aggregate improves **4.66%**, missing the frozen
+20% adoption target. Quads improve 0.19% and fixed wings 8.93%. The separate
+robustness flag passes, with upper-decile/orientation/rotation-rate ratios
+0.95771 / 0.98413 / 0.86295. This flag permits tradeoffs across families:
+fixed-wing orientation worsens 13.13% and quad tail errors worsen 0.41%.
+
+| Targeted case | v4 | v5 | Outcome |
+| --- | ---: | ---: | --- |
+| Quad-115 orientation RMSE, rad | 0.004024 | 0.002118 | 47.38% better |
+| Fixedwing-81 velocity RMSE, m/s | 2.89098 | 2.00697 | 30.58% better |
+| Fixedwing-81 rate RMSE, rad/s | 2.90528 | 3.57289 | 22.98% worse |
+| Fixedwing-81 maximum velocity error, m/s | 31.139 | 16.550 | Smaller spike |
+| Fixedwing-81 maximum rate error, rad/s | 17.194 | 33.763 | Larger spike |
+| Quad update p95, ms | 27.99–28.64 | 43.91–45.83 | Greater cost |
+
+The candidate remains 11.79 / 9.42 times the kinematic velocity/rate error on the
+harder fixed-wing tape. Fixed-wing update p95 also grows to 9.22–9.45 ms, though
+still below its 50 ms sample interval. This is not a worthwhile replacement for
+v4 given the modest average gain, angular tradeoff and greater runtime; the
+rejection is not an individual-case veto.
+
+Independent saved-data recomputation confirms all 3,137 predictions, exact input
+and initialization pairing, every metric and both separate flags. The candidate
+passed 175 tests; the unchanged 12,768 flight arrays, 40 Dart trajectories and
+4,144 gradients replay exactly. The failed candidate is reproducible from source
+`5db9059`; only v4 remains in the maintained implementation. See
+[the complete v5 result and artifact identities](online-fit-v5.json).
+
+The saved final models support the numerical-artifact hypothesis locally:
+quad-115's quiet-hover native/refined rate disagreement shrinks about 145 times.
+But the inspected fixed-wing spike origin has worse nonlinear stage disagreement,
+even though its local stiff mode is milder. These are final-model diagnoses,
+not the parameters that generated the earlier online errors. They do not
+establish what caused those causal forecast spikes.
+
 ## Remaining work
 
-**Forecast spikes and rotation/rate consistency** is the next named gap. In the
-quad orientation regression, the predicted rotation implies intermediate angular
-motion that disagrees strongly with the endpoint-average rate. The discrepancy
-is broad over 2–4 s, not a few initial outliers. The fixed-wing spike and persistent
-tail errors accompany heavy startup-support compression, but that does not prove
-compression caused them. Inspect internal integration states and derivatives
-before selecting a correction. Latency remains separate.
+**Causal fixed-wing forecast failures** is the next named gap. Freeze a replay that
+captures the actual pre-prediction model at the declared v4 spikes and nearby
+ordinary origins. Compare complete integration stages, support compression and
+command excitation before choosing a new correction. Simply increasing this
+penalty would not address the unresolved mechanism. Latency remains separate.
 
-Any next change needs a new frozen comparison against this version. These
-recordings do not qualify unseen control authority, a reliability percentage,
-or current-model closed-loop recovery.
+These recordings do not qualify unseen control authority, a reliability
+percentage, or current-model closed-loop recovery.

@@ -1,0 +1,515 @@
+{
+  "id": "online-fit-v5",
+  "source_commit": "5db9059",
+  "protocol": "harness/online-fit-v5.json",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v5/evaluation",
+  "collection_manifest_sha256": "276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4",
+  "evaluation_manifest_sha256": "f4d05ec868cc3981bc33d9919e565d386f935c69b3b19c14a90a733205df0413",
+  "reference_manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349",
+  "comparator": "Working v4 online fitter on bitwise-identical inputs and initial models.",
+  "decision": "Not adopted. Keep working v4 as the single maintained streaming fitter; candidate source and complete failed evidence remain reproducible.",
+  "observations": 3137,
+  "validation": {
+    "source_commit": "5db9059",
+    "tests_passed": 175,
+    "full_suite_elapsed_s": 104.37,
+    "ruff": "passed",
+    "wheel_import_outside_checkout": true,
+    "wheel_sha256": "0324a429d2b1531663cb088b28c199416ca78029332f33932208049010d9238f",
+    "baseline": "All 12,768 saved flight arrays, 40 Dart trajectories and 4,144 gradients reproduced exactly. Core dynamics and offline learner unchanged."
+  },
+  "no_fit_verification": {
+    "verified": true,
+    "manifest_sha256": "f4d05ec868cc3981bc33d9919e565d386f935c69b3b19c14a90a733205df0413",
+    "cases": 6,
+    "fits": 0,
+    "model_calls": 0,
+    "observations": 3137,
+    "identical_inputs_initial_core_and_fixed_comparator_bytes_to": "online-fit-v4"
+  },
+  "accuracy_passed": false,
+  "aggregate_ratio": 0.9533792360725059,
+  "all_cases_complete": true,
+  "candidate_closed_loop_trials": 0,
+  "cases": [
+    {
+      "id": "quad-arm-115",
+      "expected": 875,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.27275939683306766,
+          "orientation_rmse_rad": 0.002117500329213178,
+          "velocity_rmse_m_s": 0.021457649585085798
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 2.309220533573504,
+          "orientation_rmse_rad": 0.010736290465443166,
+          "velocity_rmse_m_s": 0.1347157166217019
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.11165536483611523,
+          "orientation_rmse_rad": 0.0004474429063217157,
+          "velocity_rmse_m_s": 0.03967146360153428
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 0.27256069287354256,
+          "orientation_rmse_rad": 0.004024160925798094,
+          "velocity_rmse_m_s": 0.02207724085860801
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 1.0007290264690414,
+        "orientation_rmse_rad": 0.5261967322525064,
+        "velocity_rmse_m_s": 0.9719352940210991
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 2.442868707951621,
+        "orientation_rmse_rad": 4.732448094038338,
+        "velocity_rmse_m_s": 0.540883739521421
+      },
+      "robustness_ratios": {
+        "orientation": 0.5261967322525064,
+        "rate_tail": 1.0193831027138391,
+        "rotation_rate": 0.29740041659639915,
+        "velocity_tail": 0.9851134542690628
+      },
+      "latency": {
+        "frozen_predict": {
+          "count": 875,
+          "first_s": 0.0014823749661445618,
+          "warm_max_s": 0.005099707981571555,
+          "warm_median_s": 0.0006663539679720998,
+          "warm_p95_s": 0.0007913728128187358
+        },
+        "observe": {
+          "count": 875,
+          "first_s": 3.9669811248313636,
+          "warm_max_s": 0.08362658298574388,
+          "warm_median_s": 0.043366103898733854,
+          "warm_p95_s": 0.04583483071764931
+        },
+        "predict": {
+          "count": 875,
+          "first_s": 0.39404749986715615,
+          "warm_max_s": 0.004067040979862213,
+          "warm_median_s": 0.0008282079361379147,
+          "warm_p95_s": 0.0010717646218836308
+        }
+      }
+    },
+    {
+      "id": "quad-arm-125",
+      "expected": 875,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.10739479836490078,
+          "orientation_rmse_rad": 0.0005012020914698161,
+          "velocity_rmse_m_s": 0.012190891592685958
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 0.6803210393280901,
+          "orientation_rmse_rad": 0.003144297400383177,
+          "velocity_rmse_m_s": 0.03760597789486961
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.12057851919904918,
+          "orientation_rmse_rad": 0.00048633078200594794,
+          "velocity_rmse_m_s": 0.029419028657145834
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 0.10730043698014734,
+          "orientation_rmse_rad": 0.0004987846119788324,
+          "velocity_rmse_m_s": 0.012201902989812682
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 1.0008794128654936,
+        "orientation_rmse_rad": 1.004846740322226,
+        "velocity_rmse_m_s": 0.9990975672289873
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 0.8906627737533838,
+        "orientation_rmse_rad": 1.030578589746117,
+        "velocity_rmse_m_s": 0.4143879709544663
+      },
+      "robustness_ratios": {
+        "orientation": 1.004846740322226,
+        "rate_tail": 0.9999938208712039,
+        "rotation_rate": 0.9902068106166775,
+        "velocity_tail": 1.0000926933114274
+      },
+      "latency": {
+        "frozen_predict": {
+          "count": 875,
+          "first_s": 0.000743999844416976,
+          "warm_max_s": 0.002269499935209751,
+          "warm_median_s": 0.000660645542666316,
+          "warm_p95_s": 0.0007733567850664255
+        },
+        "observe": {
+          "count": 875,
+          "first_s": 0.043529291870072484,
+          "warm_max_s": 0.1573933339677751,
+          "warm_median_s": 0.04326466645579785,
+          "warm_p95_s": 0.04466750854626298
+        },
+        "predict": {
+          "count": 875,
+          "first_s": 0.0008891250472515821,
+          "warm_max_s": 0.003671082900837064,
+          "warm_median_s": 0.0008159374119713902,
+          "warm_p95_s": 0.0009954877197742463
+        }
+      }
+    },
+    {
+      "id": "quad-arm-135",
+      "expected": 62,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 1.0897959622091566,
+          "orientation_rmse_rad": 0.00528299110877022,
+          "velocity_rmse_m_s": 1.1991860413855342
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 4.525367984737336,
+          "orientation_rmse_rad": 0.01966458484088863,
+          "velocity_rmse_m_s": 1.3364842312514198
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 1.120879084472137,
+          "orientation_rmse_rad": 0.004489489900028987,
+          "velocity_rmse_m_s": 1.1738888059918617
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 1.0763235378594698,
+          "orientation_rmse_rad": 0.005225876571102893,
+          "velocity_rmse_m_s": 1.1992855381959449
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 1.0125170767671587,
+        "orientation_rmse_rad": 1.01092917846226,
+        "velocity_rmse_m_s": 0.9999170365961718
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 0.972268978256813,
+        "orientation_rmse_rad": 1.176746406921666,
+        "velocity_rmse_m_s": 1.0215499417530418
+      },
+      "robustness_ratios": {
+        "orientation": 1.01092917846226,
+        "rate_tail": 1.0286561782725698,
+        "rotation_rate": 0.987894276595523,
+        "velocity_tail": 0.9998524074330514
+      },
+      "latency": {
+        "frozen_predict": {
+          "count": 62,
+          "first_s": 0.0009165420196950436,
+          "warm_max_s": 0.0007455421146005392,
+          "warm_median_s": 0.0006593328434973955,
+          "warm_p95_s": 0.0007307920604944229
+        },
+        "observe": {
+          "count": 62,
+          "first_s": 0.043207583017647266,
+          "warm_max_s": 0.044997874880209565,
+          "warm_median_s": 0.04309649998322129,
+          "warm_p95_s": 0.04391362518072128
+        },
+        "predict": {
+          "count": 62,
+          "first_s": 0.0009080420713871717,
+          "warm_max_s": 0.0011095411609858274,
+          "warm_median_s": 0.0008094171062111855,
+          "warm_p95_s": 0.0008968750480562449
+        }
+      }
+    },
+    {
+      "id": "quad-change",
+      "expected": 875,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.10739707013296401,
+          "orientation_rmse_rad": 0.0005012117349512973,
+          "velocity_rmse_m_s": 0.01219034287220016
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 0.6803340285962546,
+          "orientation_rmse_rad": 0.0031443546281355677,
+          "velocity_rmse_m_s": 0.03760615698506135
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.1205799069870141,
+          "orientation_rmse_rad": 0.00048633629351900936,
+          "velocity_rmse_m_s": 0.02941859906068214
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 0.10730292908207009,
+          "orientation_rmse_rad": 0.0004987952334413871,
+          "velocity_rmse_m_s": 0.012201312882339995
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 1.0008773390596069,
+        "orientation_rmse_rad": 1.0048446764281163,
+        "velocity_rmse_m_s": 0.9991009155944428
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 0.8906713632191654,
+        "orientation_rmse_rad": 1.0305867393211658,
+        "velocity_rmse_m_s": 0.4143753700526315
+      },
+      "robustness_ratios": {
+        "orientation": 1.0048446764281163,
+        "rate_tail": 0.9999938208712039,
+        "rotation_rate": 0.9902104560745132,
+        "velocity_tail": 1.0000926933114274
+      },
+      "latency": {
+        "frozen_predict": {
+          "count": 875,
+          "first_s": 0.0007365001365542412,
+          "warm_max_s": 0.0030076249968260527,
+          "warm_median_s": 0.0006592916324734688,
+          "warm_p95_s": 0.0007546667591668665
+        },
+        "observe": {
+          "count": 875,
+          "first_s": 0.04360879212617874,
+          "warm_max_s": 0.07334054098464549,
+          "warm_median_s": 0.043267896049655974,
+          "warm_p95_s": 0.04426224789349362
+        },
+        "predict": {
+          "count": 875,
+          "first_s": 0.001095582963898778,
+          "warm_max_s": 0.005748624913394451,
+          "warm_median_s": 0.0008187290513888001,
+          "warm_p95_s": 0.0010045148083008824
+        }
+      }
+    },
+    {
+      "id": "fixedwing-80",
+      "expected": 225,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 1.0616125506662701,
+          "orientation_rmse_rad": 0.027618161914601203,
+          "velocity_rmse_m_s": 0.2565092348152069
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 2.856183243399267,
+          "orientation_rmse_rad": 0.06837837890672713,
+          "velocity_rmse_m_s": 1.302684177243834
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.3761761016867941,
+          "orientation_rmse_rad": 0.009524647033371436,
+          "velocity_rmse_m_s": 0.16863034175627478
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 1.1301919732462908,
+          "orientation_rmse_rad": 0.02634565345406928,
+          "velocity_rmse_m_s": 0.2990665993598846
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 0.939320554203692,
+        "orientation_rmse_rad": 1.0483005085734693,
+        "velocity_rmse_m_s": 0.8576993731972525
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 2.8221158811150993,
+        "orientation_rmse_rad": 2.8996520099732463,
+        "velocity_rmse_m_s": 1.5211333390164472
+      },
+      "robustness_ratios": {
+        "orientation": 1.0483005085734693,
+        "rate_tail": 0.9449505851974973,
+        "rotation_rate": 0.7766110907801607,
+        "velocity_tail": 0.8703811738606554
+      },
+      "latency": {
+        "frozen_predict": {
+          "count": 225,
+          "first_s": 0.0008917090017348528,
+          "warm_max_s": 0.0008424581028521061,
+          "warm_median_s": 0.0006026255432516336,
+          "warm_p95_s": 0.0006741330842487514
+        },
+        "observe": {
+          "count": 225,
+          "first_s": 3.492062042001635,
+          "warm_max_s": 0.010906958021223545,
+          "warm_median_s": 0.008637312450446188,
+          "warm_p95_s": 0.009447925188578666
+        },
+        "predict": {
+          "count": 225,
+          "first_s": 0.28997508296743035,
+          "warm_max_s": 0.0011403749231249094,
+          "warm_median_s": 0.0007591668982058764,
+          "warm_p95_s": 0.0009587876615114509
+        }
+      }
+    },
+    {
+      "id": "fixedwing-81",
+      "expected": 225,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 3.5728856270871527,
+          "orientation_rmse_rad": 0.12409629932751774,
+          "velocity_rmse_m_s": 2.006967679433134
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 12.365551689155017,
+          "orientation_rmse_rad": 0.2879333853339188,
+          "velocity_rmse_m_s": 7.204759659359133
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.37919534694939155,
+          "orientation_rmse_rad": 0.009584423405099306,
+          "velocity_rmse_m_s": 0.17023272979733872
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 2.9052830716321174,
+          "orientation_rmse_rad": 0.10164180162921546,
+          "velocity_rmse_m_s": 2.890975876317351
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 1.229789159608462,
+        "orientation_rmse_rad": 1.2209179426021515,
+        "velocity_rmse_m_s": 0.6942180652125315
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 9.422282356128171,
+        "orientation_rmse_rad": 12.94770630244626,
+        "velocity_rmse_m_s": 11.78955234884866
+      },
+      "robustness_ratios": {
+        "orientation": 1.2209179426021515,
+        "rate_tail": 1.2401079730080702,
+        "rotation_rate": 1.3303869463987001,
+        "velocity_tail": 0.6827349236479482
+      },
+      "latency": {
+        "frozen_predict": {
+          "count": 225,
+          "first_s": 0.0008824169635772705,
+          "warm_max_s": 0.0015840420965105295,
+          "warm_median_s": 0.000594229088164866,
+          "warm_p95_s": 0.0006809266633354127
+        },
+        "observe": {
+          "count": 225,
+          "first_s": 0.008591874968260527,
+          "warm_max_s": 0.012560792034491897,
+          "warm_median_s": 0.008570520905777812,
+          "warm_p95_s": 0.009223414259031415
+        },
+        "predict": {
+          "count": 225,
+          "first_s": 0.0010788748040795326,
+          "warm_max_s": 0.001044000033289194,
+          "warm_median_s": 0.0007550420705229044,
+          "warm_p95_s": 0.0008983062463812529
+        }
+      }
+    }
+  ],
+  "families": {
+    "fixedwing": {
+      "aggregate": 0.910686445017326,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 1.0747865997290407,
+        "velocity_rmse_m_s": 0.7716413670838271
+      }
+    },
+    "quad": {
+      "aggregate": 0.9980734562892306,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 1.0037380008360455,
+        "velocity_rmse_m_s": 0.9924408793125347
+      }
+    }
+  },
+  "frozen_comparison": {
+    "aggregate_ratio": 0.2573174577412297,
+    "families": {
+      "fixedwing": {
+        "aggregate": 0.2770400682113714,
+        "metric_ratios": {
+          "body_rate_rmse_rad_s": 0.3277123415581576,
+          "velocity_rmse_m_s": 0.2342029568664891
+        }
+      },
+      "quad": {
+        "aggregate": 0.23899890902384563,
+        "metric_ratios": {
+          "body_rate_rmse_rad_s": 0.1631684911347135,
+          "velocity_rmse_m_s": 0.35007051984950455
+        }
+      }
+    }
+  },
+  "orientation_metric": "Rotation.from_matrix(R_true.T @ R_pred).magnitude; proper-rotation projection",
+  "primary_comparison": "candidate / saved online-fit-v4",
+  "real_time_target_passed": false,
+  "robustness": {
+    "aggregate_ratios": {
+      "orientation": 0.9841278530081682,
+      "rotation_rate": 0.8629459070122134,
+      "upper_decile": 0.9577128963239706
+    },
+    "families": {
+      "fixedwing": {
+        "orientation": 1.131321749174968,
+        "rate_tail": 1.0825159374355917,
+        "rotation_rate": 1.0164611441675386,
+        "upper_decile": 0.9134978959264254,
+        "velocity_tail": 0.7708693950860717
+      },
+      "quad": {
+        "orientation": 0.8560850454548091,
+        "rate_tail": 1.0119302428224386,
+        "rotation_rate": 0.7326159417918588,
+        "upper_decile": 1.0040679851320888,
+        "velocity_tail": 0.9962668137630819
+      }
+    }
+  },
+  "robustness_passed": true,
+  "timing": "synchronized calls; durable journal/checkpoint overhead excluded from per-call latency",
+  "remaining_gaps": [
+    "Fixedwing-81 rate RMSE rises 22.98% while velocity improves 30.58%; maximum rate error rises 17.194 to 33.763 rad/s.",
+    "The separate robustness flag passes only in aggregate: fixed-wing orientation and rotation/rate disagreement worsen, as do quad tail errors.",
+    "Quad update p95 rises to 43.91–45.83 ms against 10 ms sampling; fixed-wing p95 to 9.22–9.45 ms.",
+    "Numerical regularization alone does not resolve online identification accuracy. Known tapes and saved-final-model diagnostics do not qualify causal transient mechanisms or closed-loop recovery."
+  ],
+  "independent_audit": "artifacts/online-fit-v5/checks/independent-paired-audit.json",
+  "maintained_validation": {
+    "tests_passed": 169,
+    "full_suite_elapsed_s": 84.23,
+    "ruff": "passed",
+    "online_source_and_tests": "Restored byte-for-byte to adopted v4 source 2a9e19f; v5 no-fit verifier retained.",
+    "archived_v5_verified_after_restore": true
+  },
+  "snapshot_diagnosis": {
+    "artifact": "artifacts/online-fit-v5/diagnosis-v5.json",
+    "scope": "Read-only paired final-model snapshots, not the transient parameters that generated earlier causal errors.",
+    "quad115_row999": "Native/64x rate disagreement is 145 times smaller and rotation/rate defect 127 times smaller.",
+    "fixedwing81_row158": "Native/64x disagreement worsens despite a milder origin Jacobian; no causal spike reconstruction claimed."
+  }
+}

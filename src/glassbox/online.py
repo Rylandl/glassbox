@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import math
 from functools import partial
 
 import jax
@@ -13,13 +12,10 @@ from jax.flatten_util import ravel_pytree
 
 from ._dynamics import (
     GRAVITY,
-    MAX_SUBSTEP_S,
     VehicleSequenceModel,
-    _history,
     _rollout,
     current_features,
     initialize,
-    physical_step,
     quadratic_features,
     time_constants,
 )
@@ -28,7 +24,7 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v5"
+_FORMAT = "glassbox-online-fit-v4"
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
@@ -42,23 +38,10 @@ _RECIPE = dict(
     loss=dict(
         groups=[3, 3, 9],
         weighting="equal velocity, body-rate and chordal rotation groups",
-        blocks="half recursive forecast, half first-interval refinement defect",
-        time_weights="0.5/horizon for each forecast, 0.5 for the defect",
         penalty="Huber of normalized group L2 norm",
         scale="fixed bootstrap group hold-change RMS",
         floor="0.01 times max(raw group origin spread, 1e-4)",
         rotation_scale="sqrt(2) times chordal group scale",
-    ),
-    solver_consistency=dict(
-        origins="first observed origin of every retained window",
-        coarse="unchanged deployed first prediction",
-        refined_substeps="2 * ceil(dt_s / MAX_SUBSTEP_S)",
-        max_substep_s=MAX_SUBSTEP_S,
-        primitive="unchanged physical_step at dt_s/refined_substeps",
-        carry="state and filtered commands only",
-        context="original history and hidden memory fixed throughout interval",
-        scale="unchanged first-step bootstrap physical-group scale",
-        derivatives="both coarse and refined paths",
     ),
     initial_damping=1.0,
     damping_bounds=[1e-8, 1e8],
@@ -82,49 +65,8 @@ def _predict(params, norms, past, inputs, future, *, delay, dt_s):
     return _rollout(params, norms, past, inputs, future, delay, dt_s)
 
 
-def _refined_first(params, norms, past, past_inputs, first_input, delay, dt_s):
-    """Refine one interval without advancing observation-grid memory/history."""
-    applied, history, hidden = _history(params, norms, past, past_inputs, delay, dt_s)
-    count = 2 * math.ceil(dt_s / MAX_SUBSTEP_S)
-    duration = dt_s / count
-
-    def substep(_, carry):
-        state, applied = carry
-        result = physical_step(
-            params,
-            norms,
-            state,
-            first_input,
-            applied,
-            history,
-            hidden,
-            duration,
-        )
-        return result[:2]
-
-    state, _ = jax.lax.fori_loop(0, count, substep, (past[:, -1], applied))
-    return state
-
-
 def _residual(params, norms, data, scale, delay, dt_s):
-    """Forecast slices followed by one first-interval refinement-defect slice."""
-    prediction = _rollout(params, norms, *data[:3], delay, dt_s)
-    refined = _refined_first(
-        params, norms, data[0], data[1], data[2][:, 0], delay, dt_s
-    )
-    forecast = (prediction - data[3]) / scale
-    defect = (prediction[:, 0] - refined) / scale[0]
-    return jnp.concatenate((forecast, defect[:, None]), axis=1)
-
-
-def _time_weights(horizon, dtype=None):
-    """Give the complete forecast and the refinement defect equal loss weight."""
-    return jnp.concatenate(
-        (
-            jnp.full((horizon,), 0.5 / horizon, dtype=dtype),
-            jnp.asarray([0.5], dtype=dtype),
-        )
-    )
+    return (_rollout(params, norms, *data[:3], delay, dt_s) - data[3]) / scale
 
 
 def _group_squared(residual):
@@ -237,17 +179,16 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
 def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
     """Four matrix-free CG iterations; all parameters remain differentiable.
 
-    Forecast and first-interval refinement defect receive equal total weight.
-    Each physical group's normalized norm sets its Huber threshold; its IRLS
-    factor is broadcast over its coordinates and fixed throughout the proposal.
+    Each physical group's normalized norm sets its Huber threshold. Residual
+    weights include the role weight and 1/(horizon*3); each group's IRLS factor
+    is broadcast over its coordinates and stays fixed throughout the proposal.
     """
     flat, unpack = ravel_pytree(params)
     raw, push = jax.linearize(
         lambda value: _residual(unpack(value), norms, data, scale, delay, dt_s), flat
     )
     pull = jax.linear_transpose(push, jnp.zeros_like(flat))
-    time_weight = _time_weights(raw.shape[1] - 1, raw.dtype)
-    weight = weights[:, None, None] * time_weight[None, :, None] / 3
+    weight = weights[:, None, None] / (raw.shape[1] * 3)
     root_weight = jnp.sqrt(weight)
     factors = 1 / jnp.sqrt(jnp.maximum(1.0, _group_squared(raw)))
     irls = jnp.repeat(factors, np.array([3, 3, 9]), axis=-1, total_repeat_length=15)

@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v5.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v4.json"
 
 COUNTERS = (
     "observations",
@@ -755,7 +755,7 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v5",
+            p["id"] == "online-fit-v4",
             "unsupported candidate protocol for current learner",
         )
         require(

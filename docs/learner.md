@@ -169,12 +169,7 @@ body/input/state normalization and motion bounds stay fixed. The fixed loss
 scale is shared within each physical group: velocity, angular rate and rotation.
 Three equally weighted radial Huber terms prevent startup-axis variance from
 selecting which direction matters. Rotation uses chordal matrix distance, with
-small-angle radian units. Half the objective weight goes to those recursive
-forecast residuals; half goes to agreement between the first predicted transition
-and the same dynamics integrated with twice as many internal steps. Both paths
-are differentiated. Refined steps keep observation-grid history and hidden memory
-fixed, while carrying physical state and filtered commands. This adds fitting
-work without changing deployed prediction or the shared dynamics engine. Changed
+small-angle radian units. Changed
 scales are committed only with an accepted proposal. Rejected proposals retain
 the full previous model and increase damping.
 There is no controller, actuator-telemetry input, simulator coefficient access,
@@ -182,8 +177,8 @@ platform dispatch or user-selected learning budget.
 
 This procedure has no development split or calibrated error envelope. Training
 loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v5.json) measures predictions before
-assimilating their targets, against authenticated saved v4 online predictions,
+[online-fitting protocol](harness/online-fit-v4.json) measures predictions before
+assimilating their targets, against authenticated saved v2 online predictions,
 an identical session frozen after startup and a no-fit kinematic predictor.
 It separately measures update latency; a bounded proposal count alone does not
 establish real-time fitting. Initial evidence and remaining limits belong in

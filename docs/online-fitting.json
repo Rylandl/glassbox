@@ -442,5 +442,14 @@
     "quad": 0.9128868469380593,
     "fixedwing": 0.37225606142934226
   },
-  "next_gap": "Forecast spikes and rotation/rate consistency"
+  "next_gap": "Causal fixed-wing forecast failures",
+  "rejected_v5": {
+    "result": "online-fit-v5.json",
+    "source_commit": "5db9059",
+    "evaluation_manifest_sha256": "f4d05ec868cc3981bc33d9919e565d386f935c69b3b19c14a90a733205df0413",
+    "aggregate_vs_v4": 0.9533792360725059,
+    "accuracy_passed": false,
+    "robustness_passed": true,
+    "decision": "Retain v4; v5 provides modest average improvement with worse fixed-wing angular errors and greater fitting cost."
+  }
 }

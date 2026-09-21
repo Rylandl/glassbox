@@ -254,7 +254,7 @@ def test_collection_reuse_is_bound_to_original_manifest_and_protocol(tmp_path):
         evaluate.collection_contract(tmp_path, "sealed", {}, "v2")
 
 
-@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1), (3, 1), (4, 1)])
+@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1), (3, 1), (4, 1), (5, 1)])
 def test_generic_session_archive_verification_without_optimizer_loader(
     tmp_path, monkeypatch, version, proposals
 ):
@@ -303,8 +303,8 @@ def test_generic_session_archive_verification_without_optimizer_loader(
             evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
-def test_old_protocol_cannot_run_new_candidate(tmp_path, monkeypatch, version):
+@pytest.mark.parametrize("version", [1, 2, 3, 5])
+def test_other_protocol_cannot_run_maintained_candidate(tmp_path, monkeypatch, version):
     protocol = tmp_path / "protocol.json"
     protocol.write_text(json.dumps(dict(id=f"online-fit-v{version}")))
 
@@ -523,7 +523,8 @@ def test_v5_diagnostics_are_prospective_and_recompute_every_arm(tmp_path, monkey
         historical = dict(id=f"online-fit-v{version}")
         result = evaluate.summarize(data, info, reference, historical, stream)
         assert "diagnostics" not in result and "robustness_ratios" not in result
-    result = evaluate.summarize(data, info, reference, dict(id="online-fit-v5"), stream)
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v5.json")
+    result = evaluate.summarize(data, info, reference, protocol, stream)
     assert set(result["diagnostics"]) == {
         "candidate",
         "reference",
@@ -585,3 +586,10 @@ def test_v5_rejects_weaker_v2_reference_before_authentication(tmp_path, monkeypa
     monkeypatch.setattr(evaluate, "authenticate", forbidden)
     with pytest.raises(ValueError, match="reference protocol contract"):
         evaluate.reference_contract(tmp_path, protocol)
+
+
+def test_maintained_runner_uses_working_v4_against_its_v2_reference():
+    protocol = evaluate.read(evaluate.PROTOCOL)
+    assert protocol["id"] == "online-fit-v4"
+    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v2"
+    assert evaluate.run.__defaults__[0] == evaluate.PROTOCOL

@@ -228,22 +228,7 @@ def retained_loss(model, session):
                 )
             )
             residual = (prediction - windows["future_states"]) / session._scale
-            refined = np.asarray(
-                online._refined_first(
-                    model.params,
-                    model.norms,
-                    windows["past_states"],
-                    windows["past_inputs"],
-                    windows["future_inputs"][:, 0],
-                    model.delay_steps,
-                    model.dt_s,
-                )
-            )
-            defect = (prediction[:, 0] - refined) / session._scale[0]
-            values.append(
-                0.5 * numpy_group_huber(residual).mean()
-                + 0.5 * numpy_group_huber(defect).mean()
-            )
+            values.append(numpy_group_huber(residual).mean())
     return float(np.mean(values))
 
 
@@ -506,49 +491,37 @@ def numpy_group_huber(residual):
     return np.where(magnitudes <= 1, 0.5 * magnitudes**2, magnitudes - 0.5)
 
 
-@pytest.mark.parametrize("horizon", [1, 5])
 def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
-    monkeypatch, horizon
+    monkeypatch,
 ):
-    """Independent dense solve includes both forecast and refinement Jacobians."""
-    matrix = np.random.default_rng(581).normal(0, 0.3, (horizon + 1, 15, 2))
+    """Compare every group-IRLS proposal to a dense two-parameter solve."""
+    matrix = np.random.default_rng(581).normal(0, 0.3, (15, 2))
     start = np.array([0.1, -0.05])
     weights = np.zeros(64)
     weights[:5] = 0.1
     weights[32] = 0.5
     history = np.zeros((64, 2, 15))
     inputs = np.zeros((64, 1, 3))
-    future = np.zeros((64, horizon, 3))
-    scale = np.ones((horizon, 15))
-    time_weights = np.r_[np.full(horizon, 0.5 / horizon), 0.5]
+    scale = np.ones((1, 15))
 
     def linear_rollout(params, norms, past, past_inputs, future, delay, dt_s):
         return jnp.broadcast_to(
-            jnp.asarray(matrix[:-1]) @ params["coefficients"], (64, horizon, 15)
+            jnp.asarray(matrix) @ params["coefficients"], (64, 1, 15)
         )
 
-    def linear_refined(params, norms, past, past_inputs, command, delay, dt_s):
-        # The independent refined path has a different parameter Jacobian.
-        # Stopping derivatives through either path changes the dense answer.
-        value = jnp.asarray(matrix[0]) @ params["coefficients"]
-        value -= jnp.asarray(matrix[-1]) @ (params["coefficients"] - target)
-        return jnp.broadcast_to(value, (64, 15))
-
     monkeypatch.setattr(online, "_rollout", linear_rollout)
-    monkeypatch.setattr(online, "_refined_first", linear_refined)
     solve = online._proposal.__wrapped__
     with jax.enable_x64(True):
-        np.testing.assert_array_equal(online._time_weights(horizon), time_weights)
         for target, damping in (
             (np.array([0.3, 0.2]), 0.7),
             (start.copy(), 0.7),
             (np.array([30.0, 20.0]), 1e-8),
         ):
-            truth = np.broadcast_to(matrix[:-1] @ target, (64, horizon, 15))
+            truth = np.broadcast_to(matrix @ target, (64, 1, 15))
             proposal, current, trial, predicted, finite = solve(
                 {"coefficients": jnp.asarray(start)},
                 {},
-                tuple(jnp.asarray(v) for v in (history, inputs, future, truth)),
+                tuple(jnp.asarray(v) for v in (history, inputs, inputs, truth)),
                 jnp.asarray(scale),
                 jnp.asarray(weights),
                 jnp.asarray(damping),
@@ -560,22 +533,18 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
             residual = matrix @ (start - target)
             irls = np.concatenate(
                 [
-                    np.repeat(
-                        1 / np.maximum(1, np.linalg.norm(residual[:, part], axis=1)),
+                    np.full(
                         part.stop - part.start,
-                    ).reshape(horizon + 1, part.stop - part.start)
+                        1 / max(1, np.linalg.norm(residual[part])),
+                    )
                     for part in (slice(0, 3), slice(3, 6), slice(6, 15))
-                ],
-                axis=1,
+                ]
             )
-            base_weight = np.broadcast_to(time_weights[:, None] / 3, residual.shape)
-            jacobian = matrix.reshape(-1, 2)
-            weighted = (base_weight * irls).ravel()
-            curvature = jacobian.T @ (weighted[:, None] * jacobian)
-            gradient = jacobian.T @ (weighted * residual.ravel())
+            curvature = matrix.T @ (irls[:, None] * matrix) / 3
+            gradient = matrix.T @ (irls * residual) / 3
             expected = np.linalg.solve(curvature + damping * np.eye(2), -gradient)
-            radius = max(1.0, 0.5 * np.sqrt(np.sum(base_weight * residual**2)))
-            step_size = np.sqrt(np.sum(base_weight * (matrix @ expected) ** 2))
+            radius = max(1.0, 0.5 * np.linalg.norm(residual) / np.sqrt(3))
+            step_size = np.linalg.norm(matrix @ expected) / np.sqrt(3)
             if step_size > radius:
                 expected *= radius / step_size
             np.testing.assert_allclose(delta, expected, atol=1e-12, rtol=1e-10)
@@ -584,19 +553,12 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
                 expected_reduction, abs=1e-12, rel=1e-10
             )
             assert float(current) == pytest.approx(
-                np.sum(time_weights[:, None] * numpy_group_huber(residual)) / 3,
-                abs=1e-12,
+                numpy_group_huber(residual).mean(), abs=1e-12
             )
             assert float(trial) == pytest.approx(
-                np.sum(
-                    time_weights[:, None] * numpy_group_huber(residual + matrix @ delta)
-                )
-                / 3,
-                abs=1e-12,
+                numpy_group_huber(residual + matrix @ delta).mean(), abs=1e-12
             )
-            assert np.sqrt(np.sum(base_weight * (matrix @ delta) ** 2)) <= radius * (
-                1 + 1e-10
-            )
+            assert np.linalg.norm(matrix @ delta) / np.sqrt(3) <= radius * (1 + 1e-10)
             if np.array_equal(target, start):
                 np.testing.assert_array_equal(delta, np.zeros(2))
                 assert current == trial == predicted == 0
@@ -934,202 +896,3 @@ def test_invalid_conditioning_retains_original_full_model_and_consumes_once(
     assert session.report["accepted_proposals"] == 0
     assert session.report["damping"] == 4
     assert session.cursor == 73 + 16
-
-
-@pytest.mark.parametrize("dt,substeps", [(0.01, 2), (0.05, 4)])
-def test_refinement_uses_true_grid_and_freezes_history_and_memory(
-    monkeypatch, dt, substeps
-):
-    """A step primitive makes the time grid and discarded memory observable."""
-    batch, channels = 2, 3
-    initial = np.zeros((batch, 15))
-    applied = np.full((batch, channels), 0.4)
-    history = np.full((batch, 2, 9 + 2 * channels), 0.7)
-    hidden = np.full((batch, 8), -0.2)
-    past = np.stack((initial, initial), axis=1)
-    inputs = np.zeros((batch, 1, channels))
-    commands = np.ones((batch, channels))
-    durations = []
-
-    def reconstructed(params, norms, past, past_inputs, delay, dt_s):
-        assert dt_s == dt
-        return tuple(jnp.asarray(v) for v in (applied, history, hidden))
-
-    def primitive(params, norms, state, command, filtered, previous, memory, dt_s):
-        durations.append(dt_s)
-        # Wrong memory/history propagation produces a large, detectable change.
-        result = state.at[:, 0].add(
-            dt_s * (previous[:, 0, 0] + memory[:, 0] + filtered[:, 0])
-        )
-        result = result.at[:, 1].add(dt_s**2)
-        return result, filtered + dt_s, previous + 100, memory + 100
-
-    monkeypatch.setattr(online, "_history", reconstructed)
-    monkeypatch.setattr(online, "physical_step", primitive)
-    with jax.enable_x64(True), jax.disable_jit():
-        result = online._refined_first(
-            {}, {}, jnp.asarray(past), inputs, commands, 1, dt
-        )
-    duration = dt / substeps
-    assert durations == [duration] * substeps
-    expected = initial.copy()
-    expected[:, 0] = dt * (0.7 - 0.2 + 0.4) + duration**2 * sum(range(substeps))
-    expected[:, 1] = dt**2 / substeps
-    np.testing.assert_allclose(result, expected, rtol=2e-15, atol=1e-16)
-
-
-def angular_fixture(dt, *, rate=0.9, equilibrium=0.4, stiffness=0.0):
-    """A broad-support linear angular ODE about one fixed axis."""
-    from scipy.spatial.transform import Rotation
-
-    template, _, _ = conditioning_fixture()
-    params = {name: np.zeros_like(value) for name, value in template.params.items()}
-    params["raw_tau"][:] = -3.0
-    params["linear"][5, 5] = -stiffness
-    params["bias"][5] = stiffness * equilibrium
-    params["bias"][2] = 9.80665  # Constant altitude under rotation about world up.
-    norms = {name: value.copy() for name, value in template.norms.items()}
-    norms["motion_bound_scale"][:] = 1e6
-    model = replace(template, dt_s=dt, params=params, norms=norms)
-    past = np.zeros((1, 11, 15))
-    past[:, :, :3] = [0.3, -0.2, 0.1]
-    past[:, :, 5] = rate
-    past[:, :, 6:] = Rotation.from_euler("z", 0.2).as_matrix().ravel()
-    inputs = np.zeros((1, 10, 3))
-    future = np.zeros((1, 1, 3))
-    return model, past, inputs, future
-
-
-@pytest.mark.parametrize("dt,native_steps", [(0.01, 1), (0.05, 2)])
-def test_refinement_detects_midpoint_angular_alias_with_accurate_endpoint(
-    dt, native_steps
-):
-    """At h*lambda=-2, native endpoints hide a physically spurious fast mode."""
-    from scipy.spatial.transform import Rotation
-
-    rate, equilibrium = 0.9, 0.4
-    stiffness = 2 * native_steps / dt
-    model, past, inputs, future = angular_fixture(dt, stiffness=stiffness)
-    with jax.enable_x64(True):
-        coarse = np.asarray(model.rollout(past, inputs, future))[:, 0]
-        refined = np.asarray(
-            online._refined_first(
-                model.params,
-                model.norms,
-                past,
-                inputs,
-                future[:, 0],
-                model.delay_steps,
-                dt,
-            )
-        )
-    # Closed-form explicit-midpoint amplification factors are 1 and 1/2.
-    np.testing.assert_allclose(coarse[:, 5], rate, rtol=2e-13, atol=1e-14)
-    np.testing.assert_allclose(
-        refined[:, 5],
-        equilibrium + (rate - equilibrium) * 0.5 ** (2 * native_steps),
-        rtol=2e-13,
-        atol=1e-14,
-    )
-    coarse_angle = Rotation.from_matrix(
-        past[0, -1, 6:].reshape(3, 3).T @ coarse[0, 6:].reshape(3, 3)
-    ).as_rotvec()[2]
-    refined_angle = Rotation.from_matrix(
-        past[0, -1, 6:].reshape(3, 3).T @ refined[0, 6:].reshape(3, 3)
-    ).as_rotvec()[2]
-    expected_refined_angle = (
-        dt * equilibrium
-        + (rate - equilibrium) * (1 - 0.5 ** (2 * native_steps)) / stiffness
-    )
-    assert coarse_angle == pytest.approx(dt * equilibrium, abs=2e-15)
-    assert refined_angle == pytest.approx(expected_refined_angle, abs=2e-15)
-    assert np.linalg.norm(coarse[:, 3:6] - refined[:, 3:6]) > 0.3
-
-
-@pytest.mark.parametrize("dt", [0.01, 0.05])
-def test_constant_motion_has_zero_refinement_defect(dt):
-    from scipy.spatial.transform import Rotation
-
-    model, past, inputs, future = angular_fixture(dt, rate=0.3)
-    expected = past[:, -1].copy()
-    expected[:, 6:] = Rotation.from_euler("z", 0.2 + dt * 0.3).as_matrix().ravel()
-    with jax.enable_x64(True):
-        prediction = np.asarray(model.rollout(past, inputs, future))
-        residual = np.asarray(
-            online._residual(
-                model.params,
-                model.norms,
-                (past, inputs, future, expected[:, None]),
-                np.ones((1, 15)),
-                model.delay_steps,
-                dt,
-            )
-        )
-    np.testing.assert_allclose(prediction[:, 0], expected, rtol=2e-14, atol=2e-15)
-    assert residual.shape == (1, 2, 15)
-    np.testing.assert_allclose(residual, 0, rtol=0, atol=2e-15)
-
-
-def test_refinement_and_coarse_derivatives_match_independent_finite_differences():
-    model, _, windows = conditioning_fixture()
-    with jax.enable_x64(True):
-        past, inputs, future = (
-            jnp.asarray(windows[name][:1]) for name in online._FIELDS[:3]
-        )
-
-        def components(perturbation):
-            params = {name: jnp.asarray(value) for name, value in model.params.items()}
-            params["bias"] = params["bias"].at[5].add(perturbation)
-            coarse = online._rollout(
-                params, model.norms, past, inputs, future, model.delay_steps, model.dt_s
-            )[:, 0]
-            refined = online._refined_first(
-                params,
-                model.norms,
-                past,
-                inputs,
-                future[:, 0],
-                model.delay_steps,
-                model.dt_s,
-            )
-            probe = jnp.arange(1, 16, dtype=jnp.float64)
-            return jnp.stack(
-                (
-                    jnp.sum(probe * coarse),
-                    jnp.sum(probe * refined),
-                    jnp.sum(probe * (coarse - refined)),
-                )
-            )
-
-        gradient = np.asarray(jax.jacfwd(components)(jnp.asarray(0.0)))
-        epsilon = 1e-5
-        difference = np.asarray(
-            (components(epsilon) - components(-epsilon)) / (2 * epsilon)
-        )
-    assert np.isfinite(gradient).all()
-    assert np.min(np.abs(gradient[:2])) > 1e-3
-    assert abs(gradient[2]) > 1e-8
-    np.testing.assert_allclose(gradient, difference, rtol=2e-6, atol=2e-9)
-    assert gradient[2] == pytest.approx(gradient[0] - gradient[1], abs=1e-14)
-
-
-def test_nonfinite_refinement_rejects_combined_proposal_without_losing_observation(
-    monkeypatch,
-):
-    states, issued = stream()
-    session = OnlineFit(prefix(states, issued))
-    initial = session.model.fingerprint
-    actual_proposal = online._proposal.__wrapped__
-
-    def nonfinite(params, norms, past, past_inputs, command, delay, dt_s):
-        return jnp.full_like(past[:, -1], jnp.nan)
-
-    # Bypass a cached trace so this fault reaches the actual IRLS/CG safeguards.
-    monkeypatch.setattr(online, "_refined_first", nonfinite)
-    monkeypatch.setattr(online, "_proposal", actual_proposal)
-    session.observe(session.cursor, issued[15], states[16])
-    assert session.model.fingerprint == initial
-    assert session.cursor == 73 + 16
-    assert session.report["accepted_proposals"] == 0
-    assert session.report["optimizer_steps"] == 1
-    assert session.report["damping"] == 4.0
