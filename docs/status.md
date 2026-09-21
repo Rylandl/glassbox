@@ -26,7 +26,7 @@ passed acceptance verdict or arbitrary-system readiness.
 | Evidence | Candidate envelopes use development data also used for checkpoint selection and stop at 250 ms. New held-out coverage and physical derivative fidelity remain unqualified. | Measured coverage within a predeclared band with explicit provenance. |
 | Lean | Not met: legacy structured comparators and research harnesses remain. | Learner, artifacts/interfaces, telemetry adapters, harness and optional consumers. |
 
-## Current evidence
+## Shared-v1 evidence
 
 The frozen [shared-vehicle protocol](harness/shared-vehicle-physics-v1.json) changes
 one named mechanism: **vehicle mechanics and recursive planning horizon**. Four
@@ -65,23 +65,40 @@ All four fits, physical evidence audits, Dart forecasts and required replays are
 complete. The [result record](harness/shared-vehicle-physics-v1-result.json) anchors
 the evidence. This iteration is finished; the model remains a research candidate.
 
+## Latest iteration
+
+The [task-horizon supervision experiment](task-horizon-supervision.md) added a
+1.2 s recursive training stage from the three saved shared-v1 fits. It is closed
+as **intentionally aborted before fresh confirmation**, with no full acceptance
+verdict or promotion. Cascade accepted 984/1,000 updates and reduced known-cohort
+forecast/response errors 10.92%/20.42%, while wind forecast worsened 8.16%. Dart
+accepted 0/1,000 updates and reproduced its 0.81 s contact failure. Crazyflow was
+stopped after 650 completed rejections; its 651st proposal and interrupted trial
+are preserved. No initialization or prior fit was repeated. Completed replays
+and the aborted-prefix audit preserve partial evidence; they do not qualify the
+unfinished protocol. The [result record](harness/task-horizon-supervision-v1-result.json)
+anchors the evidence. Public v4 and the previous shared candidate retain their
+existing status; the refinement implementation remains outside the main branch.
+
 ## Next named gap
 
-**Dart task-horizon command-response fidelity.** The shared model is fitted over
-250 ms but the planner requires 1.2 s. In the saved initial plan, 33/120 command
-rows leave at least one observed training channel range; channel differences
-reach 0.313 versus training maxima of 0.098–0.126. Its predicted angular rates
-leave the training ranges after 0.58 s while orientation remains valid. The
-learned acceleration field must stay accurate and numerically well conditioned
-over the task's horizon and commands. These observations do not isolate the
-precise nonfinite trigger: failed optimizer proposals were not saved.
+**Dart task-horizon command-response fidelity.** The immediate bounded step is
+**diagnose and resolve rejected optimizer steps**. The long-horizon refinement
+found no acceptable step for Dart or Crazyflow within its eight fixed scales;
+repeating essentially identical rejected proposals did not improve either model.
+Validate a bounded step search and explicit stagnation/failure handling before
+another long fit, keeping the architecture, objective and recordings fixed.
+Smaller or adaptive steps are untested; optimization progress must subsequently
+be evaluated on fresh physical response evidence. No successor is frozen yet.
 
-The next iteration should freeze one targeted remedy and direct long-horizon
-command-response evidence. Retain Cascade crosswind and calm response-tail
-failures as regression obligations: the calm training/development collection
-does not cover the crosswind body velocities, and errors appear already at
-50 ms. Neither a remedy nor a sufficient training collection has been established.
-No next experiment has been frozen or run.
+The saved Dart trial also identifies finite, bounded command proposals whose
+objective and gradient become NaN. The first failed moved proposal puts every
+expanded command at a bound and all 120 command rows outside training marginals;
+the seed already exceeds them in 33 rows. Internal failed-rollout states were
+not captured, so the exact NaN cause remains unidentified. Successful training,
+physical command-response accuracy and downstream contact success remain
+separate requirements. Retain Cascade crosswind and calm response-tail failures
+as regression obligations; longer-horizon training has not resolved those gaps.
 
 ## Preserved boundaries
 
