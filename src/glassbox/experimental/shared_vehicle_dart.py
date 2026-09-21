@@ -10,9 +10,12 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import math
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 from pathlib import Path
@@ -23,10 +26,12 @@ FORMAT = "glassbox-shared-vehicle-dart-stage-v1"
 ARMS = ("shared_vehicle", "v4_research_extrapolation", "structured_causal_history")
 STAGES = ("fit-v4", "fit-shared", "forecast", "control", "replay")
 CORRECTION_MANIFEST = "docs/harness/shared-vehicle-dart-runtime-correction-v1.json"
+RESUME_MANIFEST = "docs/harness/shared-vehicle-dart-resume-correction-v1.json"
 CORRECTION_FILES = {
     "src/glassbox/experimental/shared_vehicle_dart.py",
     "tests/test_shared_vehicle_dart.py",
     CORRECTION_MANIFEST,
+    RESUME_MANIFEST,
 }
 TRAIN = tuple(f"train-{i:02d}" for i in range(8))
 DEVELOPMENT = ("calibration-08", "calibration-09")
@@ -49,11 +54,34 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def diagnostic_json(value):
+    """Preserve finite values and explicitly represent nonfinite diagnostics."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: diagnostic_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [diagnostic_json(item) for item in value]
+    return value
+
+
 def write(path, value):
+    """Validate strict JSON before atomically publishing an exclusive file."""
     path = Path(path)
-    with path.open("x") as handle:
-        json.dump(value, handle, indent=2, sort_keys=True, allow_nan=False)
-        handle.write("\n")
+    text = json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=path.parent, prefix=".json-", delete=False
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def inventory(directory):
@@ -193,6 +221,225 @@ def verify_fit_stage(entry, stage, context):
         "inherited fit request provenance differs",
     )
     return run
+
+
+def verify_control_prefix(context, inputs):
+    """Accept only the pinned failed logger prefix, never additional trial work."""
+    import numpy as np
+
+    _, current = authenticate(context)
+    path = common().ROOT / RESUME_MANIFEST
+    require(
+        current["current"]["files"].get(RESUME_MANIFEST) == common().digest(path),
+        "resumption manifest is not source-bound",
+    )
+    manifest = common().read(path)
+    require(
+        manifest["format"] == "glassbox-shared-vehicle-dart-resume-correction-v1"
+        and manifest["protocol_sha256"] == context["protocol_sha256"],
+        "resumption manifest identity differs",
+    )
+    previous = common().read(common().anchor(manifest["predecessor_binding"]))
+    for key in (
+        "format",
+        "protocol_sha256",
+        "runtime",
+        "simulator_sources",
+        "dart_source_sha256",
+        "dart_root",
+        "baseline",
+        "oracle",
+        "prior_binding",
+        "interpreter",
+        "oracle_root",
+    ):
+        require(previous[key] == current[key], "resumption environment differs: " + key)
+    source = previous["current"]
+    require(
+        source["commit"]
+        == previous["implementation_commit"]
+        == manifest["predecessor_commit"],
+        "resumption source commit differs",
+    )
+    require(
+        common()._source_identity(source["root"], source["commit"], source["files"])
+        == source,
+        "resumption source differs",
+    )
+    before, after = source["files"], current["current"]["files"]
+    require(
+        {
+            name
+            for name in before.keys() | after.keys()
+            if before.get(name) != after.get(name)
+        }
+        <= CORRECTION_FILES,
+        "resumption changes numerical source",
+    )
+    entry = manifest["control_prefix"]
+    root = Path(entry["path"])
+    run = verify_stage(
+        root,
+        entry["sha256"],
+        stage="control",
+        binding_sha256=manifest["predecessor_binding"]["sha256"],
+    )
+    require(
+        run["status"] == "failed"
+        and run["implementation_commit"] == manifest["predecessor_commit"]
+        and run["protocol_sha256"] == context["protocol_sha256"]
+        and run["files"] == manifest["prefix_files"],
+        "resumption prefix provenance differs",
+    )
+    saved = common().read(root / "request.json")
+    require(
+        saved["inputs"] == inputs
+        and saved["binding_path"] == manifest["predecessor_binding"]["path"]
+        and saved["binding_sha256"] == manifest["predecessor_binding"]["sha256"]
+        and saved["protocol_sha256"] == context["protocol_sha256"]
+        and saved["protocol_path"] == previous["inputs"]["protocol"]["path"],
+        "resumption request differs",
+    )
+    expected = {
+        "command.json",
+        "error.txt",
+        "exit.json",
+        "outcome.json",
+        "prelude.npz",
+        "request.json",
+        "worker.log",
+        *(
+            "shared_vehicle/" + name
+            for name in (
+                "error.txt",
+                "result.json",
+                "solve-0000-gradients.jsonl",
+                "solve-0000-inputs.npz",
+                "solve-0000-outputs.npz",
+                "solve-0000.json",
+                "trajectory.npz",
+            )
+        ),
+    }
+    require(
+        set(run["files"]) == expected,
+        "prefix contains additional or missing trial work",
+    )
+    require(
+        {p.name for p in root.iterdir() if p.is_dir()} == {"shared_vehicle"},
+        "prefix contains another arm directory",
+    )
+    outcome = common().read(root / "outcome.json")
+    require(
+        outcome["status"] == "failed"
+        and outcome["error"]
+        == {
+            "type": "ValueError",
+            "message": "Out of range float values are not JSON compliant: nan",
+        },
+        "prefix was not the pinned diagnostic serialization failure",
+    )
+    pre = _arrays(root / "prelude.npz")
+    trajectory = _arrays(root / "shared_vehicle/trajectory.npz")
+    require(
+        set(pre) == {"states", "commands"}
+        and pre["states"].shape == (51, 17)
+        and pre["commands"].shape == (50, 4)
+        and all(np.isfinite(v).all() for v in pre.values()),
+        "prefix prelude differs",
+    )
+    require(
+        set(trajectory) == {"states", "commands", "time_s"}
+        and trajectory["commands"].shape == (0, 4)
+        and np.array_equal(trajectory["states"], pre["states"][-1:])
+        and np.array_equal(trajectory["time_s"], [0.0]),
+        "prefix already executed commands",
+    )
+    selected = _arrays(root / "shared_vehicle/solve-0000-outputs.npz")
+    require(
+        set(selected) == {"commands", "states"}
+        and selected["commands"].shape == (120, 4)
+        and selected["states"].shape == (121, 13)
+        and all(np.isfinite(v).all() for v in selected.values())
+        and np.array_equal(selected["states"][0], pre["states"][-1, :13]),
+        "prefix selected output differs",
+    )
+    gradients = [
+        json.loads(line)
+        for line in (root / "shared_vehicle/solve-0000-gradients.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    require(
+        [g["call"] for g in gradients] == [1, 2, 3]
+        and [g["finite"] for g in gradients] == [True, True, False]
+        and gradients[-1]["objective"] == "nan"
+        and gradients[-1]["gradient_norm"] is None,
+        "prefix gradient work differs",
+    )
+    partial = (root / "shared_vehicle/solve-0000.json").read_text()
+    require(
+        partial.rstrip().endswith('"objective":'),
+        "prefix diagnostic truncation differs",
+    )
+    diagnostic = json.loads(partial + '"nan"}')
+    require(
+        set(diagnostic)
+        == {
+            "actual_gradient_calls",
+            "backend",
+            "converged",
+            "first_evaluation_s",
+            "initial_objective",
+            "iterations",
+            "message",
+            "objective",
+        }
+        and diagnostic["actual_gradient_calls"] == 3
+        and diagnostic["converged"] is False
+        and diagnostic["iterations"] == 0
+        and diagnostic["initial_objective"] == gradients[0]["objective"],
+        "prefix recoverable diagnostic differs",
+    )
+    diagnostic.update(
+        solve_s=None,
+        unavailable_diagnostic_fields=["solve_s"],
+        imported_gradient_calls=3,
+        new_gradient_calls=0,
+        inherited_selected_solve=True,
+    )
+    return {
+        "manifest": manifest,
+        "root": root,
+        "prelude": pre,
+        "selected": selected,
+        "diagnostic": diagnostic,
+    }
+
+
+def import_control_prefix(output, context, inputs):
+    prefix = verify_control_prefix(context, inputs)
+    shutil.copytree(prefix["root"], output / "inherited-prefix")
+    verify_stage(
+        output / "inherited-prefix",
+        prefix["manifest"]["control_prefix"]["sha256"],
+        stage="control",
+        binding_sha256=prefix["manifest"]["predecessor_binding"]["sha256"],
+    )
+    shutil.copyfile(prefix["root"] / "prelude.npz", output / "prelude.npz")
+    write(
+        output / "resumption.json",
+        {
+            "source": prefix["manifest"]["control_prefix"],
+            "imported_optimizer_solves": 1,
+            "imported_gradient_calls": 3,
+            "imported_prelude_intervals": 50,
+            "new_prelude_intervals": 0,
+            "repeated_optimizer_solves": 0,
+            "recovered_diagnostic": prefix["diagnostic"],
+        },
+    )
+    return prefix
 
 
 def dart_modules(protocol, binding):
@@ -672,8 +919,11 @@ def control_worker(output, protocol, binding, request):
     mission, planning, plants = dart_modules(protocol, binding)
     target = target_from_protocol(protocol, mission)
     plant = plants.CrazyflowPlant()
-    prefix_states, prefix_commands = prelude(plant, protocol)
-    _save(output / "prelude.npz", states=prefix_states, commands=prefix_commands)
+    prefix = import_control_prefix(output, request, request["inputs"])
+    prefix_states, prefix_commands = (
+        prefix["prelude"]["states"],
+        prefix["prelude"]["commands"],
+    )
     tape = _arrays(
         protocol["dart"]["files"]["artifacts/demo/learned_prediction.npz"]["path"]
     )["commands"]
@@ -722,13 +972,14 @@ def control_worker(output, protocol, binding, request):
         )
         plan = np.array(tape)
         diagnostics = []
+        new_optimizer_attempts = 0
+        new_gradient_calls = 0
         status = "complete"
         error = None
         try:
             for step in range(0, HORIZON, REPLAN):
                 initial = live_initial(arm, model, full_states, issued)
-                _save(
-                    directory / f"solve-{step:04d}-inputs.npz",
+                input_arrays = {
                     **(
                         {
                             "state": np.asarray(initial[0]),
@@ -741,54 +992,82 @@ def control_worker(output, protocol, binding, request):
                             "past_inputs": np.asarray(initial[2]),
                         }
                     ),
-                    seed=plan,
-                    active_steps=np.asarray(HORIZON - step),
-                )
-                actual_kernel = planner.value_gradient
-                calls = 0
-                with (directory / f"solve-{step:04d}-gradients.jsonl").open(
-                    "x"
-                ) as gradient_log:
+                    "seed": plan,
+                    "active_steps": np.asarray(HORIZON - step),
+                }
+                if arm == "shared_vehicle" and step == 0:
+                    old_directory = prefix["root"] / "shared_vehicle"
+                    _same_arrays(
+                        input_arrays,
+                        _arrays(old_directory / "solve-0000-inputs.npz"),
+                        "inherited causal optimizer inputs",
+                    )
+                    for name in (
+                        "solve-0000-inputs.npz",
+                        "solve-0000-outputs.npz",
+                        "solve-0000-gradients.jsonl",
+                    ):
+                        shutil.copyfile(old_directory / name, directory / name)
+                    plan = np.array(prefix["selected"]["commands"])
+                    predicted = np.array(prefix["selected"]["states"])
+                    diagnostic = dict(prefix["diagnostic"])
+                else:
+                    _save(directory / f"solve-{step:04d}-inputs.npz", **input_arrays)
+                    actual_kernel = planner.value_gradient
+                    calls = 0
+                    with (directory / f"solve-{step:04d}-gradients.jsonl").open(
+                        "x"
+                    ) as gradient_log:
 
-                    def witnessed_gradient(*args, _kernel=actual_kernel):
-                        nonlocal calls
-                        value, gradient = _kernel(*args)
-                        calls += 1
-                        scalar, array = float(value), np.asarray(gradient)
-                        finite = bool(np.isfinite(scalar) and np.isfinite(array).all())
-                        gradient_log.write(
-                            json.dumps(
-                                {
-                                    "call": calls,
-                                    "finite": finite,
-                                    "objective": scalar
-                                    if np.isfinite(scalar)
-                                    else str(scalar),
-                                    "gradient_norm": float(np.linalg.norm(array))
-                                    if finite
-                                    else None,
-                                },
-                                allow_nan=False,
+                        def witnessed_gradient(*args, _kernel=actual_kernel):
+                            nonlocal calls, new_gradient_calls
+                            value, gradient = _kernel(*args)
+                            calls += 1
+                            new_gradient_calls += 1
+                            scalar, array = float(value), np.asarray(gradient)
+                            finite = bool(
+                                np.isfinite(scalar) and np.isfinite(array).all()
                             )
-                            + "\n"
-                        )
-                        gradient_log.flush()
-                        return value, gradient
+                            gradient_log.write(
+                                json.dumps(
+                                    diagnostic_json(
+                                        {
+                                            "call": calls,
+                                            "finite": finite,
+                                            "objective": scalar
+                                            if np.isfinite(scalar)
+                                            else str(scalar),
+                                            "gradient_norm": float(
+                                                np.linalg.norm(array.astype(np.float64))
+                                            )
+                                            if finite
+                                            else None,
+                                        }
+                                    ),
+                                    allow_nan=False,
+                                )
+                                + "\n"
+                            )
+                            gradient_log.flush()
+                            return value, gradient
 
-                    planner.value_gradient = witnessed_gradient
-                    try:
-                        plan, predicted, diagnostic = planner.solve(
-                            initial, plan, maxiter=100, active_steps=HORIZON - step
-                        )
-                    finally:
-                        planner.value_gradient = actual_kernel
-                diagnostic["actual_gradient_calls"] = calls
-                _save(
-                    directory / f"solve-{step:04d}-outputs.npz",
-                    commands=plan,
-                    states=predicted,
-                )
-                diagnostics.append({"step": step, **diagnostic})
+                        planner.value_gradient = witnessed_gradient
+                        try:
+                            new_optimizer_attempts += 1
+                            plan, predicted, diagnostic = planner.solve(
+                                initial, plan, maxiter=100, active_steps=HORIZON - step
+                            )
+                        finally:
+                            planner.value_gradient = actual_kernel
+                    diagnostic["actual_gradient_calls"] = calls
+                    diagnostic["imported_gradient_calls"] = 0
+                    diagnostic["new_gradient_calls"] = calls
+                    _save(
+                        directory / f"solve-{step:04d}-outputs.npz",
+                        commands=plan,
+                        states=predicted,
+                    )
+                diagnostics.append(diagnostic_json({"step": step, **diagnostic}))
                 write(directory / f"solve-{step:04d}.json", diagnostics[-1])
                 for command in plan[: min(REPLAN, HORIZON - step)]:
                     state = plant.step(jnp.asarray(states[-1]), jnp.asarray(command))
@@ -832,6 +1111,13 @@ def control_worker(output, protocol, binding, request):
             "hit": bool(status == "complete" and contact["hit"]),
             "contact": contact,
             "solves": len(diagnostics),
+            "imported_optimizer_solves": int(arm == "shared_vehicle"),
+            "new_optimizer_attempts": new_optimizer_attempts,
+            "new_completed_solves": sum(
+                not d.get("inherited_selected_solve", False) for d in diagnostics
+            ),
+            "imported_gradient_calls": 3 if arm == "shared_vehicle" else 0,
+            "new_gradient_calls": new_gradient_calls,
             "converged_solves": sum(d["converged"] for d in diagnostics),
             "diagnostics": diagnostics,
             "executed_intervals": len(commands),
@@ -846,6 +1132,9 @@ def control_worker(output, protocol, binding, request):
         "fits": 0,
         "optimizer_trials_per_available_arm": 1,
         "prelude_intervals": 50,
+        "imported_prelude_intervals": 50,
+        "new_prelude_intervals": 0,
+        "inherited_control_prefix": prefix["manifest"]["control_prefix"],
         "deadline_after_prelude_s": 1.2,
         "arms": results,
         "public_promotion": False,
@@ -1059,7 +1348,49 @@ def replay_control(output, source, context, protocol, binding):
 
     original = Path(source["path"])
     saved = common().read(original / "request.json")
+    saved_outcome = common().read(original / "outcome.json")
+    require(
+        saved_outcome["status"] == "complete"
+        and set(saved_outcome["arms"]) == set(ARMS),
+        "saved control outcome differs",
+    )
     check_pair(saved["inputs"], context)
+    inherited = verify_control_prefix(context, saved["inputs"])
+    verify_stage(
+        original / "inherited-prefix",
+        inherited["manifest"]["control_prefix"]["sha256"],
+        stage="control",
+        binding_sha256=inherited["manifest"]["predecessor_binding"]["sha256"],
+    )
+    recovery = common().read(original / "resumption.json")
+    require(
+        recovery
+        == {
+            "source": inherited["manifest"]["control_prefix"],
+            "imported_optimizer_solves": 1,
+            "imported_gradient_calls": 3,
+            "imported_prelude_intervals": 50,
+            "new_prelude_intervals": 0,
+            "repeated_optimizer_solves": 0,
+            "recovered_diagnostic": inherited["diagnostic"],
+        },
+        "resumption record differs",
+    )
+    for name in (
+        "solve-0000-inputs.npz",
+        "solve-0000-outputs.npz",
+        "solve-0000-gradients.jsonl",
+    ):
+        require(
+            common().digest(original / "shared_vehicle" / name)
+            == common().digest(inherited["root"] / "shared_vehicle" / name),
+            "inherited selected solve bytes differ",
+        )
+    require(
+        common().read(original / "shared_vehicle/solve-0000.json")
+        == {"step": 0, **inherited["diagnostic"]},
+        "recovered solve diagnostic differs",
+    )
     mission, _, plants = dart_modules(protocol, binding)
     plant = plants.CrazyflowPlant()
     target = target_from_protocol(protocol, mission)
@@ -1085,11 +1416,38 @@ def replay_control(output, source, context, protocol, binding):
     for arm in ARMS:
         directory = original / arm
         result = common().read(directory / "result.json")
+        require(saved_outcome["arms"][arm] == result, "control outcome arm differs")
         model = models[arm]
         if result["status"] == "unavailable":
             require(model is None, "available model labelled unavailable")
             counts[arm] = {"available": False}
             continue
+        imported_solves = int(arm == "shared_vehicle")
+        imported_gradients = 3 * imported_solves
+        gradient_calls = sum(
+            len(path.read_text().splitlines())
+            for path in directory.glob("solve-*-gradients.jsonl")
+        )
+        require(
+            result["imported_optimizer_solves"] == imported_solves
+            and result["imported_gradient_calls"] == imported_gradients
+            and result["new_optimizer_attempts"]
+            == len(list(directory.glob("solve-*-inputs.npz"))) - imported_solves
+            and result["new_gradient_calls"] == gradient_calls - imported_gradients
+            and result["new_completed_solves"]
+            == len(list(directory.glob("solve-*-outputs.npz"))) - imported_solves,
+            "recorded optimizer work differs",
+        )
+        diagnostics = [
+            common().read(path) for path in sorted(directory.glob("solve-*.json"))
+        ]
+        require(
+            result["diagnostics"] == diagnostics
+            and result["solves"] == len(diagnostics)
+            and result["converged_solves"]
+            == sum(row["converged"] for row in diagnostics),
+            "recorded diagnostics differ",
+        )
         trajectory = _arrays(directory / "trajectory.npz")
         commands = trajectory["commands"]
         states = [prefix[-1]]
@@ -1184,12 +1542,18 @@ def replay_control(output, source, context, protocol, binding):
             else {"hit": False, "contact": False, "reason": "no_executed_interval"}
         )
         require(contact == result["contact"], "first-contact score differs")
+        require(
+            result["hit"] == bool(result["status"] == "complete" and contact["hit"]),
+            "task hit verdict differs",
+        )
         counts[arm] = {
             "available": True,
             "physical_states": len(states),
             "replayed_planned_means": mean_arrays,
             "contact": contact,
             "original_trial_status": result["status"],
+            "imported_gradient_calls": imported_gradients,
+            "recorded_new_gradient_calls": result["new_gradient_calls"],
         }
     return {
         "status": "complete",
@@ -1197,6 +1561,9 @@ def replay_control(output, source, context, protocol, binding):
         "fits": 0,
         "initializers": 0,
         "optimizer_calls": 0,
+        "authenticated_inherited_control_prefix": inherited["manifest"][
+            "control_prefix"
+        ],
         "scope": "Actual prelude, recorded commands, reconstructed causal optimizer inputs, saved selected means and first-contact score. Optimizer is not rerun; original failures and nonconvergence remain unchanged.",
         "arms": counts,
     }

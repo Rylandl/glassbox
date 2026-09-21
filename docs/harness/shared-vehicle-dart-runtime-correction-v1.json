@@ -2,7 +2,8 @@
   "allowed_changed_files": [
     "src/glassbox/experimental/shared_vehicle_dart.py",
     "tests/test_shared_vehicle_dart.py",
-    "docs/harness/shared-vehicle-dart-runtime-correction-v1.json"
+    "docs/harness/shared-vehicle-dart-runtime-correction-v1.json",
+    "docs/harness/shared-vehicle-dart-resume-correction-v1.json"
   ],
   "fits": {
     "fit-shared": {

@@ -850,3 +850,319 @@ def test_supervisor_preserves_dispatch_hash_when_request_changes(
     assert result["request_sha256"] == command[command.index("--request-sha256") + 1]
     assert result["request_sha256"] != c.digest(tmp_path / "stage/request.json")
     assert c.read(tmp_path / "stage/outcome.json")["fits"] == 1
+
+
+def test_atomic_json_keeps_metadata_strict_and_normalizes_only_diagnostics(tmp_path):
+    path = tmp_path / "diagnostic.json"
+    value = {
+        "objective": float("nan"),
+        "nested": [float("inf"), -float("inf"), 1.25],
+        "converged": False,
+    }
+    dart.write(path, dart.diagnostic_json(value))
+    assert json.loads(path.read_text()) == {
+        "objective": "nan",
+        "nested": ["inf", "-inf", 1.25],
+        "converged": False,
+    }
+    with pytest.raises(ValueError):
+        dart.write(tmp_path / "invalid.json", value)
+    assert not (tmp_path / "invalid.json").exists()
+    before = path.read_bytes()
+    with pytest.raises(FileExistsError):
+        dart.write(path, {"changed": True})
+    assert path.read_bytes() == before
+    assert not list(tmp_path.glob(".json-*"))
+
+
+def test_exact_control_prefix_recovers_recorded_diagnostic_without_execution(
+    correction_context,
+):
+    context, manifest, _ = correction_context
+    inputs = {
+        "v4": manifest["fits"]["fit-v4"],
+        "candidate": manifest["fits"]["fit-shared"],
+    }
+    prefix = dart.verify_control_prefix(context, inputs)
+    assert prefix["prelude"]["states"].shape == (51, 17)
+    assert prefix["selected"]["commands"].dtype == np.float64
+    assert prefix["diagnostic"]["objective"] == "nan"
+    assert prefix["diagnostic"]["converged"] is False
+    assert prefix["diagnostic"]["iterations"] == 0
+    assert prefix["diagnostic"]["solve_s"] is None
+    assert prefix["diagnostic"]["first_evaluation_s"] == 1.0652937081176788
+    assert prefix["diagnostic"]["imported_gradient_calls"] == 3
+    assert prefix["diagnostic"]["new_gradient_calls"] == 0
+    with pytest.raises(ValueError, match="resumption request differs"):
+        dart.verify_control_prefix(
+            context, {**inputs, "v4": {"path": "different", "sha256": "different"}}
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation", ["executed_file", "another_arm", "trajectory", "selected_commands"]
+)
+def test_control_prefix_rejects_more_work_or_changed_outputs(
+    correction_context, tmp_path, monkeypatch, mutation
+):
+    import shutil
+
+    context, manifest, _ = correction_context
+    common = dart.common()
+    resume = common.read(common.ROOT / dart.RESUME_MANIFEST)
+    original = Path(resume["control_prefix"]["path"])
+    copied = tmp_path / "prefix"
+    shutil.copytree(original, copied)
+    if mutation == "executed_file":
+        (copied / "shared_vehicle/executed-0001.npz").write_bytes(b"work")
+    elif mutation == "another_arm":
+        (copied / "v4_research_extrapolation").mkdir()
+    else:
+        path = (
+            copied
+            / "shared_vehicle"
+            / (
+                "trajectory.npz"
+                if mutation == "trajectory"
+                else "solve-0000-outputs.npz"
+            )
+        )
+        arrays = dart._arrays(path)
+        if mutation == "trajectory":
+            arrays["commands"] = np.ones((1, 4))
+        else:
+            arrays["commands"][0, 0] += 0.01
+        np.savez_compressed(path, **arrays)
+    actual_read = common.read
+
+    def changed_manifest(path):
+        value = actual_read(path)
+        if Path(path) == common.ROOT / dart.RESUME_MANIFEST:
+            value["control_prefix"]["path"] = str(copied)
+        return value
+
+    monkeypatch.setattr(common, "read", changed_manifest)
+    inputs = {
+        "v4": manifest["fits"]["fit-v4"],
+        "candidate": manifest["fits"]["fit-shared"],
+    }
+    with pytest.raises(ValueError, match=r"inventory|another arm"):
+        dart.verify_control_prefix(context, inputs)
+
+
+def test_resume_executes_selected_prefix_once_and_counts_failed_solver_work(
+    tmp_path, monkeypatch
+):
+    from glassbox.belief.belief import DynamicsBelief
+
+    monkeypatch.setattr(dart, "HORIZON", 6)
+    commands = np.full((50, 4), 0.6, dtype=np.float64)
+    states = np.zeros((51, 17), dtype=np.float32)
+    states[:, 2] = 1
+    states[:, 6] = 1
+    tape = np.arange(24, dtype=np.float64).reshape(6, 4) / 1000 + 0.6
+    selected = tape + 0.02
+    source = tmp_path / "old"
+    (source / "shared_vehicle").mkdir(parents=True)
+    models = {
+        arm: SimpleNamespace(arm=arm, initial_latent_state=lambda u: jnp.zeros(4))
+        for arm in dart.ARMS
+    }
+
+    def rollout_factory(model, **unused):
+        def rollout(initial, plan):
+            x = np.asarray(initial[0])
+            result = np.repeat(x[None], len(plan) + 1, axis=0)
+            result[:, 0] += np.arange(len(plan) + 1)
+            return result
+
+        rollout.arm = model.arm
+        return rollout
+
+    original_initial = dart.live_initial(
+        "shared_vehicle", models["shared_vehicle"], states, commands
+    )
+    inputs = {
+        "state": np.asarray(original_initial[0]),
+        "past_states": np.asarray(original_initial[1]),
+        "past_inputs": np.asarray(original_initial[2]),
+        "seed": tape,
+        "active_steps": np.asarray(6),
+    }
+    dart._save(source / "shared_vehicle/solve-0000-inputs.npz", **inputs)
+    predicted = rollout_factory(models["shared_vehicle"])(original_initial, selected)
+    dart._save(
+        source / "shared_vehicle/solve-0000-outputs.npz",
+        commands=selected,
+        states=predicted,
+    )
+    (source / "shared_vehicle/solve-0000-gradients.jsonl").write_text(
+        "\n".join(json.dumps({"call": i + 1}) for i in range(3)) + "\n"
+    )
+    dart._save(source / "prelude.npz", states=states, commands=commands)
+    diagnostic = {
+        "backend": "fake",
+        "converged": False,
+        "iterations": 0,
+        "message": "ABNORMAL",
+        "objective": "nan",
+        "solve_s": None,
+        "actual_gradient_calls": 3,
+        "imported_gradient_calls": 3,
+        "new_gradient_calls": 0,
+        "inherited_selected_solve": True,
+        "unavailable_diagnostic_fields": ["solve_s"],
+    }
+    prefix = {
+        "root": source,
+        "prelude": {"states": states, "commands": commands},
+        "selected": {"commands": selected, "states": predicted},
+        "diagnostic": diagnostic,
+        "manifest": {
+            "control_prefix": {"path": str(source), "sha256": "source"},
+            "predecessor_binding": {"sha256": "binding"},
+        },
+    }
+    monkeypatch.setattr(dart, "verify_control_prefix", lambda *a: prefix)
+    monkeypatch.setattr(dart, "verify_stage", lambda *a, **k: {})
+    monkeypatch.setattr(dart, "check_pair", lambda *a: None)
+    monkeypatch.setattr(dart, "load_model", lambda entry, arm, context: models[arm])
+    monkeypatch.setattr(
+        DynamicsBelief,
+        "load",
+        lambda path: SimpleNamespace(model=models["structured_causal_history"]),
+    )
+    monkeypatch.setattr(dart, "physical_rollout", rollout_factory)
+    monkeypatch.setattr(dart, "structured_rollout", rollout_factory)
+    monkeypatch.setattr(dart, "target_from_protocol", lambda *a: None)
+    monkeypatch.setattr(
+        dart,
+        "read_recording",
+        lambda *a: {"minimum": np.full(4, 0.1), "maximum": np.ones(4)},
+    )
+    monkeypatch.setattr(
+        dart, "prelude", lambda *a: pytest.fail("resumption repeated the prelude")
+    )
+    calls = []
+
+    class Plant:
+        def step(self, state, command):
+            return state.at[0].add(1)
+
+    class Planner:
+        def __init__(self, rollout, target, **kwargs):
+            self.rollout, self.arm = rollout, rollout.arm
+            self.value_gradient = lambda *a: (jnp.asarray(1.0), jnp.full(4, 1e30))
+
+        def solve(self, initial, seed, *, maxiter, active_steps):
+            calls.append((self.arm, active_steps, np.array(seed)))
+            assert not (self.arm == "shared_vehicle" and active_steps == 6)
+            self.value_gradient(None)
+            if self.arm == "v4_research_extrapolation":
+                raise RuntimeError("synthetic solver failure after gradient")
+            plan = np.array(seed) + 0.001
+            return (
+                plan,
+                self.rollout(initial, plan),
+                {
+                    "converged": False,
+                    "iterations": 0,
+                    "objective": float("nan"),
+                    "initial_objective": 1.0,
+                    "message": "synthetic",
+                },
+            )
+
+    mission = SimpleNamespace(
+        signed_distance=lambda state, target: 4.0 - state[0],
+        score_contact=lambda x, t, target: {
+            "hit": bool(x[-1, 0] >= 4),
+            "contact": bool(x[-1, 0] >= 4),
+        },
+    )
+    monkeypatch.setattr(
+        dart,
+        "dart_modules",
+        lambda *a: (
+            mission,
+            SimpleNamespace(DirectPlanner=Planner),
+            SimpleNamespace(CrazyflowPlant=Plant),
+        ),
+    )
+    seed_path = tmp_path / "seed.npz"
+    np.savez(seed_path, commands=tape)
+    protocol = {
+        "dart": {
+            "files": {
+                "artifacts/demo/learned_prediction.npz": {"path": str(seed_path)},
+                "artifacts/demo/fit/belief.json": {"path": "unused"},
+            }
+        }
+    }
+    request = {"inputs": {"v4": {}, "candidate": {}}}
+    output = tmp_path / "control"
+    output.mkdir()
+    dart.write(output / "request.json", request)
+    result = dart.control_worker(output, protocol, {}, request)
+    dart.write(output / "outcome.json", result)
+    assert [(arm, step) for arm, step, _ in calls] == [
+        ("shared_vehicle", 3),
+        ("v4_research_extrapolation", 6),
+        ("structured_causal_history", 6),
+        ("structured_causal_history", 3),
+    ]
+    np.testing.assert_array_equal(
+        calls[0][2], np.concatenate((selected[3:], np.repeat(selected[-1:], 3, axis=0)))
+    )
+    trajectory = dart._arrays(output / "shared_vehicle/trajectory.npz")
+    np.testing.assert_array_equal(trajectory["commands"][:3], selected[:3])
+    assert len(trajectory["commands"]) == 4
+    for name in (
+        "solve-0000-inputs.npz",
+        "solve-0000-outputs.npz",
+        "solve-0000-gradients.jsonl",
+    ):
+        assert (source / "shared_vehicle" / name).read_bytes() == (
+            output / "shared_vehicle" / name
+        ).read_bytes()
+    shared, v4 = (
+        result["arms"][arm] for arm in ("shared_vehicle", "v4_research_extrapolation")
+    )
+    assert shared["status"] == "complete" and shared["converged_solves"] == 0
+    assert shared["imported_gradient_calls"] == 3 and shared["new_gradient_calls"] == 1
+    assert (
+        v4["status"] == "failed"
+        and v4["new_optimizer_attempts"] == 1
+        and v4["new_gradient_calls"] == 1
+        and v4["solves"] == 0
+    )
+    assert shared["diagnostics"][1]["objective"] == "nan"
+    before = len(calls)
+    monkeypatch.setattr(dart, "prelude", lambda *a: (states, commands))
+    replay = tmp_path / "replay"
+    replay.mkdir()
+    assert dart.replay_control(replay, {"path": str(output)}, request, protocol, {})[
+        "exact"
+    ]
+    assert len(calls) == before
+    changed = json.loads((output / "shared_vehicle/result.json").read_text())
+    changed["hit"] = not changed["hit"]
+    (output / "shared_vehicle/result.json").write_text(json.dumps(changed))
+    (tmp_path / "tampered").mkdir()
+    with pytest.raises(ValueError, match="outcome arm differs"):
+        dart.replay_control(
+            tmp_path / "tampered", {"path": str(output)}, request, protocol, {}
+        )
+    outcome = json.loads((output / "outcome.json").read_text())
+    outcome["arms"]["shared_vehicle"] = changed
+    (output / "outcome.json").write_text(json.dumps(outcome))
+    (tmp_path / "coherently-tampered").mkdir()
+    with pytest.raises(ValueError, match="task hit verdict differs"):
+        dart.replay_control(
+            tmp_path / "coherently-tampered",
+            {"path": str(output)},
+            request,
+            protocol,
+            {},
+        )
+    assert len(calls) == before

@@ -1,0 +1,41 @@
+{
+  "actual_prefix_work": {
+    "executed_control_intervals": 0,
+    "other_arm_optimizer_solves": 0,
+    "prelude_intervals": 50,
+    "shared_vehicle_gradient_calls": 3,
+    "shared_vehicle_optimizer_solves": 1
+  },
+  "control_prefix": {
+    "path": "/private/tmp/glassbox-shared-vehicle-dart-runtime/artifacts/2026-09-20/shared-vehicle-dart-runtime-correction-v1/control",
+    "sha256": "e0b237b6150ab8613e04a42a487459c4ebdb2e6f5c0dc02895a4994bbedc9716"
+  },
+  "format": "glassbox-shared-vehicle-dart-resume-correction-v1",
+  "lost_diagnostic_fields": [
+    "solve_s"
+  ],
+  "nonfinite_json_policy": "Only nonfinite floats within optimizer diagnostic subtrees become explicit strings nan, inf or -inf; finite values are unchanged. Generic JSON remains strict with allow_nan=False, validates before atomic exclusive publication, and rejects nonfinite scientific metadata.",
+  "predecessor_binding": {
+    "path": "/private/tmp/glassbox-shared-vehicle-dart-runtime/artifacts/2026-09-20/shared-vehicle-dart-runtime-correction-v1/implementation-binding.json",
+    "sha256": "f96f1d6bfaea2aba159e633eec67a1df9fc6093e835d94fe8f3f9bb5a5299238"
+  },
+  "predecessor_commit": "634ee9f919a17c66993b1b7bc2497ec278d7f836",
+  "prefix_files": {
+    "command.json": "5bcffca02ccbb138aa99fc8c347b44e5d1e95cbd8f48e7f72f4eba2fa7f177cc",
+    "error.txt": "156189dfced0b41dc061d5f01c835559a394a5ba99e65a66d990f99d010a492a",
+    "exit.json": "c48db9073c27c67dba4c8d832dc50013561178e964bf496ce045d3703d4b464f",
+    "outcome.json": "1c7ccb037c29a8f65a4492424b3a46860c159d05cc155bf0f0b4884ed2b03d76",
+    "prelude.npz": "0335ff98b7383daf154213ef616f80c8519ab68ec98b4f5d110f0be4dfac54a9",
+    "request.json": "fedfaeb732ce7190d1767f7da3056958bd2dae5a31386873b88011b4e4ec9740",
+    "shared_vehicle/error.txt": "680fa471ac1de44abe21bbdf390cedd324c2144c493e11921c3300d0cc508fd5",
+    "shared_vehicle/result.json": "494cac466079c3e265373f2d8bc13702c8ddf086e2a4b39865e82e4d207c66b5",
+    "shared_vehicle/solve-0000-gradients.jsonl": "ad93e53855b2b9f3f909812d08382390413a93404c97b7110b31f7b450c7557c",
+    "shared_vehicle/solve-0000-inputs.npz": "5cd0542df0dca847ad950523d3f5b755e8fa829ea8e1427d3d1915108535d396",
+    "shared_vehicle/solve-0000-outputs.npz": "63fdb674b0bcf990005a24dc100c23f6a272cc197cbc581dc076e7072d039a59",
+    "shared_vehicle/solve-0000.json": "4895ce30529eca63277467c72d232cecc2afb456cd2ffcfce20e5d221a537876",
+    "shared_vehicle/trajectory.npz": "e6f40672e5c736de90af6ccde1ee3081772b890e3b0bb29d8d8df8bafd61022f",
+    "worker.log": "6492b09ed440915778a0042f2264c093873a77c453c20e6ee0742d57566a55cd"
+  },
+  "protocol_sha256": "90f0c418379c62a6fc1b9a4f1ae094f74de8868a6e77f7370138cc6533dd0053",
+  "scope": "Resume the exact one selected shared-vehicle solve after diagnostic NaN serialization failed before command execution. Preserve raw failed evidence. Reuse actual prelude and selected solve0 commands/means; never repeat optimizer solve0. Continue the same trial and start each other arm once. No numerical model, planner, objective, settings or data changes."
+}
