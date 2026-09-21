@@ -1,97 +1,110 @@
-# Causal online fitting: quad and fixed-wing result
+# Online fitting: physical-vector errors
 
-The shared dynamics model now has a bounded streaming fitter, `OnlineFit`. It
-initializes from a short observed prefix, predicts before assimilating each new
-target, retains a bounded replay cache and saves enough state for exact restart.
-The same procedure handles four-command quads and three-command fixed wings.
-No vehicle family, mixer, mass, inertia, layout or applied-actuator telemetry
-enters the learner. The existing offline learner and Dart model are unchanged.
+The bounded `OnlineFit` procedure now reduces aggregate velocity/rate error
+**40.89% against the previous working online fitter**: 24.46% for quads and
+53.74% for fixed wings. All twelve primary case/metric comparisons improve.
+Error is 73.01% lower than keeping the identical startup fit frozen.
 
-**The second candidate passes the frozen improvement gate:** equal-family
-aggregate velocity/rate error is **54.34% lower than the identical frozen
-startup fit** (68.30% for quads, 34.24% for fixed wings). It is 83.38% lower than
-the failed first online candidate. All 3,137 scored predictions and observations
-complete with finite values. This is a known-tape identification result, not a
-controller recovery or broad generalization result. The comparator is this same
-learner held at its startup fit; this is not a comparison with Throw’s old
-identifier, which received applied rotor telemetry unavailable to this fitter.
+This is the same shared dynamics engine, with changed optimization coordinates
+and loss weighting. No vehicle family, mass, inertia, mixer, layout or applied
+actuator telemetry enters the learner. The offline learner and saved Dart model
+are unchanged. No current-learner Throw recovery or fixed-wing control trial has
+run; the original Throw checkout and runtime remain untouched.
 
-The cohort contains arm/inertia variants of one Crazyflow `cf21B_500` quad and
-two known recordings of one Cascade Skywalker-X8 fixed wing. It does not cover
-a broad set of airframes. The old Throw checkout and runtime remain unchanged.
+## Why the fitting procedure changed
 
-## What changed
+A short prefix can make a nearly constant direction look much more important
+than the other axes. In a saved final-cache diagnostic for fixed-wing case 80,
+pitch rate error was 0.707 rad/s and yaw error 0.0082 rad/s, yet yaw contributed
+about 15 times more loss. Startup-axis normalization rewarded the wrong correction.
 
-The first candidate used persistent Adam with acceptance on four sampled windows.
-It failed: aggregate error was 2.748 times the frozen fit. Saved-model checks
-found no training/prediction mismatch or material float32 explanation. Later
-commands reached 102 startup standard deviations, and locally accepted changes
-could worsen the full retained recent buffer. That failed result is preserved
-in [the v1 evidence](online-fit-v1.json).
+Two separately frozen experiments addressed this:
 
-The maintained candidate replaces that optimizer with one damped Gauss-Newton
-proposal per observation, four matrix-free conjugate-gradient iterations, and
-acceptance against the full bounded replay cache. A prediction-change limit and
-actual-versus-predicted improvement ratio govern the step. Initialization,
-features, normalization, objective and dynamics remain unchanged. The Adam
-streaming implementation was deleted; there is no selectable optimizer catalog.
+| Candidate | Aggregate error relative to working v2 | Decision |
+| --- | ---: | --- |
+| v3: compensated feature/output normalization | 1.0141 | Failed; retained as evidence |
+| v4: add physical-vector scales and radial Huber loss | 0.5911 | Passes the prospective improvement gate |
 
-## Physical errors
+V3 grew scales from the causal bounded cache and compensated weights so that
+rescaling itself preserved recurrent predictions and command derivatives.
+It improved quads, but fixed-wing case 81 rate error increased 6.51 times.
+The failed result remains [recorded](online-fit-v3.json).
 
-One-step vector RMSE, measured before each target is assimilated. Each cell is
-**online / frozen startup / no-fit kinematic**. Velocity is m/s; rate is rad/s.
-The kinematic predictor holds velocity and rate and integrates orientation.
-The aggregate is the geometric mean of online/frozen velocity and rate error
-ratios, with equal case weights within each family and equal family weights.
-These are 10 ms forecasts for quads and 50 ms forecasts for fixed wings.
+V4 retains that conditioning and gives each physical vector one fixed bootstrap
+scale. Velocity, angular rate and rotation each receive one equally weighted
+radial Huber term. Rotation uses chordal matrix distance, approximately angular
+error near zero. The loss and its scales respect coordinate-frame rotations;
+this does not establish rotational equivariance of the whole supported model.
+The bounded replay cache, four-CG proposal, initialization and physical equations
+remain unchanged. Motion support is still fixed at startup.
+
+## Comparison and physical errors
+
+The primary comparator is the authenticated saved **v2 online fitter**. The old
+Throw identifier supplied the behavior-policy recordings and observed applied
+rotor telemetry; this is not a matched-input comparison against that identifier.
+
+The cohort has four arm/inertia variants or scenarios of one Crazyflow
+`cf21B_500` quad and two known recordings of one Cascade Skywalker-X8 fixed wing.
+Forecasts are scored before their targets are assimilated: **10 ms for quads and
+50 ms for fixed wings**. These are known-tape iterations, not blind airframe tests.
+The aggregate is a geometric mean of candidate/v2 velocity and rate RMSE ratios,
+with equal cases within each family and equal family weights. Every case remains
+included, including the quad tape truncated by the old controller's floor contact.
+
+Each cell below is **current / previous online / no-fit kinematic**. Velocity is
+m/s; angular rate is rad/s. The kinematic predictor holds velocity and rate and
+integrates orientation.
 
 | Case | Velocity RMSE | Body-rate RMSE | Scored transitions |
 | --- | ---: | ---: | ---: |
-| quad-arm-115 | 0.02996 / 0.13472 / 0.03967 | 0.27417 / 2.30922 / 0.11166 | 875 |
-| quad-arm-125 | 0.02003 / 0.03761 / 0.02942 | 0.13206 / 0.68032 / 0.12058 | 875 |
-| quad-arm-135 | 1.27341 / 1.33648 / 1.17389 | 1.71333 / 4.52537 / 1.12088 | 62 |
-| quad-change | 0.02006 / 0.03761 / 0.02942 | 0.13208 / 0.68033 / 0.12058 | 875 |
-| fixedwing-80 | 1.16253 / 1.30268 / 0.16863 | 2.95346 / 2.85618 / 0.37618 | 225 |
-| fixedwing-81 | 3.68517 / 7.20476 / 0.17023 | 4.89786 / 12.36555 / 0.37920 | 225 |
+| quad-arm-115 | 0.02208 / 0.02996 / 0.03967 | 0.27256 / 0.27417 / 0.11166 | 875 |
+| quad-arm-125 | 0.01220 / 0.02003 / 0.02942 | 0.10730 / 0.13206 / 0.12058 | 875 |
+| quad-arm-135 | 1.19929 / 1.27341 / 1.17389 | 1.07632 / 1.71333 / 1.12088 | 62 |
+| quad-change | 0.01220 / 0.02006 / 0.02942 | 0.10730 / 0.13208 / 0.12058 | 875 |
+| fixedwing-80 | 0.29907 / 1.16253 / 0.16863 | 1.13019 / 2.95346 / 0.37618 | 225 |
+| fixedwing-81 | 2.89098 / 3.68517 / 0.17023 | 2.90528 / 4.89786 / 0.37920 | 225 |
 
-`fixedwing-80` rate error regresses 3.41% versus its frozen fit; it remains in the
-aggregate. The other 11 primary case/metric comparisons improve. More seriously,
-fixed-wing errors remain 6.9–21.6 times the kinematic velocity error and 7.9–12.9
-times its rate error. The relative improvement is useful; absolute accuracy is
-not yet adequate for promoting the learner into the Throw controller.
+Fixed-wing absolute accuracy remains insufficient: the current velocity errors
+are 1.77 and 16.98 times the kinematic errors; rate errors are 3.00 and 7.66 times.
+There is also a secondary regression: `quad-arm-115` orientation RMSE grows from
+0.001319 to 0.004024 rad (3.05 times). The other five orientation scores improve.
+These limitations remain visible despite the primary gate passing. The harder
+fixed-wing tape includes a 31.14 m/s velocity-error spike at 7.90 s, accounting
+for 51.6% of its velocity squared error. It also remains inaccurate afterward,
+so removing that sample would not resolve the gap; no sample is removed here.
 
-`quad-arm-135` is a 62-transition truncated tape: the old collection controller hit the
-floor at 1.87 s. The terminal sample includes the simulator zeroing translational
-velocity. It remains in the primary result; a descriptive preterminal check
-still shows improved error versus frozen. The other quad tapes span 10 s. The
-hidden arm/inertia change occurs at 4 s, but commands are already nearly equal
-and steady. Its result is weak evidence about identifying new control authority.
+## Runtime and verification
 
-## Runtime and qualification
+Quad update median is about 27.4 ms and p95 is 28.0–28.6 ms against a 10 ms
+sample interval. Fixed-wing update p95 is 3.92–3.97 ms against 50 ms sampling.
+First compiled updates take approximately 2.48 s and 2.07 s respectively.
+Warmed prediction p95 stays below 1 ms. The quad real-time target fails.
 
-Warmed quad updates have median 26.5 ms and p95 26.9–27.9 ms against a 10 ms sample
-interval. Fixed-wing updates have median 3.43–3.44 ms and p95 3.70–3.75 ms against
-50 ms. First compiled updates take 2.09 s and 1.81 s respectively. Startup ridge
-initialization takes roughly 0.9–3.0 ms; first compiled prediction is separate.
-Prediction p95 is below 1 ms in these runs. The declared real-time target fails
-for quads; no asynchronous fitting or controller deadline claim is established.
+All **161 tests pass**, including independent scale and IRLS calculations,
+frame-invariant loss checks, zero-residual derivatives, prediction-preserving
+coordinate transforms, causality, rollback, bounded retention and save/resume.
+The wheel imports outside the checkout. Existing saved model predictions and
+Dart gradients reproduce exactly; the core dynamics and offline learner did not
+change. All 3,137 scored rows, physical metrics and causal journals verify from
+archives with zero fits or model calls. Inputs and fixed comparators match v2
+and v3 byte-for-byte. The isolated v4/v3 loss change reduces aggregate error
+41.71% (8.71% for quads, 62.77% for fixed wings).
+Evidence identities and physical metrics are in
+[the result index](online-fitting.json); the evaluation contract is
+[frozen v4](harness/online-fit-v4.json). See
+[replay instructions](../CONTRIBUTING.md#reproduce-streaming-fitting).
 
-All 138 tests pass; the wheel builds and imports outside the checkout. Saved
-v1/v2 input tapes, source rows, timestamps, truth, frozen predictions and
-kinematic predictions match bitwise. Both result packs verify their checksums,
-causal journals, optimizer accounting and metrics with zero fits/model calls.
-See [machine-readable results and authorities](online-fitting.json), the
-[frozen v2 protocol](harness/online-fit-v2.json) and
-[replay commands](../CONTRIBUTING.md#reproduce-streaming-fitting).
+## Remaining work
 
-## Next named gap
+**Forecast spikes and rotation/rate consistency** is the next named gap. In the
+quad orientation regression, the predicted rotation implies intermediate angular
+motion that disagrees strongly with the endpoint-average rate. The discrepancy
+is broad over 2–4 s, not a few initial outliers. The fixed-wing spike and persistent
+tail errors accompany heavy startup-support compression, but that does not prove
+compression caused them. Inspect internal integration states and derivatives
+before selecting a correction. Latency remains separate.
 
-**Cold-start conditioning and motion support.** Sparse startup observations
-produce tiny scales in weakly excited command, rotation and rate directions.
-Nearly every later observation leaves the initial support. The optimizer fix
-substantially improves stability but does not restore lost state information or
-supply missing excitation. The next iteration should address that conditioning
-causally, preserve model meaning during any coordinate change, and use physical
-errors against the kinematic baseline as well as the frozen-start comparison.
-Keep update latency separate. Current-learner Throw recovery and fresh fixed-wing
-flight trials follow identification improvement; neither has run here.
+Any next change needs a new frozen comparison against this version. These
+recordings do not qualify unseen control authority, a reliability percentage,
+or current-model closed-loop recovery.

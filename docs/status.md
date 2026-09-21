@@ -14,7 +14,7 @@ does not rewrite prior frozen failures or establish arbitrary-system readiness.
 | Accuracy | Original shared physics reduced matched aggregate forecast/response errors 43.95%/22.12% versus v4. The supported map preserves original local response on both inspected Crazyflow/Cascade cohorts. Cascade wind forecast velocity RMSE remains 0.426–0.434 m/s at 250 ms; known Dart 1.2 s response errors remain 3.942 m/s and 9.601 rad/s. Original wind/tail acceptance failures remain historical facts. |
 | Dart | The unchanged supported model now reaches **0.720 mm** nominal miss through a radius-aware lateral objective and 10 ms feedback: 0.93° axis error, 0.126 m/s tangent speed, contact at 1.192093 s. All 9,874 gradients, 120 selected means and 120 native steps are finite; 103/120 solves converged. Finer float64 replays reach 0.756 / 0.755 mm and converge within 0.152 micrometers / 0.228 microseconds. The original float32 fine-grid convergence failure remains recorded. One known task with an existing seed; neighborhood reliability remains open. |
 | Runtime | The precision trial took 59.24 s for 1.2 simulated seconds, including durable callback recording. It uses 120 solves versus the baseline’s 40, with the same 100-iteration cap per solve. Real-time execution is not qualified. |
-| Updates | Offline updates preserve immutable revisions and development roles. The new causal streaming fitter improves equal-family error 54.34% versus frozen startup on six known tapes, with no family-specific model. Fixed-wing absolute accuracy and quad update latency remain insufficient for live adoption. |
+| Updates | Offline updates preserve immutable revisions and development roles. The causal streaming fitter improves equal-family error 40.89% versus the previous working online fitter and 73.01% versus frozen startup on six known tapes. Every primary case/metric improves. Fixed-wing forecast spikes, one quad orientation regression and update latency remain open. |
 | Calibration | Fresh fits estimate envelopes on development data also used for checkpoint selection. Independent coverage remains open. Adopted migrated revisions carry no transferred old-map envelope. |
 | System scope | Canonical rigid-body velocity, angular rate and orientation with arbitrary ordered command dimensions. Articulated/flexible systems and broad JSBSim coverage remain unproved. |
 
@@ -50,34 +50,38 @@ The winning objective and four regression tests are applied in Dart; 10 ms
 feedback is specified by this benchmark, not changed in Dart launcher defaults.
 See [the result](dart-precision.md). The full suite passes 105 tests.
 
-## Completed online-fitting iteration
+## Completed online-fitting iterations
 
-The same shared dynamics engine now supports bounded causal streaming fits on
-four-command quads and three-command fixed wings. The first Adam candidate failed;
-its result is preserved. Full-cache damped Gauss-Newton improves the equal-family
-velocity/rate aggregate 54.34% versus identical frozen startup models and 83.38%
-versus that first candidate. Eleven of twelve primary case/metric comparisons
-improve over frozen; `fixedwing-80` rate error regresses 3.41% and remains included.
-All 3,137 observations are scored before assimilation. Inputs and frozen predictions
-match bitwise across candidates; both packs verify without fitting. All 138 tests
-pass. The offline learner, original baseline and Dart model are unchanged.
+The same shared dynamics engine supports bounded causal streaming fits on
+four-command quads and three-command fixed wings. After the first Adam attempt
+failed, v2's full-cache Gauss-Newton improved aggregate error 54.34% over frozen
+startup. The separately frozen v3 coordinate correction failed against v2:
+1.41% worse overall, including a 6.51-times fixedwing-81 rate regression. Its
+[failed result](online-fit-v3.json) remains recorded.
 
-This passes the frozen relative-improvement gate, not broad readiness. Fixed-wing
-errors remain 6.9–21.6 times kinematic velocity error and 7.9–12.9 times rate error.
-Quad update p95 is 26.9–27.9 ms against 10 ms sampling; fixed-wing p95 is 3.70–3.75 ms
-against 50 ms. One quad tape is floor-truncated, and the in-flight geometry change
-occurs in weakly excited hover. No current-learner closed-loop trial has run.
-See [the complete result](online-fitting.md) and [evidence identities](online-fitting.json).
+V4 adds shared physical-vector loss scales and radial Huber penalties to that
+compensated coordinate conditioning. It reduces equal-family velocity/rate
+error **40.89% versus working v2** (quad 24.46%, fixed wing 53.74%) and 73.01%
+versus frozen startup. All twelve primary case/metric comparisons improve.
+All 3,137 observations are scored before assimilation; inputs and fixed
+comparators match prior versions byte-for-byte. The saved results verify with
+zero fits or model calls. All 161 tests pass. Offline fitting and the saved Dart
+model remain unchanged. This becomes the single maintained streaming fitter.
 
-## Active scientific gap
+The secondary quad-arm-115 orientation error regresses 3.05 times to 0.004024 rad.
+Fixed-wing velocity errors remain 1.77 / 16.98 times kinematic and rate errors
+3.00 / 7.66 times. The harder fixed-wing tape contains a 31.14 m/s forecast-error
+spike and persistent later error; no sample is excluded. Quad update p95 is
+28.0–28.6 ms against 10 ms sampling; fixed-wing p95 is 3.92–3.97 ms against 50 ms.
+No current-learner closed-loop trial has run. See [the report](online-fitting.md)
+and [evidence identities](online-fitting.json).
 
-**Physical-vector loss conditioning.** The v3 coordinate correction failed its
-frozen gate: equal-family error was 1.41% worse than adopted v2 (quad 17.26% better,
-fixed-wing 24.28% worse). Fixedwing-81 rate error increased 6.51 times. All cases
-remain included in [the v3 result](online-fit-v3.json).
+## Next scientific gap
 
-The frozen [v4 protocol](harness/online-fit-v4.json) now tests a fixed scale for
-each physical vector and radial Huber loss, keeping v3's other changes. It removes
-startup-axis imbalance and weights velocity, rate and orientation equally.
-Acceptance remains against adopted v2, with v3 attribution reported separately.
-No v4 fit has started. Motion support, latency and control integration remain open.
+**Forecast spikes and rotation/rate consistency.** Inspect intermediate integration
+states and derivatives behind the fixed-wing outlier and the quad orientation
+regression. In the latter, rotation-implied intermediate rate disagrees strongly
+with the endpoint-average rate over a broad transient. Heavy startup-support
+compression accompanies fixed-wing errors but is not yet proven causal. Freeze
+a correction and physical-error comparison against v4 before fitting. Fit
+latency and controller integration remain separate. No next protocol has run.
