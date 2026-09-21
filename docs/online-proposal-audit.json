@@ -1,0 +1,43 @@
+{
+  "id": "online-proposal-audit-v1",
+  "protocol": "harness/online-proposal-audit-v1.json",
+  "protocol_commits": [
+    "78a62fb",
+    "ef583b6"
+  ],
+  "scientific_commits": [
+    "1e60774",
+    "d9cecb9"
+  ],
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-proposal-audit-v1/diagnosis",
+  "manifest_sha256": "2287c318048a65f997db2a6a92f725e9a93ef8e0ee5cb5a932215f3bfb0bb7c0",
+  "complete": true,
+  "attempted_runs": 1,
+  "exact_original_updates": 46,
+  "adjacent_full_session_checks": 28,
+  "causal_anchor_links": 10,
+  "mathematical_checks": 58568,
+  "derivative_recomputation_passed": true,
+  "reference_converged": 4,
+  "reference_capped": 42,
+  "reference_trusted_beats_four": 11,
+  "reference_trusted_accepted": 14,
+  "four_trust_active": 4,
+  "reference_trust_active": 28,
+  "applied_updates": 0,
+  "new_fits": 0,
+  "package_source_files_identical_to_v6": 15,
+  "tests_passed": 288,
+  "checks": {
+    "findings.json": "9979b1e9afc7b4783c0f6d7ee5724c72fcd69509adbf40e2f5d5da620a547a24",
+    "full-suite.log": "134792b30af6b5208b1b12adcba18a7782e43c0b7cbda8de20020fdbca9d8fed",
+    "recompute.json": "64512a5b1814e81082a2428e271febb0a82d2256416e00829ccc9ed805a5cf6b",
+    "recompute.log": "1b302499ee80da0bbb5e7c033fb62c12ed5996290ebaecd57070548b5bba43bc",
+    "run.log": "daeca0be01f181851d21280cc640bea61c11c7af4e851a89694aa2ec321dbf74",
+    "summarize-proposal-audit.py": "6957801c3f10a408a2840f0e0a6f4b9111d94c95d58f5a9aecfc2f70558cab90",
+    "targeted-tests.log": "37195088911f02e536e3bbfb14d193540a7a336735ebc42b1ab3e1f6b384a00e",
+    "validation.json": "2ac57a04a5d607170eb21b416307db56cbdf482298f04dd785c9ff4bedae86ac",
+    "verify.json": "f8f9892e714da915813a88597165beae773215e5ac83b2b58045c7eb704b83e0",
+    "verify.log": "912ac15e8b2989e6ed8aad4d1c09a52ffcd875e9082fa90871020624a24a57bd"
+  }
+}

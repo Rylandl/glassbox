@@ -16,48 +16,42 @@ controllers and simulators remain external.
 | Online fitting | Working **online v6** reduces equal-family velocity/rate error **21.94% against v4** and 78.93% against frozen startup across six known tapes. All 3,137 targets are scored before assimilation. Worst-decile errors improve 22.96%; angular outliers and individual regressions remain. See [online evidence](online-fitting.md). |
 | Updates and calibration | Offline updates preserve immutable revisions and development roles. Online sessions retain bounded causal caches. Development-selected calibration does not establish independent coverage; streaming sessions have no calibrated envelope. |
 | Scope | Rigid-body motion across recorded quad/fixed-wing configurations. Broad airframe, articulated-system and arbitrary-system readiness remain unproved. No current-learner online closed-loop recovery trial has run. |
-| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All 15 package source files remain byte-identical to adopted v6. All **234 tests pass**, and the complete saved baseline replays exactly. |
+| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All 15 package source files remain byte-identical to adopted v6. All **288 tests pass**, and the complete saved baseline replays exactly. |
 
 ## Latest completed iteration
 
-**Broader physical prior domains, online v7 — tested, not promoted.** The
-[frozen six-tape comparison](online-fit-v7.md) improves equal-family velocity/rate
-error 13.30% against adopted v6: fixed wings improve 26.65%, quads worsen 2.47%.
-Worst-decile errors improve 15.02%, but orientation and truth-relative
-rotation/rate-defect errors worsen 4.79%/1.74%. Both frozen gates fail; all 3,137
-transitions and every regression remain reported. V6 stays the sole learner.
+**Causal proposal audit — completed; v6 retained.** The [read-only audit](online-proposal-audit.md)
+reconstructs all 46 selected fixed-wing updates exactly, including 28 complete
+adjacent session identities and ten predecessor-to-prediction links. Both the
+independent NumPy audit and source-bound derivative recomputation pass. No new
+learner was fitted and no diagnostic proposal was applied.
 
-The candidate uses full supported-motion bounds and completed-cache command
-maxima in the same quadratic prior. It changes no inference, initialization,
-model head, vehicle-specific rule, user option or fitting budget. FW81 velocity
-RMSE improves 1.244→0.603m/s, but orientation RMSE worsens 17.45%; absolute
-fixed-wing velocity/rate errors still exceed kinematic hold.
+Four PCG steps achieve a median 30.25%/11.82% of the longer probe's measured
+local quadratic decrease under v6/v7. Yet a longer solve with the same forecast
+trust rule beats the original exact retained objective in only 11/46 snapshots
+and would be accepted in 14/46; 31/46 losses exceed the starting value. All longer
+trusted directions descend data and prior to first order, but exact data loss
+falls in only 15/46. The prior falls in all 46. This distinguishes unfinished
+linear solves from unreliable nonlinear steps; simply increasing PCG is not
+supported. Only four references converge at 64 iterations; 42 cap at 128.
 
-The [v6 causal trace](online-angular-response.md) reproduces all 450 fixed-wing
-forecasts/updates exactly. V7 prospectively captures the same 23 origins. Both
-sets pass independent stage, head-increment and derivative audits. Common-domain
-comparison shows that stronger regularization does not reliably reduce physical
-quadratic curvature at actual failure states: FW81 row 150 rises 26.03→46.03.
-Response shifts from motion terms toward command terms and opposing linear
-contributions. Its native rate error improves 2.121→0.494rad/s while refined 64
-error worsens 1.263→3.708rad/s, exposing numerical cancellation. These observations
-do not establish optimizer failure or convergence.
-
-Candidate source and sealed evidence remain reproducible in Git/artifacts.
-Independent verification authenticates all 3,137 pairs, 9,411 journal events and
-23 captures with zero model/optimizer calls. Restored v6 passes 234 tests; the
-saved offline/Dart baseline remains exact. Quad real-time fitting and
-current-learner online closed-loop recovery remain unqualified.
+The audit passes 58,568 arithmetic checks and all 46 derivative recomputations
+under frozen tolerances. All 288 tests pass; all 15 package files remain
+byte-identical to adopted v6. These are known fixed-wing training objectives,
+not held-out gains or evidence about quad optimizer behavior. The previous
+[v7 candidate](online-fit-v7.md) remains rejected: 13.30% aggregate improvement
+against v6 accompanied quad/angular regressions and failed its frozen gates.
 
 ## Next scientific gap
 
-**Causal optimizer effectiveness under the physical curvature prior.** Freeze
-a read-only audit of retained data/prior gradients, the four-PCG residual versus
-a bounded more accurate solve of the same local linear system, forecast trust
-shrink and exact objective gain. Distinguish an inadequately solved update from
-an objective that permits inaccurate, cancelling dynamics before selecting
-another penalty or model change. No additional candidate has been fitted.
+**Nonlinear step control at bounded solve cost.** Freeze a small backtracking
+ladder along the saved longer directions and check exact data/prior/combined
+loss against the original four-step update. Determine whether shortening those
+directions makes their local improvement usable before changing the online
+solver. Keep the current prior, residuals and data fixed. V6 remains the sole
+learner; no new candidate has been fitted.
 
-Retain all six tapes, velocity/rate, orientation, tails, kinematic and timing
-comparisons; adopted v6 remains the next candidate's reference. Known-tape
-improvement does not qualify blind generalization or calibrated uncertainty.
+Any resulting candidate requires a separately frozen six-tape evaluation against
+v6, retaining velocity/rate, orientation, tails, kinematic and timing comparisons.
+Known-tape improvement does not qualify blind generalization, calibrated
+uncertainty, real-time quad fitting or online closed-loop recovery.
