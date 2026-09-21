@@ -297,3 +297,69 @@ def test_nonzero_gradient_metric_underflow_is_not_convergence():
     result = verify_arrays(summary, arrays)
     assert result["reference_status"] == "metric_underflow"
     assert summary["reference"]["relative_residual"] is None
+
+
+def test_nonfinite_reference_after_valid_four_retains_production_checks():
+    _, arrays, _ = dense_evidence()
+    # Keep the authenticated four-step evidence intact, then make action eight
+    # fail. The recurrence retains iteration seven; its checkpoint action and
+    # subsequent reference probes also fail numerically.
+    gradient = arrays["gradient"]
+    delta = np.sum(
+        arrays["trace_alpha"][:7, None] * arrays["trace_direction"][:7], axis=0
+    )
+    residual = -gradient - np.sum(
+        arrays["trace_alpha"][:7, None] * arrays["trace_curvature"][:7], axis=0
+    )
+    rho = residual @ (residual / arrays["preconditioner"])
+    for key in tuple(arrays):
+        if key.startswith("trace_"):
+            arrays[key] = arrays[key][:8].copy()
+        elif key.startswith("checkpoint_") and key != "checkpoint_count":
+            arrays[key] = arrays[key][:3].copy()
+    arrays.update(
+        iteration=np.asarray(8),
+        status=np.asarray(5),
+        checkpoint_count=np.asarray(3),
+        delta=delta,
+        residual=residual,
+        direction=np.zeros_like(delta),
+        rho=np.asarray(rho),
+        finite=np.asarray(False),
+    )
+    for name in ("curvature", "projected", "denominator"):
+        arrays["trace_" + name][-1] = np.nan
+    for name in ("alpha", "beta"):
+        arrays["trace_" + name][-1] = 0.0
+    for name in ("active", "valid", "finite"):
+        arrays["trace_" + name][-1] = False
+    arrays["trace_next_rho"][-1] = rho
+    arrays["checkpoint_delta"][-1] = delta
+    arrays["checkpoint_recursive_residual"][-1] = residual
+    for name in (
+        "curvature",
+        "projected",
+        "true_residual",
+        "relative",
+        "q",
+        "gap_bound",
+    ):
+        arrays["checkpoint_" + name][-1] = np.nan
+    arrays["probe_delta"][2] = delta
+    arrays["probe_delta"][3] = np.nan
+    arrays["probe_projected"][2:] = np.nan
+    arrays["probe_trial_raw"][2:] = np.nan
+    arrays["probe_shrink"][3] = np.nan
+    summary = summary_from_arrays(
+        arrays, parameter_schema=[dict(path="['theta']", shape=[9], start=0, stop=9)]
+    )
+    summary["production_comparison_passed"] = True
+    result = verify_arrays(summary, arrays)
+    assert result["reference_status"] == "nonfinite"
+    assert result["nonfinite_checkpoint_actions"] == 1
+    assert result["undefined_linearity_checks"] == 3
+    assert summary["probes"][1]["finite"]
+    assert not summary["probes"][3]["would_accept"]
+    arrays["production_theta"][0] += 0.1
+    with pytest.raises(ValueError, match="production versus instrumented theta"):
+        verify_arrays(summary, arrays)

@@ -221,7 +221,7 @@ def reconstruct_update(module, session, context):
             prepared["data"],
             prepared["scale"],
             prepared["weights"],
-            jnp.asarray(prepared["damping"]),
+            jnp.asarray(session._damping),
             delay=prepared["delay"],
             dt_s=prepared["dt_s"],
         )

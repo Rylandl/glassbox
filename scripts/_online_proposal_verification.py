@@ -373,6 +373,8 @@ def _verify_arrays(summary, arrays):
         exact_zero = bool(np.all(gradient == 0))
         initial_metric = _metric(gradient, preconditioner)
         first_converged = None
+        nonfinite_checkpoint_actions = 0
+        undefined_linearity_checks = 0
         for index, iteration in enumerate(iterations):
             d, recurrence, _ = states[int(iteration)]
             hd, jd = a["checkpoint_curvature"][index], a["checkpoint_projected"][index]
@@ -399,7 +401,7 @@ def _verify_arrays(summary, arrays):
             )
             checks.close(
                 a["checkpoint_q"][index],
-                np.asarray(gradient @ d + 0.5 * (d @ hd)),
+                np.asarray(0.0 if iteration == 0 else gradient @ d + 0.5 * (d @ hd)),
                 "damped quadratic",
             )
             checks.close(
@@ -407,17 +409,30 @@ def _verify_arrays(summary, arrays):
                 np.asarray(0.5 * value),
                 "quadratic gap bound",
             )
-            checks.close(
-                jd, projections[int(iteration)], "checkpoint projection linearity"
-            )
-            if iteration == 0:
-                checks.close(hd, np.zeros_like(theta), "zero checkpoint action")
-            else:
-                used = np.flatnonzero(a["trace_active"][:iteration])
-                summed = np.sum(
-                    a["trace_alpha"][used, None] * a["trace_curvature"][used], axis=0
+            action_finite = bool(np.isfinite(jd).all() and np.isfinite(hd).all())
+            if not action_finite:
+                # A failed action has no numeric linearity identity. It must
+                # terminate the reference explicitly; provenance is separately
+                # checked by recomputing this same saved derivative action.
+                _require(
+                    iteration == count and int(a["status"]) == 5,
+                    "nonfinite checkpoint did not terminate reference",
                 )
-                checks.close(hd, summed, "checkpoint curvature linearity")
+                nonfinite_checkpoint_actions += 1
+                undefined_linearity_checks += 2
+            else:
+                checks.close(
+                    jd, projections[int(iteration)], "checkpoint projection linearity"
+                )
+                if iteration == 0:
+                    checks.close(hd, np.zeros_like(theta), "zero checkpoint action")
+                else:
+                    used = np.flatnonzero(a["trace_active"][:iteration])
+                    summed = np.sum(
+                        a["trace_alpha"][used, None] * a["trace_curvature"][used],
+                        axis=0,
+                    )
+                    checks.close(hd, summed, "checkpoint curvature linearity")
             if (
                 relative <= 1e-6
                 and np.isfinite(relative)
@@ -499,11 +514,16 @@ def _verify_arrays(summary, arrays):
         )
         for index, d in ((0, four_delta), (2, delta)):
             checks.close(a["probe_delta"][index], d, "unshrunk probe direction")
-            checks.close(
-                a["probe_projected"][index],
-                projections[four_index if index == 0 else count],
-                "unshrunk probe projection",
-            )
+            if np.isfinite(a["probe_projected"][index]).all():
+                checks.close(
+                    a["probe_projected"][index],
+                    projections[four_index if index == 0 else count],
+                    "unshrunk probe projection",
+                )
+            else:
+                # Failed probe actions are retained; their trust/objective and
+                # finite/acceptance guards below must still agree exactly.
+                undefined_linearity_checks += 1
             checks.close(a["probe_shrink"][index], np.asarray(1.0), "raw shrink")
             norm = float(np.linalg.norm(np.sqrt(weight) * a["probe_projected"][index]))
             shrink = float(np.minimum(1.0, expected_radius / np.maximum(norm, 1e-30)))
@@ -656,6 +676,8 @@ def _verify_arrays(summary, arrays):
         maximum_krylov_relative_difference=checks.maximum_krylov_relative,
         iterations=count,
         krylov_directions=len(valid_rows),
+        nonfinite_checkpoint_actions=nonfinite_checkpoint_actions,
+        undefined_linearity_checks=undefined_linearity_checks,
         model_calls=0,
         optimizer_calls=0,
         reference_status=STATUSES[expected_status],
