@@ -463,3 +463,125 @@ def test_reference_initial_core_arrays_are_compared_without_session_loader():
     archive["param_w"][0] = 1.0
     with pytest.raises(ValueError, match="reference initialization"):
         evaluate.paired_initial(model, archive)
+
+
+def test_v5_tail_metrics_keep_all_rows_and_round_upper_decile_up():
+    truth = observations(11)
+    forecast = truth.copy()
+    forecast[:, 0] = np.arange(11)
+    result = evaluate.forecast_diagnostics(forecast, truth, truth, 0.05)
+    velocity = result["tail"]["velocity_m_s"]
+    assert result["count"] == 11
+    assert velocity["median"] == 5
+    assert velocity["p95"] == 9.5
+    assert velocity["p99"] == 9.9
+    assert velocity["maximum"] == 10
+    assert velocity["upper_decile_count"] == 2
+    assert velocity["upper_decile_rmse"] == pytest.approx(np.sqrt((100 + 81) / 2))
+    assert velocity["largest_five_squared_error_share"] == pytest.approx(
+        np.sum(np.arange(6, 11) ** 2) / np.sum(np.arange(11) ** 2)
+    )
+    assert evaluate.metrics(forecast, truth)["velocity_rmse_m_s"] == pytest.approx(
+        np.sqrt(np.mean(np.arange(11) ** 2))
+    )
+    assert result["tail"]["orientation_rad"]["largest_five_squared_error_share"] == 0
+    forecast[-1, 0] = np.nan
+    assert evaluate.forecast_diagnostics(forecast, truth, truth, 0.05) is None
+    assert evaluate.forecast_diagnostics(truth[:0], truth[:0], truth[:0], 0.05) is None
+
+
+def test_v5_rotation_rate_uses_observed_nonlinear_defect_not_zero_target():
+    origins = observations(2)
+    truth = origins.copy()
+    truth[:, 6:] = (
+        Rotation.from_rotvec([[0, 0, 0.03], [0, 0, 0.08]]).as_matrix().reshape(2, 9)
+    )
+    truth[:, 5] = [0.5, 0.9]
+    dt = 0.1
+    actual = evaluate.forecast_diagnostics(truth, truth, origins, dt)["rotation_rate"]
+    expected_defect = np.array([0.3 - 0.25, 0.8 - 0.45])
+    assert actual["truth_relative_rmse_rad_s"] == 0
+    assert actual["truth_defect_rmse_rad_s"] == pytest.approx(
+        np.sqrt(np.mean(expected_defect**2))
+    )
+    assert actual["predicted_defect_rmse_rad_s"] == actual["truth_defect_rmse_rad_s"]
+    prediction = truth.copy()
+    prediction[:, 5] += 0.2
+    changed = evaluate.forecast_diagnostics(prediction, truth, origins, dt)[
+        "rotation_rate"
+    ]
+    assert changed["truth_relative_rmse_rad_s"] == pytest.approx(0.1)
+
+
+def test_v5_diagnostics_are_prospective_and_recompute_every_arm(tmp_path, monkeypatch):
+    _result, output, stream = run_fixture(tmp_path, monkeypatch)
+    data = evaluate.arrays(output / "predictions.npz")
+    info = evaluate.read(output / "case.json")
+    reference = copy.deepcopy(data)
+    reference["candidate"][:, 0] += 2
+    for version in (1, 2, 3, 4):
+        historical = dict(id=f"online-fit-v{version}")
+        result = evaluate.summarize(data, info, reference, historical, stream)
+        assert "diagnostics" not in result and "robustness_ratios" not in result
+    result = evaluate.summarize(data, info, reference, dict(id="online-fit-v5"), stream)
+    assert set(result["diagnostics"]) == {
+        "candidate",
+        "reference",
+        "frozen",
+        "kinematic",
+    }
+    origins = evaluate.observed(stream["states"][data["origin"]])
+    expected = evaluate.forecast_diagnostics(
+        reference["candidate"], data["truth"], origins, info["dt_s"]
+    )
+    assert result["diagnostics"]["reference"] == expected
+    ratio = result["robustness_ratios"]["velocity_tail"]
+    assert ratio == pytest.approx(
+        result["diagnostics"]["candidate"]["tail"]["velocity_m_s"]["upper_decile_rmse"]
+        / expected["tail"]["velocity_m_s"]["upper_decile_rmse"]
+    )
+
+
+def test_v5_robustness_is_separate_and_uses_equal_families_without_case_veto():
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v5.json")
+    cases = [
+        aggregate_case(name, "quad", 0.01)
+        for name in ("quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change")
+    ] + [aggregate_case(f"fixedwing-{i}", "fixedwing", 0.01) for i in (80, 81)]
+    for case in cases:
+        case["reference_ratios"] = dict.fromkeys(case["ratios"], 0.7)
+        value = 0.25 if case["family"] == "quad" else 0.81
+        case["robustness_ratios"] = dict.fromkeys(
+            ("velocity_tail", "rate_tail", "orientation", "rotation_rate"), value
+        )
+    result = evaluate.aggregate(cases, protocol)
+    assert result["accuracy_passed"] and result["robustness_passed"]
+    assert result["primary_comparison"] == "candidate / saved online-fit-v4"
+    assert result["robustness"]["aggregate_ratios"] == pytest.approx(
+        dict.fromkeys(("upper_decile", "orientation", "rotation_rate"), 0.45)
+    )
+    cases[0]["robustness_ratios"] = dict.fromkeys(cases[0]["robustness_ratios"], 2.0)
+    assert evaluate.aggregate(cases, protocol)["robustness_passed"]
+    for case in cases:
+        case["robustness_ratios"]["orientation"] = 1.01
+    result = evaluate.aggregate(cases, protocol)
+    assert result["accuracy_passed"] and not result["robustness_passed"]
+    for case in cases:
+        case["robustness_ratios"]["orientation"] = 1.0
+        case["reference_ratios"] = dict.fromkeys(case["ratios"], 1.1)
+    result = evaluate.aggregate(cases, protocol)
+    assert not result["accuracy_passed"] and result["robustness_passed"]
+    cases[0]["complete"] = False
+    assert not evaluate.aggregate(cases, protocol)["robustness_passed"]
+
+
+def test_v5_rejects_weaker_v2_reference_before_authentication(tmp_path, monkeypatch):
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v5.json")
+    protocol["comparison"]["reference"]["protocol_id"] = "online-fit-v2"
+
+    def forbidden(*args):
+        pytest.fail("wrong reference version reached authentication")
+
+    monkeypatch.setattr(evaluate, "authenticate", forbidden)
+    with pytest.raises(ValueError, match="reference protocol contract"):
+        evaluate.reference_contract(tmp_path, protocol)

@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v4.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v5.json"
 
 COUNTERS = (
     "observations",
@@ -93,7 +93,7 @@ def ratio(a, b):
     return {key: a[key] / max(b[key], 1e-9) for key in a} if a and b else None
 
 
-def summarize(data, info, reference=None):
+def summarize(data, info, reference=None, protocol=None, stream=None):
     summaries = {
         arm: metrics(data[arm], data["truth"])
         for arm in ("candidate", "frozen", "kinematic")
@@ -170,7 +170,86 @@ def summarize(data, info, reference=None):
         if np.isfinite(data["command_z"]).any()
         else None,
     )
+    if protocol is not None and protocol["id"] == "online-fit-v5":
+        require(stream is not None, "v5 diagnostics require observed origins")
+        origins = observed(stream["states"][data["origin"]])
+        forecasts = {arm: data[arm] for arm in ("candidate", "frozen", "kinematic")}
+        if reference is not None:
+            forecasts["reference"] = reference["candidate"]
+        result["diagnostics"] = {
+            arm: forecast_diagnostics(prediction, data["truth"], origins, info["dt_s"])
+            for arm, prediction in forecasts.items()
+        }
+        a, b = (
+            result["diagnostics"]["candidate"],
+            result["diagnostics"].get("reference"),
+        )
+        result["robustness_ratios"] = (
+            dict(
+                velocity_tail=a["tail"]["velocity_m_s"]["upper_decile_rmse"]
+                / max(b["tail"]["velocity_m_s"]["upper_decile_rmse"], 1e-9),
+                rate_tail=a["tail"]["body_rate_rad_s"]["upper_decile_rmse"]
+                / max(b["tail"]["body_rate_rad_s"]["upper_decile_rmse"], 1e-9),
+                orientation=result["reference_ratios"]["orientation_rmse_rad"],
+                rotation_rate=a["rotation_rate"]["truth_relative_rmse_rad_s"]
+                / max(b["rotation_rate"]["truth_relative_rmse_rad_s"], 1e-9),
+            )
+            if a is not None and b is not None
+            else None
+        )
     return result
+
+
+def forecast_diagnostics(prediction, truth, origins, dt_s):
+    """Saved-data tail and sampled rotation/rate diagnostics; no model calls."""
+    if not len(truth) or not all(
+        np.isfinite(a).all() for a in (prediction, truth, origins)
+    ):
+        return None
+    residual, angle = residuals(prediction, truth)
+    tail = {}
+    for name, errors in (
+        ("velocity_m_s", np.linalg.norm(residual[:, :3], axis=-1)),
+        ("body_rate_rad_s", np.linalg.norm(residual[:, 3:6], axis=-1)),
+        ("orientation_rad", angle),
+    ):
+        descending = np.sort(errors)[::-1]
+        count = int(np.ceil(0.1 * len(errors)))
+        sse = float(np.sum(errors**2))
+        tail[name] = dict(
+            median=float(np.quantile(errors, 0.5, method="linear")),
+            p95=float(np.quantile(errors, 0.95, method="linear")),
+            p99=float(np.quantile(errors, 0.99, method="linear")),
+            maximum=float(descending[0]),
+            largest_five_squared_error_share=float(np.sum(descending[:5] ** 2) / sse)
+            if sse
+            else 0.0,
+            upper_decile_count=count,
+            upper_decile_rmse=float(np.sqrt(np.mean(descending[:count] ** 2))),
+        )
+
+    def defect(next_states):
+        relative = origins[:, 6:].reshape(-1, 3, 3).transpose(0, 2, 1) @ next_states[
+            :, 6:
+        ].reshape(-1, 3, 3)
+        return Rotation.from_matrix(relative).as_rotvec() / dt_s - 0.5 * (
+            origins[:, 3:6] + next_states[:, 3:6]
+        )
+
+    actual, predicted = defect(truth), defect(prediction)
+    return dict(
+        count=len(truth),
+        tail=tail,
+        rotation_rate=dict(
+            truth_relative_rmse_rad_s=float(
+                np.sqrt(np.mean(np.sum((predicted - actual) ** 2, axis=-1)))
+            ),
+            predicted_defect_rmse_rad_s=float(
+                np.sqrt(np.mean(np.sum(predicted**2, axis=-1)))
+            ),
+            truth_defect_rmse_rad_s=float(np.sqrt(np.mean(np.sum(actual**2, axis=-1)))),
+        ),
+    )
 
 
 def geometric(values):
@@ -207,7 +286,7 @@ def comparison_aggregate(cases, ratio_key):
 
 def aggregate(cases, protocol=None):
     protocol = read(PROTOCOL) if protocol is None else protocol
-    paired = protocol["id"] in ("online-fit-v3", "online-fit-v4")
+    paired = protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5")
     comparison = comparison_aggregate(cases, "reference_ratios" if paired else "ratios")
     total, families = comparison["aggregate_ratio"], comparison["families"]
     expected = {case["id"]: "quad" for case in protocol["streams"]["quad"]["cases"]}
@@ -242,8 +321,47 @@ def aggregate(cases, protocol=None):
     )
     if paired:
         result.update(
-            primary_comparison="candidate / saved online-fit-v2",
+            primary_comparison="candidate / saved "
+            + protocol["comparison"]["reference"]["protocol_id"],
             frozen_comparison=comparison_aggregate(cases, "ratios"),
+        )
+    if protocol["id"] == "online-fit-v5":
+        robustness = {}
+        for family in ("quad", "fixedwing"):
+            selected = [case for case in cases if case["family"] == family]
+            values = {
+                key: geometric(
+                    [
+                        case["robustness_ratios"][key]
+                        if case.get("robustness_ratios")
+                        else None
+                        for case in selected
+                    ]
+                )
+                if selected
+                else None
+                for key in (
+                    "velocity_tail",
+                    "rate_tail",
+                    "orientation",
+                    "rotation_rate",
+                )
+            }
+            robustness[family] = dict(
+                values,
+                upper_decile=geometric([values["velocity_tail"], values["rate_tail"]]),
+            )
+        ratios = {
+            key: geometric([row[key] for row in robustness.values()])
+            for key in ("upper_decile", "orientation", "rotation_rate")
+        }
+        result["robustness"] = dict(families=robustness, aggregate_ratios=ratios)
+        result["robustness_passed"] = bool(
+            complete
+            and all(value is not None for value in ratios.values())
+            and ratios["upper_decile"] < 1
+            and ratios["orientation"] <= 1
+            and ratios["rotation_rate"] < 1
         )
     return result
 
@@ -253,7 +371,7 @@ def counter_names(protocol):
         return COUNTERS[:5]
     return (
         COUNTERS
-        if protocol["id"] in ("online-fit-v3", "online-fit-v4")
+        if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5")
         else COUNTERS[:7]
     )
 
@@ -264,7 +382,7 @@ def dynamic_normalizers(protocol):
         allowed
         == (
             ["feature_scale", "quadratic_scale", "output_scale"]
-            if protocol["id"] in ("online-fit-v3", "online-fit-v4")
+            if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5")
             else []
         ),
         "dynamic normalization contract differs",
@@ -347,7 +465,13 @@ def paired_initial(initial, reference):
 def reference_contract(reference, protocol):
     wanted = protocol["comparison"]["reference"]
     require(
-        wanted["protocol_id"] == "online-fit-v2", "reference protocol contract differs"
+        wanted["protocol_id"]
+        == {
+            "online-fit-v3": "online-fit-v2",
+            "online-fit-v4": "online-fit-v2",
+            "online-fit-v5": "online-fit-v4",
+        }.get(protocol["id"]),
+        "reference protocol contract differs",
     )
     authenticate(reference, wanted["manifest_sha256"])
     require(
@@ -612,7 +736,7 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
     )
     if reference is not None:
         paired_case(data, info, reference_data, read(reference / "case.json"))
-    result = summarize(data, info, reference_data)
+    result = summarize(data, info, reference_data, protocol, stream)
     write(output / "summary.json", result)
     return result
 
@@ -631,7 +755,7 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v4",
+            p["id"] == "online-fit-v5",
             "unsupported candidate protocol for current learner",
         )
         require(
@@ -761,7 +885,12 @@ def accounting(report, count, protocol):
         and report["optimizer_steps"] == report["gradient_calls"] == proposals * count,
         "proposal accounting differs",
     )
-    if protocol["id"] in ("online-fit-v2", "online-fit-v3", "online-fit-v4"):
+    if protocol["id"] in (
+        "online-fit-v2",
+        "online-fit-v3",
+        "online-fit-v4",
+        "online-fit-v5",
+    ):
         require(
             report["cg_iterations"] == report["curvature_calls"] == 4 * count
             and report["objective_calls"] == 2 * count
@@ -769,7 +898,7 @@ def accounting(report, count, protocol):
             "curvature accounting differs",
         )
 
-    if protocol["id"] in ("online-fit-v3", "online-fit-v4"):
+    if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5"):
         require(
             report["conditioning_calls"] == count, "conditioning accounting differs"
         )
@@ -946,7 +1075,7 @@ def verify(output, authority):
         "saved protocol differs",
     )
     reference = None
-    if protocol["id"] in ("online-fit-v3", "online-fit-v4"):
+    if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5"):
         reference = output / "reference"
         reference_contract(reference, protocol)
         require(
@@ -1004,7 +1133,7 @@ def verify(output, authority):
             for key in initial:
                 if key != "metadata":
                     exact(initial[key], frozen[key], "independent initialization")
-            if protocol["id"] in ("online-fit-v3", "online-fit-v4"):
+            if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5"):
                 norm = arrays(case / "normalization.npz")
                 for key, value in norm.items():
                     exact(
@@ -1052,7 +1181,7 @@ def verify(output, authority):
             error, angles = residuals(data[arm], data["truth"])
             exact(data[arm + "_residual"], error, "component residual")
             exact(data[arm + "_orientation_error_rad"], angles, "orientation residual")
-        result = summarize(data, info, reference_data)
+        result = summarize(data, info, reference_data, protocol, stream)
         require(result == wanted == read(case / "summary.json"), "case metrics differ")
         results.append(result)
     require(
