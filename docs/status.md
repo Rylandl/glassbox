@@ -96,7 +96,7 @@ or model calls. The candidate passed 175 tests and is reproducible from source
 `5db9059`; only v4 remains maintained. All 169 maintained tests pass after restoring v4
 and retaining the archive verifier. The core and offline predictions are exact.
 
-## Next scientific gap
+## Active scientific gap
 
 **Causal fixed-wing forecast failures.** The consistency experiment suppresses the
 inspected quiet-hover numerical artifact, but fixed-wing nonlinear stage failure
@@ -108,3 +108,7 @@ nearby ordinary origins. Inspect each integration stage, motion-support
 compression and available command excitation before selecting another correction.
 Do not tune a stronger penalty from these aggregate scores. Latency and live
 control remain separate qualifications. No successor fit has run.
+
+The [causal trace protocol](harness/online-causal-trace-v1.json) is frozen before
+implementation:450 exact paired replay transitions and20 declared snapshots.
+No replay has started. The working v4 learner remains unchanged.
