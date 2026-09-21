@@ -30,8 +30,10 @@ Rotations must be proper orthonormal matrices. Position is not part of the learn
 state; a consumer can integrate the predicted world velocities when needed.
 Specify ordered `input_channels` describing actual issued command meanings and
 units, plus an opaque `configuration_id`. All recordings in a fit or update must
-share that identity, channel order and sample interval. A change to physical
-configuration calls for a separate fit and identity.
+share that identity, channel order and sample interval. For offline revisions, a known change to physical configuration calls for a
+separate fit and identity. The streaming procedure below can instead be tested
+on an unannounced change within an ongoing acquisition; that does not establish
+that arbitrary changes can be identified or safely controlled.
 
 Whole-recording IDs identify independent data acquisitions. Do not rename or split
 one acquisition to suggest independence. Use segment boundaries for gaps and
@@ -118,3 +120,53 @@ for independence when data have been transformed or resegmented.
 
 For CLI equivalents use `glassbox fit --help` and `glassbox evaluate --help`.
 Current physical results and their limits are documented in [status](status.md).
+
+## Streaming identification
+
+`OnlineFit(prefix)` is a stateful fitting session for an ongoing, contiguous
+recording. It uses the same shared-physics dynamics engine as offline revisions.
+It does not require a previously fitted model or a vehicle-family label.
+
+Supply a `SequenceCollection` containing one segment with the normal channel and
+configuration metadata. Startup needs 0.5 seconds of real observed context plus
+0.25 seconds of completed transitions (rounded to the sampling grid, with at
+least three training transitions). The fitter uses the last such prefix when
+more data are supplied. It cannot predict from observations that have not arrived.
+
+```python
+from glassbox import OnlineFit
+
+session = OnlineFit(prefix)
+prediction = session.predict(past_states, past_inputs, next_command[None])
+# Only after receiving the next observation:
+session.observe(session.cursor, next_command, next_observation)
+session.save("stream-session.npz")
+session = OnlineFit.load("stream-session.npz")
+```
+
+The cursor is the absolute source row of the next issued command, including the
+segment's `start_row`. An observation consumes exactly that transition; duplicate,
+backward and skipped indices are rejected. Start a new session across a gap.
+Prediction uses the same observed-history and issued-command meaning as above.
+Its numerical kernel is already compiled with model parameters passed as data.
+Wrapping a mutable session in an outer `jax.jit` closure captures its parameters
+at trace time; controllers that compile their own objective must pass changing
+model parameters as traced arguments, or deliberately use a fixed snapshot.
+The session is mutable; it does not rewrite previously saved sessions or model
+snapshots. Saves include the optimizer state, bounded replay data and cursor
+needed to continue deterministically.
+
+Startup initializes the existing model from one-step ridge windows. Thereafter
+each observation permits four safeguarded Adam proposals on 50 ms recursive
+prediction windows, using a bounded mix of startup and recent observations.
+Normalization stays fixed. Rejected proposals retain the previous parameters.
+There is no controller, actuator-telemetry input, simulator coefficient access,
+platform dispatch or user-selected learning budget.
+
+This procedure has no development split or calibrated error envelope. Training
+loss is not an independent accuracy measure. The active
+[online-fitting protocol](harness/online-fit-v1.json) measures predictions before
+assimilating their targets, against an identical session frozen after startup.
+It separately measures update latency; a bounded proposal count alone does not
+establish real-time fitting. Initial evidence and remaining limits belong in
+[status](status.md), not in the API's guarantees.

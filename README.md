@@ -46,6 +46,12 @@ revision.save("updated-model.npz")
 returns a new revision and leaves the original unchanged; improvement must be
 measured on separate recordings.
 
+For a contiguous live stream, `OnlineFit(prefix)` retains optimizer state and
+assimilates one completed transition at a time, with bounded replay and fitting
+work. It uses the same dynamics formulation. See the
+[streaming contract](docs/learner.md#streaming-identification) and current measured
+limits in [status](docs/status.md).
+
 The [onboarding example](examples/onboarding.py) shows recording construction,
 fit, prediction, persistence, held-out evaluation and update using analytic
 rigid-body motion:

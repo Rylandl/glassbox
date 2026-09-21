@@ -15,7 +15,10 @@ not arbitrary articulated or deformable systems.
 
 The model is the product. Its public workflow is `fit(recordings)`,
 `model.predict(...)` and `model.update(recordings)`, with fingerprinted save/load
-and immutable revisions. Other projects own controllers, planners and simulators.
+and immutable revisions. A bounded `OnlineFit` session assimilates contiguous
+observations into that same dynamics formulation; its mutable optimizer state is
+separate from saved immutable revisions. Other projects own controllers, planners
+and simulators.
 Glassbox retains a small generic motion adapter and a saved-evidence verifier;
 it does not maintain a competing controller framework or model catalog.
 

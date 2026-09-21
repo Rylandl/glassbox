@@ -110,10 +110,47 @@ The original float32 convergence failure remains in
 `artifacts/dart-precision-v1/lateral-resolution-audit`. A fresh trial, target or
 control change requires a new prospective measurement contract.
 
+## Reproduce streaming fitting
+
+The active [online-fit-v1 protocol](docs/harness/online-fit-v1.json) pins the Throw
+source, original behavior-policy dependency and known Cascade input recordings.
+The collection and evaluation commands deliberately use different environments:
+the original Throw virtualenv collects issued commands and observations; the
+current Glassbox checkout fits those streams. The old controller is a collection
+policy, not the candidate or a matched-input accuracy comparator.
+
+Commit source before either command and choose output directories that do not
+exist. Use the `manifest_sha256` printed by collection as evaluation's authority:
+
+```bash
+env -u JAX_ENABLE_X64 -u PYTHONPATH PYTHONDONTWRITEBYTECODE=1 SCIPY_ARRAY_API=1 \
+  /path/to/glassbox-throw/.venv/bin/python scripts/collect_throw.py \
+  --output artifacts/online-fit-reproduction/collection
+
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/evaluate_online.py run artifacts/online-fit-reproduction/collection \
+  --collection-sha256 COLLECTION_MANIFEST_SHA256 \
+  --output artifacts/online-fit-reproduction/evaluation
+```
+
+Verify the resulting physical errors and causal journal without fitting, using
+the manifest hash printed by evaluation:
+
+```bash
+PYTHONPATH=scripts python scripts/evaluate_online.py verify \
+  artifacts/online-fit-reproduction/evaluation \
+  --manifest-sha256 EVALUATION_MANIFEST_SHA256
+```
+
+The fixed-wing tapes are known evaluation data, and the new quad tapes come from
+the original controller. These results measure prefix-only online identification;
+they do not measure candidate-controlled recovery or blind generalization.
+
 ## Package boundaries
 
 - `learner.py` owns fit, predict, update and saved model revisions.
 - `_dynamics.py` implements the shared motion formulation and fitting arithmetic.
+- `online.py` owns causal streaming ingestion, bounded replay and persistent fitting state.
 - `recordings.py` owns timing, segment boundaries and extraction.
 - `io/recordings.py` stores and loads recording archives.
 - `workflows/forecast.py` scores independent recordings without learning.
