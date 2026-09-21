@@ -127,9 +127,14 @@ def bind(baseline, dart, protocol, output):
     require(
         all(
             p["controller"][k] == v
-            for k, v in dict(steps=120, block_steps=3, maxiter=100, dt_s=0.01).items()
+            for k, v in dict(steps=120, maxiter=100, dt_s=0.01).items()
         ),
         "unexpected controller work contract",
+    )
+    block = p["controller"]["block_steps"]
+    require(
+        type(block) is int and 1 <= block <= 120 and 120 % block == 0,
+        "planning blocks must partition the native observation grid",
     )
     replan = p["controller"]["replan_steps"]
     require(
