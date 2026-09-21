@@ -36,47 +36,44 @@ success or live model replacement. Public v4 remains the adopted public recipe.
 
 ## Latest iteration
 
-The [support-preserving saturation experiment](supported-motion-saturation.md)
-is **complete and passes its frozen known-data hypothesis**. The new feature
-map is exactly the identity inside each training-derived motion envelope and
-smoothly approaches the same bound outside it. All weights, normalizations,
-filters and mechanics are preserved; no fit or new simulation occurs.
-All 1,075,248 observed training motion coordinates are bitwise unchanged in
-float32 and float64. On all 189 known Dart queries, the map retains zero
-nonfinite or extreme-growth trajectories and largely recovers original local
-response accuracy: the separate pilot/task short-response ratios versus the
-previous tanh bound are 0.91647/0.98765, and versus shared-v1 are
-1.00172/1.00000018. This is a tradeoff: every 1.2-second forecast prefix group
-worsens versus tanh, including rate errors by 27.91%/14.63%/36.78% on
-pilot/task/test. Long pilot response endpoint errors remain 3.942 m/s and
-9.601 rad/s. The [result record](harness/supported-motion-saturation-v1-result.json)
-anchors all evidence: 124 tests pass, all 567 historical reference predictions
-reproduce exactly on both passes, all 756 predictions replay exactly, the
-independent reductions and four distinct alteration checks pass. The final
-hypothesis is independently verified after qualification. No calls or fits
-remain pending, no public model is promoted, and earlier frozen verdicts
-remain unchanged.
+The [cross-vehicle supported-motion comparison](cross-vehicle-supported-motion.md)
+is **complete and passes its frozen known-data preservation hypothesis**. The
+unchanged map uses the original saved weights on all 8,064 Crazyflow/Cascade
+queries from both inspected cohorts. Its 360-cell local-response ratio is
+0.998619 versus original and 0.989091 versus tanh. Crazyflow is effectively
+unchanged from original and 4.15% better than tanh; Cascade is 0.28% better than
+original but 2.07% worse than tanh. Both cohorts show that tradeoff. All three
+arms remain finite/nonextreme on input-eligible prefixes; missing truth and
+263 unusable histories remain visible. This supports transfer of the Dart
+preservation fix, with no new fit or simulator/controller call. It leaves real
+accuracy gaps: Cascade wind forecast velocity RMSE is 0.426–0.434 m/s at
+250 ms across the two known cohorts (parent p95: 0.751–0.778 m/s), and prior
+Dart long-response errors remain 3.942 m/s and 9.601 rad/s. The [result record](harness/cross-vehicle-supported-motion-v1-result.json)
+anchors 76 passing tests, 12,768 exact historical arrays on each pass, 38,304
+exactly replayed arrays, independent physical/hypothesis reductions and four
+rejected numeric alterations. No calls remain pending, no source correction
+was needed, and no public model or earlier frozen verdict changes.
 
 ## Next named gap
 
-**Cross-vehicle preservation of local response under bounded recurrence.**
-Keep the exact supported map fixed and compare saved-weight original, tanh and
-supported revisions on the complete Crazyflow and Cascade condition rosters.
-Use each configuration's existing training cache to derive its support; change
-no weights, filters, mechanics, timing or consumer contract. Freeze matched
-horizons, precision, physical forecast/response errors, tail metrics, full
-population/failure accounting and decision rules before execution. This tests
-transfer of the Dart tradeoff before more Dart-specific tuning or expensive
-fitting. Existing inspected flight evidence stays known evidence, and any
-later fresh evaluation must be declared separately. No next protocol has
-been frozen or run yet.
+**Dart planner compatibility of the fixed supported shared-physics revision.**
+Keep the map, saved revision and controller fixed. Freeze the existing task,
+planner work budget, objective/gradient finiteness checks and contact criteria
+before a no-fit consumer trial. The concrete question is whether this revision
+gets past the previous nonfinite planning objective/gradient failure and can
+execute the task. Numerical compatibility, task success and model accuracy
+remain separate outcomes. A controller success would not settle long-response
+residuals, shifted flight forecasts, physical derivative fidelity or calibration.
+No next protocol has been frozen or run yet.
 
 The [completed bounded fits](bounded-motion-features.md) still establish a
-separate long-horizon training-generalization problem: Dart's training decrease
-worsens development and much of its measured response. Do not repeat those
-fits. The supported map's remaining long errors, Crazyflow response/tail
-regressions and Cascade crosswind performance need direct measurement; Dart
-control, physical derivatives and calibration retain their own obligations.
+separate long-horizon training-generalization problem; do not repeat them.
+The [supported-map Dart result](supported-motion-saturation.md) removes observed
+runaway and recovers local response while worsening long forecasts versus tanh.
+Both flight cohorts preserve original local accuracy but contain truth only
+through 250 ms. The next consumer check follows those measurements; it does not
+assume that bounding six input features bounds the entire rollout Jacobian or
+qualifies the model for arbitrary systems.
 
 ## Preserved boundaries
 

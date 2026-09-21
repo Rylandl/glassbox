@@ -1,0 +1,312 @@
+{
+  "artifact_root": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/cross-vehicle-supported-motion-v1-evidence",
+  "base_commit": "96883f2d404a7c40f693da5f7533921a26132efd",
+  "cohorts": {
+    "cascade-known-14m": {
+      "calls_per_arm": 2856,
+      "cells": 42,
+      "data_seal": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/cascade/confirmation/data/seal.json",
+        "sha256": "c1b53361d92281219c744804a019b5d9ae0964fa878d96e712cd69680b327d60"
+      },
+      "historical_stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/cascade-known/run.json",
+        "sha256": "a726d7dc7ef1019cf697876d037ebd2e55abf250611433720b52d9fecaa960b9"
+      },
+      "history_ineligible": 0,
+      "parents": 84,
+      "queries": 1848,
+      "simulator": "cascade"
+    },
+    "cascade-known-15m": {
+      "calls_per_arm": 2856,
+      "cells": 42,
+      "data_seal": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/cascade-data/data/seal.json",
+        "sha256": "8dc1bbf0ccfeea475d81233f262072f18b92423a094f75c17bcc12ee4cf78f14"
+      },
+      "historical_stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/cascade-fresh/run.json",
+        "sha256": "e16a88b3380579092cd8df55200b95b36b2cad1ff4783a5bacde94151189bc88"
+      },
+      "history_ineligible": 0,
+      "parents": 84,
+      "queries": 1848,
+      "simulator": "cascade"
+    },
+    "crazyflow-known-14m": {
+      "calls_per_arm": 3356,
+      "cells": 42,
+      "data_seal": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/crazyflow/confirmation/data/seal.json",
+        "sha256": "19d49cadabc147796d1abf3300d194e9f0995fe840d2dd8e27b33979f3593ce8"
+      },
+      "historical_stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/crazyflow-known/run.json",
+        "sha256": "6eefa602049beb0b26f3987fe92af20208d18e4d58c3f8752e6b5ea8d047b855"
+      },
+      "history_ineligible": 116,
+      "parents": 84,
+      "queries": 2184,
+      "simulator": "crazyflow"
+    },
+    "crazyflow-known-15m": {
+      "calls_per_arm": 3301,
+      "cells": 42,
+      "data_seal": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/crazyflow-data/data/seal.json",
+        "sha256": "53b271ca2e1c65cd289567ad1dda9842fffa2594757eed52c7d5a8b26b645441"
+      },
+      "historical_stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/optimizer-step-selection-v1-evidence/experiment/evaluation-correction/experiment/evidence/crazyflow-fresh/run.json",
+        "sha256": "dcf2e61f4cbc7822f541a57194b79aa462b95fac557e1904677d755a6ce220e3"
+      },
+      "history_ineligible": 147,
+      "parents": 84,
+      "queries": 2184,
+      "simulator": "crazyflow"
+    }
+  },
+  "contracts": {
+    "cascade": {
+      "commands": 3,
+      "delay_steps": 2,
+      "dt_s": 0.05,
+      "future_steps": 5,
+      "history_steps": 10,
+      "horizons": [
+        1,
+        3,
+        5
+      ],
+      "train_future_steps": 24,
+      "train_windows": 1536
+    },
+    "crazyflow": {
+      "commands": 4,
+      "delay_steps": 10,
+      "dt_s": 0.01,
+      "future_steps": 25,
+      "history_steps": 50,
+      "horizons": [
+        1,
+        5,
+        15,
+        25
+      ],
+      "train_future_steps": 120,
+      "train_windows": 1536
+    }
+  },
+  "cores": {
+    "supported": {
+      "commit": "e20192a26e72c45353d80cce94518a1f71dc1068",
+      "path": "/Users/ryland/.codex/worktrees/supported-motion-saturation/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "root": "/Users/ryland/.codex/worktrees/supported-motion-saturation/glassbox",
+      "sha256": "7fe1af0065e2b3b9cfc8178c34664ec177a41d82ee58d7c858772cee4c33725a"
+    },
+    "tanh": {
+      "commit": "d855535943b15d6a4970de3315363bb9f939c47f",
+      "path": "/Users/ryland/.codex/worktrees/bounded-motion-features/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "root": "/Users/ryland/.codex/worktrees/bounded-motion-features/glassbox",
+      "sha256": "e613b61c39ad3cc90608dbb5258f01998069e4dc767ea7ff455d43e44f98f909"
+    },
+    "unbounded": {
+      "commit": "67764ce80a2d1cfd79c97321de440b3b5f9fd1a3",
+      "path": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox/src/glassbox/experimental/shared_vehicle_core.py",
+      "root": "/Users/ryland/.codex/worktrees/optimizer-evaluation-correction/glassbox",
+      "sha256": "bc52b8304d1cbe8a76fc9f282dd60729ec5f695e33a7c24858e0e73828e04b53"
+    }
+  },
+  "date": "2026-09-21",
+  "design": {
+    "actual_calls_per_pass": 37107,
+    "actual_shared_v1_calls_per_pass": 12369,
+    "arms": [
+      "shared_v1",
+      "tanh_initial",
+      "supported_initial"
+    ],
+    "controller_calls": 0,
+    "fits": 0,
+    "gradients": 0,
+    "historical_arrays_per_pass": 12768,
+    "inference": "Exact historical default32 application boundary: jax.jit(core.rollout) receiving saved float64 NumPy inputs with JAX x64 disabled, float32 output. No batching. All finite future command prefixes inferred independent of truth loss, with NaN padding afterward. Separate factual call per response arm. No clipping, filter, time, integrator, parameter or consumer change.",
+    "passes": [
+      "predict",
+      "replay"
+    ],
+    "predicted_arrays_per_pass": 38304,
+    "queries": 8064,
+    "simulator_calls": 0
+  },
+  "format": "glassbox-cross-vehicle-supported-motion-v1",
+  "frozen_at_utc": "2026-09-21T15:46:51.694402+00:00",
+  "hypothesis": {
+    "aggregation": "For each contrast equal-weight log ratios over 2 simulators x2 cohorts x5 scopes x3 horizons x3 groups x2 statistics, response only. Use floor-stabilized balanced all-truth-eligible RMSE. Exact 360-cell roster required, at least one truth-eligible row each, and zero prediction failures in all THREE arms in every cell, otherwise primary ratios undefined. Retain per-simulator (180-cell) and per-cohort (90-cell) results descriptively. Equal weights do not imply independent samples or confidence intervals.",
+    "cells": 360,
+    "common_horizons_s": [
+      0.05,
+      0.15,
+      0.25
+    ],
+    "preservation_ratio_max": 1.05,
+    "readout": "cross_vehicle_local_tradeoff_supported iff qualified, defined aggregate supported/shared_v1<=1.05, aggregate supported/tanh_initial<1, and supported introduces no NEW full-state nonfinite or extreme velocity/rate prefix identity relative to shared_v1. This is a prospective practical 5% preservation margin, not a mathematical or statistical equivalence claim, not an adoption gate. Per-system improvements/losses remain visible without every-system veto."
+  },
+  "measurements": {
+    "contrasts": [
+      [
+        "supported_initial",
+        "shared_v1"
+      ],
+      [
+        "supported_initial",
+        "tanh_initial"
+      ],
+      [
+        "tanh_initial",
+        "shared_v1"
+      ]
+    ],
+    "eligibility": "Model-independent existing valid mask over entire prefix to horizon for both endpoint/prefix, also finite target states; response truth is branch minus factual and both must be finite. History/input eligibility unchanged; all planned rows retained. Missing truth never becomes prediction success.",
+    "groups": {
+      "body_rate_rad_s": [
+        3,
+        6
+      ],
+      "rotation_entries": [
+        6,
+        15
+      ],
+      "velocity_m_s": [
+        0,
+        3
+      ]
+    },
+    "growth_threshold": 1000,
+    "ratio_floors": {
+      "body_rate_rad_s": 0.001,
+      "rotation_entries": 0.0001,
+      "velocity_m_s": 0.001
+    },
+    "response": "Signed branch prediction minus same-arm factual prediction vs signed branch target minus factual target, float64 subtraction before scoring.",
+    "scopes": [
+      "primary",
+      "heading_shift",
+      "speed_shift",
+      "maneuver_shift",
+      "wind_shift"
+    ],
+    "scoring": "Float64 component MSE. Equal branches within origin, origins within parent, parents within cell, cells within scope. Summaries per cohort/scope/kind/horizon/group/statistic/arm. All truth-eligible RMSE is null when empty or ANY eligible prediction fails; no finite-subset fallback. Planned/truth-eligible/failed counts and parent/cell coverage mandatory. Also parent RMSE p50,p95,max with planned,eligible,finite,failed parent counts. Paired common-finite balanced RMSE and ratio explicitly conditional, never replace primary. Retain cell and parent summaries.",
+    "statistics": [
+      "endpoint",
+      "prefix"
+    ],
+    "trajectory": "Each predicted branch/factual input-eligible prefix: full-state nonfinite count/first step; maximum finite velocity/rate norm with float64 norm computation; separate >=1000 m/s and rad/s flags. Compare failure identity sets (cohort,parent,id,suffix), not counts. Padded missing-input NaNs are not trajectory failures."
+  },
+  "models": {
+    "cascade": {
+      "shared_v1": {
+        "archive": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/cascade/candidate/model.npz",
+          "sha256": "58138ffa51b1201d3e87a62728431eec313f23036ea536c29cc2b31e9aaad3c4"
+        },
+        "core": "unbounded"
+      },
+      "supported_initial": {
+        "construction": "Copy tanh INITIAL param_/norm_ arrays bitwise; replace only core format using pinned supported source.",
+        "core": "supported"
+      },
+      "tanh_initial": {
+        "archive": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/bounded-motion-features-v1-evidence/experiment/fits/cascade/payload/capture/initial.npz",
+          "sha256": "12d267128234017b8ed55ca25245b4a6c0e4a35121945785fd9f2d6b62b0cb28"
+        },
+        "core": "tanh"
+      }
+    },
+    "crazyflow": {
+      "shared_v1": {
+        "archive": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/crazyflow/candidate/model.npz",
+          "sha256": "cd5008c3ecb42010e53674ecf2a431ee9c069a96049ec76f58e1c5415e09e07d"
+        },
+        "core": "unbounded"
+      },
+      "supported_initial": {
+        "construction": "Copy tanh INITIAL param_/norm_ arrays bitwise; replace only core format using pinned supported source.",
+        "core": "supported"
+      },
+      "tanh_initial": {
+        "archive": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-21/bounded-motion-features-v1-evidence/experiment/fits/crazyflow/payload/capture/initial.npz",
+          "sha256": "d583d5f1d63ef0b4767e8d0ad2a92171395ceef964271bf37c87f3efe79e18b5"
+        },
+        "core": "tanh"
+      }
+    }
+  },
+  "named_gap": "Cross-vehicle preservation of local response under bounded recurrence",
+  "proof": {
+    "alterations": [
+      "numeric input rejected against frozen input anchor",
+      "numeric model array rejected by original embedded fingerprint and frozen model anchor",
+      "numeric saved prediction rejected against original complete-stage anchor even with repaired local inventory",
+      "numeric summary rejected by independent raw-array reduction"
+    ],
+    "fixtures": "Mock/synthetic tests only before commit: padding/truth loss independence, response signs, arbitrary command counts, hierarchy balancing, missing truth, prediction failures, paired failure identities, roster completeness, exact replay/source/receipt tamper rejection. No new real model predictions before binding.",
+    "persistence": "Exclusive outputs, durable pre-call and return events. Preserve raw nonfinite outputs, exceptions and placeholder arrays. No repeat fitting/simulation; one predict pass and one replay. A failed stage remains immutable; any harness-only correction must be source-bound and separately recorded.",
+    "qualification": "Exact historical shared_v1 array reproduction both passes including padding. Exact replay all arrays, errors, metrics and provisional readout. Independent NumPy reduction from saved predictions verifies physical summaries, tails, paired counts, trajectory identities, 360-cell hypothesis and final qualified readout. Stage receipts and inventories bound externally.",
+    "source": "Commit complete runner/reducers/tests before real feature preparation or model call. Bind clean source, external pinned cores and matching shared helper modules, runtime, all source and evidence anchors. Archive source bundle."
+  },
+  "representation": {
+    "cache_caveat": "Crazyflow historical cache-producing fit failed but cache hashes are fixed and authentic. Preserve seven excluded training parents; no regeneration/reselection or failed-fit relabel.",
+    "core_format": "glassbox-shared-vehicle-sequence-supported-motion-v1",
+    "core_sha256": "7fe1af0065e2b3b9cfc8178c34664ec177a41d82ee58d7c858772cee4c33725a",
+    "map": "Unchanged previous map: identity |z|<=S; sign(z)*(S+3S*tanh((|z|-S)/(3S))) outside. S=bound/4. Shared gravity/kinematics, first six normalized body motion features, no vehicle-specific equations.",
+    "support": "S=max(1,max_train abs normalized body motion), L=4S. Union saved train_past_states and train_future_states including final target. Original body mean/scale. Require bitwise agreement with saved tanh bounds. Development/evaluation never enter support. Validate observed training features bitwise unchanged in float32/64."
+  },
+  "roster": {
+    "path": "docs/harness/cross-vehicle-supported-motion-v1-roster.json",
+    "sha256": "f245a90dced54e7446c0498a331a937d378ac6262006f75b3e651506ff0ea36b"
+  },
+  "scope": "Both full previously inspected +14M/+15M Crazyflow/Cascade rosters. All cohorts are KNOWN evidence; archived fresh labels carry no fresh claim. No public promotion, task adequacy or long-horizon conclusion.",
+  "training_support": {
+    "cascade": {
+      "arrays": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/preparation.npz",
+        "sha256": "99b3d21a0b768b60c0f477f9782f87b47851a1b57fa9db1ac3c85d8d2f434464"
+      },
+      "initial": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/capture/initial.npz",
+        "sha256": "c17c79b0a24c568d78fd7a57b5084005c75909d33fcf6e1b4f0962d0f6fb144f"
+      },
+      "metadata": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/preparation.json",
+        "sha256": "04d67d2390a9169cf7899801c37bb36e82ad3e9850ff5cdf03599da3b93219e4"
+      },
+      "stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/cascade/run.json",
+        "sha256": "56bc19af9fc560fc4e207cecae8f70d0567e407dd84e508bbd20d9afe5989970"
+      }
+    },
+    "crazyflow": {
+      "arrays": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/preparation.npz",
+        "sha256": "0932e6684ac0f05add5df5d86105cd8d4bb0800fbb78ab20ba1ee9a75675286d"
+      },
+      "initial": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/capture/initial.npz",
+        "sha256": "ffb0a3798406f313321b6dfb5f822304e46a598695ac51b7220abe1fe55baa4c"
+      },
+      "metadata": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/preparation.json",
+        "sha256": "5e2dc811289185d8080c894cb538efd2adab34cc6f7b3f823a600badcf79bc00"
+      },
+      "stage": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/2026-09-20/task-horizon-supervision-v1-evidence/experiment/refinements/crazyflow/run.json",
+        "sha256": "643db45099ab8a92fff055f0cdd6dd14f75aded417e8c91570a271e995e5aefb"
+      }
+    }
+  }
+}
