@@ -12,50 +12,48 @@ controllers and simulators remain external.
 | Recipe | Shared gravity, rigid-body kinematics and coordinate transforms; learned command response, effective accelerations and memory. Arbitrary ordered command dimensions; no platform dispatch. |
 | Offline accuracy | Original shared physics reduced matched aggregate forecast/response errors 43.95%/22.12% versus the retired model. The supported map preserves local response on the inspected Crazyflow/Cascade cohorts. Cascade wind velocity RMSE remains 0.426–0.434 m/s at 250 ms; known Dart 1.2 s response errors remain 3.942 m/s and 9.601 rad/s. |
 | Dart | The unchanged supported model reaches **0.720 mm** nominal contact miss through an external radius-aware objective and 10 ms feedback. Fine float64 replays reach 0.756 / 0.755 mm and converge within 0.152 micrometers / 0.228 microseconds. One known task/seed; neighborhood reliability remains open. See [precision evidence](dart-precision.md). |
-| Runtime | Dart takes 59.24 s for 1.2 simulated seconds. Working online quad update p95 is 28.0–28.6 ms against 10 ms observations; fixed-wing p95 is 3.92–3.97 ms against 50 ms. Real-time quad fitting is not qualified. |
-| Online fitting | Working **online v4** reduces equal-family velocity/rate error 40.89% against v2 and 73.01% against frozen startup across six known tapes. All 3,137 targets are scored before assimilation. Large fixed-wing errors and quad-115 orientation regression remain. See [online evidence](online-fitting.md). |
+| Runtime | Dart takes 59.24 s for 1.2 simulated seconds. V6 quad update p95 is 28.16–29.53 ms against 10 ms observations; fixed-wing p95 is 4.38–4.60 ms against 50 ms. Real-time quad fitting is not qualified. |
+| Online fitting | Working **online v6** reduces equal-family velocity/rate error **21.94% against v4** and 78.93% against frozen startup across six known tapes. All 3,137 targets are scored before assimilation. Worst-decile errors improve 22.96%; angular outliers and individual regressions remain. See [online evidence](online-fitting.md). |
 | Updates and calibration | Offline updates preserve immutable revisions and development roles. Online sessions retain bounded causal caches. Development-selected calibration does not establish independent coverage; streaming sessions have no calibrated envelope. |
 | Scope | Rigid-body motion across recorded quad/fixed-wing configurations. Broad airframe, articulated-system and arbitrary-system readiness remain unproved. No current-learner online closed-loop recovery trial has run. |
-| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. Current package source remains identical to the working v4 evaluation source. All **187 tests pass**. |
+| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. Shared dynamics and offline source remain byte-identical to v4; only the online fitter changed. All **204 tests pass**, and the complete saved baseline replays exactly. |
 
-## Latest completed investigation
+## Latest completed iteration
 
-**Causal fixed-wing forecast failures.** The frozen diagnostic replay exactly
-reproduces all **450 fixed-wing predictions and model transitions**. Twenty
-pre-assimilation snapshots bind full optimizer/cache state to the original tape.
-All saved diagnostics reproduce without optimizer updates; an independent audit
-checks 10,440 integration-stage states. See [the diagnosis](online-causal-trace.md)
-and [artifact identities](online-causal-trace.json).
+**Physical quadratic-head curvature prior, online v6.** Adopted as the sole
+maintained streaming fitter after the prospectively frozen primary and separate
+robustness gates passed. Both families improve: quads 13.69%, fixed wings 29.41%.
+No case or failure was excluded. [The result](online-fitting.md) records the
+frozen protocol, source and sealed artifact authority.
 
-At all four selected worst-error events, the immediately preceding accepted
-update improves the forecast when compared on identical current inputs. Smaller
-integration steps reduce FW81's velocity spike from 31.14 to 7.65 m/s and rate
-spike from 17.19 to 8.74 rad/s, but increase FW80's rate error from 8.27 to
-11.20 rad/s. Incorrect learned response remains after refinement.
+The prior uses measured motion/issued-command scales and known unit-gravity
+geometry, with four preconditioned curvature iterations and no extra rollout.
+It introduces no vehicle-specific rule or user option. Initialization, inference,
+immutable models and the offline learner remain unchanged. Independent saved-data
+verification checks all 3,137 causal forecasts, exact v4 pairing and endpoint
+objectives without fitting or model calls. Historical v3/v5 failures remain.
 
-Large quadratic command and delayed-linear contributions appear before
-integration. Predicted attitude/rate changes can amplify them further through
-quadratic feedback. In one severe step, tiny startup variation scales a known
-unit gravity-direction coordinate to about 37, whose square generates enormous
-learned acceleration. Support saturation and novelty occur at ordinary controls
-too; neither alone diagnoses a failure.
+FW81 velocity RMSE falls 2.891→1.244 m/s and its maximum error 31.139→7.704 m/s.
+But its maximum rate error rises 17.194→18.227 rad/s, orientation RMSE worsens 7.16%,
+and fixed-wing orientation/rotation-rate family scores worsen 2.13%/6.49%.
+Quad115 velocity and FW80 velocity also regress 7.57%/3.32%.
+Absolute fixed-wing velocity/rate errors remain worse than kinematic hold.
 
-The learner is unchanged. Earlier online v3 and v5 failures remain recorded;
-v5's solver-consistency penalty improved aggregate error only 4.66%, with worse
-fixed-wing angular errors and higher cost, and was not adopted. These historical
-verdicts and reproduction commits are in [the online report](online-fitting.md).
+The accompanying [no-fit diagnosis](online-response-support.md) separates large
+command response from context-dependent numerical amplification. Its 37 retained
+origin features per snapshot do not uniquely separate affine and quadratic
+heads; this does not establish nonidentifiability of the full rollout objective.
+Twenty points pass independent physical-coordinate and nullspace audits.
 
 ## Next scientific gap
 
-**Constrain unsupported nonlinear response during short online fits.** Use the
-captured causal states to separate current-command effects from history/filter
-context and assess which dominant quadratic directions the retained data
-actually constrain. Then freeze one generic correction against working v4.
-Known gravity-direction geometry supplies a system-independent scale; command,
-rate and attitude curvature should not acquire large unsupported responses from
-a narrow startup sample. No vehicle label, catalog or consumer tuning option.
+**Residual fixed-wing angular response and forecast outliers.** Recover v6's
+actual pre-assimilation states at the remaining angular extremes, distinguish
+incorrect learned acceleration from integration error, and inspect delayed-linear
+and recurrent response after explicit curvature suppression. Freeze that
+measurement before replay, then choose one correction supported by the findings.
 
-Keep all velocity/rate, orientation, tail and timing comparisons. Finer inference
-or a stronger consistency penalty alone does not address the remaining learned
-field error. Latency and live control are separate qualifications. No successor
-candidate has been fitted.
+Retain velocity/rate, orientation, tail, kinematic and timing comparisons on all
+six tapes; use adopted v6 as the next candidate's primary reference. Known-tape
+improvement does not qualify blind generalization, calibrated uncertainty or
+current-learner closed-loop recovery. Quad latency remains a separate gap.

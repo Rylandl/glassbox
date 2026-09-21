@@ -112,7 +112,7 @@ control change requires a new prospective measurement contract.
 
 ## Reproduce streaming fitting
 
-The active [v4 physical-vector comparison](docs/harness/online-fit-v4.json) reuses the
+The active [v6 physical-curvature comparison](docs/harness/online-fit-v6.json) reuses the
 exact sealed v1 collection and two known Cascade recordings. It intentionally
 refuses changed inputs. The old Throw controller collected issued commands and
 observations; it is not the candidate or a matched-input accuracy comparator.
@@ -124,26 +124,29 @@ Commit source and choose a new output directory. With the preserved v1 pack:
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
   scripts/evaluate_online.py run artifacts/online-fit-v1/collection \
   --collection-sha256 276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4 \
-  --protocol docs/harness/online-fit-v4.json \
-  --reference artifacts/online-fit-v2/evaluation \
-  --output artifacts/online-fit-v4-reproduction
+  --protocol docs/harness/online-fit-v6.json \
+  --reference artifacts/online-fit-v4/evaluation \
+  --output artifacts/online-fit-v6-reproduction
 ```
 
 Verify errors and the causal journal without fitting, using the evaluation
-manifest hash printed by the run. The copied, authenticated v2 reference pack
+manifest hash printed by the run. The copied, authenticated v4 reference pack (including v2)
 is verified too; no old optimizer implementation is needed:
 
 ```bash
 PYTHONPATH=src:scripts python scripts/evaluate_online.py verify \
-  artifacts/online-fit-v4-reproduction \
+  artifacts/online-fit-v6-reproduction \
   --manifest-sha256 EVALUATION_MANIFEST_SHA256
 ```
 
 The rejected v5 solver-consistency experiment is reproducible from source
 `5db9059`, using its frozen `online-fit-v5.json` protocol and the v4 evaluation
 as `--reference`. Current verification still audits its sealed pack and nested
-v4/v2 references with zero fits; current runs use the maintained v4 fitter.
+v4/v2 references with zero fits; current runs use the maintained v6 fitter.
 See [the failed primary result](docs/online-fit-v5.json).
+
+The preceding v4 result is reproducible from source `8053938`; its sealed pack
+is the v6 primary comparator. V6 scientific source is `2e465a4`.
 
 The v2 optimizer result is reproducible from source `a43d2dc`; its sealed pack
 supplies the v4 primary comparator. The failed coordinate-only v3 run is
@@ -161,7 +164,8 @@ The [frozen causal trace](docs/harness/online-causal-trace-v1.json) diagnoses th
 working v4 fitter on its authenticated saved fixed-wing inputs. It replays all
 450 updates to recover the exact contemporaneous model state at 20 declared
 origins; this is a diagnostic replay, not a new candidate or blind evaluation.
-Commit source first and choose an output directory that does not exist:
+Use source `5648d13` for this historical v4 replay and choose an output
+directory that does not exist:
 
 ```bash
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
@@ -182,6 +186,22 @@ env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
 The scientific source is `5648d13`. The learner source inventory must match the
 authenticated v4 binding exactly; future changes require the recorded source
 checkout for replay. See [the findings](docs/online-causal-trace.md).
+
+## Reproduce physical-head support diagnosis
+
+From frozen source `724fc02` and the authenticated causal-trace pack:
+
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/diagnose_online_support.py \
+  --reference artifacts/online-causal-trace-v1/diagnosis \
+  --output artifacts/online-response-support-reproduction
+```
+
+This performs no fits: it transforms saved coefficients and features, computes
+support/nullspace diagnostics, and crosses two observed histories/current commands
+under identical weights. Counterfactual pairs have no truth score. See
+[the bounded interpretation and authority](docs/online-response-support.md).
 
 ## Package boundaries
 

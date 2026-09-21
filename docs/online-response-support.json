@@ -1,0 +1,907 @@
+{
+  "id": "online-response-support-v1",
+  "protocol": "harness/online-response-support-v1.json",
+  "protocol_commit": "aa91320",
+  "source_commit": "724fc02",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-response-support-v1/diagnosis",
+  "manifest_sha256": "5621faa9d3dab922f7ebab163ac11e132e2a0c45148634b037ab787ff6feb38f",
+  "reference_manifest_sha256": "cfd4884d7aa9ff5004ed496dcded614401c7587295ca893c12e447659e03fd68",
+  "complete": true,
+  "points": 20,
+  "optimizer_steps": 0,
+  "observations_assimilated": 0,
+  "independent_audit": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-response-support-v1/checks/independent-audit.json",
+    "sha256": "7bfdcc9164c4508ce1258e081dc27c2389486922a30dee828c516c2f64e6bae4",
+    "complete": true,
+    "maxima": {
+      "retained_reconstruction_max_abs": 8.644303051141833e-10,
+      "query_reconstruction_max_abs": 1.0228404789813794e-09,
+      "relative_retained_null_response": 3.55836316474562e-16
+    }
+  },
+  "findings": {
+    "authority": "5621faa9d3dab922f7ebab163ac11e132e2a0c45148634b037ab787ff6feb38f",
+    "method": "Arithmetic summary of sealed command swaps/support arrays and independent audit; no fitting, optimizer, model, or SVD calls.",
+    "audit": {
+      "passed_points": 20,
+      "maxima": {
+        "retained_reconstruction_max_abs": 8.644303051141833e-10,
+        "query_reconstruction_max_abs": 1.0228404789813794e-09,
+        "relative_retained_null_response": 3.55836316474562e-16
+      }
+    },
+    "same_model_fingerprint_for_swaps": "85071c97bdb5550413437e8036812b0e14d531b4d301972ed4aaa80f5c249177",
+    "fixed_context_command_effect_156_to_157": {
+      "156": {
+        "endpoint_difference": {
+          "1": {
+            "world_velocity_difference_norm_m_s": 0.6959649853991249,
+            "body_rate_difference_norm_rad_s": 3.3113610967243803
+          },
+          "64": {
+            "world_velocity_difference_norm_m_s": 1.2179928566152902,
+            "body_rate_difference_norm_rad_s": 1.7626687627345312
+          }
+        },
+        "start_acceleration_difference_body_specific_then_angular": [
+          -2.2570439264819404,
+          -0.037236289691344134,
+          -321.5991862617825,
+          7.304746187619327,
+          -502.41080919038035,
+          -0.21542311617202073
+        ],
+        "start_head_difference_by_part": {
+          "current_linear": [
+            -0.23859371052846068,
+            -0.01215326205905981,
+            -2.7877209208641105,
+            0.7548134953900006,
+            3.4450868392897185,
+            -0.013127451302695138
+          ],
+          "delayed_linear": [
+            -1.8826412536186004,
+            -0.03241105591456343,
+            -83.66032599616693,
+            2.574157981262828,
+            -132.77891341824306,
+            -0.13055810290433056
+          ],
+          "hidden_linear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "quadratic": [
+            -0.13079711075996442,
+            0.00615038145377959,
+            -235.47451184442872,
+            4.215551263443228,
+            -370.76846904467277,
+            -0.06264739450572662
+          ],
+          "bias": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "nonlinear": [
+            -0.005011851574914581,
+            0.0011776468284995165,
+            0.3233724996772498,
+            -0.23977655247672908,
+            -2.308513566754227,
+            -0.0090901674592684
+          ]
+        }
+      },
+      "157": {
+        "endpoint_difference": {
+          "1": {
+            "world_velocity_difference_norm_m_s": 16.726212278431365,
+            "body_rate_difference_norm_rad_s": 3.0296690608184726
+          },
+          "64": {
+            "world_velocity_difference_norm_m_s": 0.572558037231152,
+            "body_rate_difference_norm_rad_s": 3.6272692766861003
+          }
+        },
+        "start_acceleration_difference_body_specific_then_angular": [
+          -2.2652027899655005,
+          -0.048101371722436934,
+          -322.87571071427726,
+          6.507334893484471,
+          -487.8190606851744,
+          -0.15438387541018583
+        ],
+        "start_head_difference_by_part": {
+          "current_linear": [
+            -0.2385937105284609,
+            -0.01215326205905981,
+            -2.78772092086411,
+            0.7548134953900006,
+            3.4450868392897185,
+            -0.013127451302695138
+          ],
+          "delayed_linear": [
+            -1.8826412536186001,
+            -0.03241105591456343,
+            -83.66032599616699,
+            2.5741579812628284,
+            -132.77891341824306,
+            -0.1305581029043305
+          ],
+          "hidden_linear": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "quadratic": [
+            -0.17583683717530701,
+            -0.001675909642942115,
+            -241.85168884211487,
+            3.2549516069448803,
+            -368.729121465438,
+            -0.016137097657831466
+          ],
+          "bias": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "nonlinear": [
+            0.03186901135686772,
+            -0.001861144105871581,
+            5.424025044868728,
+            -0.07658819011323847,
+            10.243887359216936,
+            0.005438776454671286
+          ]
+        }
+      }
+    },
+    "fixed_command_context_effect_156_to_157": {
+      "156": {
+        "1": {
+          "world_velocity_difference_norm_m_s": 3.485638664629688,
+          "body_rate_difference_norm_rad_s": 0.07418283284591867
+        },
+        "64": {
+          "world_velocity_difference_norm_m_s": 2.947201657131942,
+          "body_rate_difference_norm_rad_s": 0.3476665672185839
+        }
+      },
+      "157": {
+        "1": {
+          "world_velocity_difference_norm_m_s": 12.789687411426945,
+          "body_rate_difference_norm_rad_s": 6.2982181157381
+        },
+        "64": {
+          "world_velocity_difference_norm_m_s": 1.6055428747846427,
+          "body_rate_difference_norm_rad_s": 1.6029648171057869
+        }
+      }
+    },
+    "factual_errors_only": {
+      "156": {
+        "1": {
+          "body_rate_rmse_rad_s": 0.8341699125298098,
+          "orientation_rmse_rad": 0.02926061700785926,
+          "velocity_rmse_m_s": 0.6349666755686044
+        },
+        "64": {
+          "body_rate_rmse_rad_s": 0.8584606796686876,
+          "orientation_rmse_rad": 0.027913231684051652,
+          "velocity_rmse_m_s": 0.6739472419322058
+        }
+      },
+      "157": {
+        "1": {
+          "body_rate_rmse_rad_s": 2.133714296818139,
+          "orientation_rmse_rad": 0.20489081676856252,
+          "velocity_rmse_m_s": 13.914955814753604
+        },
+        "64": {
+          "body_rate_rmse_rad_s": 4.113088334364418,
+          "orientation_rmse_rad": 0.22170360136528083,
+          "velocity_rmse_m_s": 2.259298850143861
+        }
+      }
+    },
+    "origin_support": [
+      {
+        "point": "fixedwing-80/172",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0006423539126930923,
+        "origin_null_acceleration_body_z_pitch": [
+          16.217740279696137,
+          74.49914656249268
+        ]
+      },
+      {
+        "point": "fixedwing-80/173",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0018762428433917473,
+        "origin_null_acceleration_body_z_pitch": [
+          -22.417936950165807,
+          59.83069048136429
+        ]
+      },
+      {
+        "point": "fixedwing-80/174",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0037674149227872825,
+        "origin_null_acceleration_body_z_pitch": [
+          6.85954526976144,
+          22.820276462544513
+        ]
+      },
+      {
+        "point": "fixedwing-80/179",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.001806868018011688,
+        "origin_null_acceleration_body_z_pitch": [
+          -5.891369292963441,
+          -59.474682044355134
+        ]
+      },
+      {
+        "point": "fixedwing-80/180",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0028854417895513786,
+        "origin_null_acceleration_body_z_pitch": [
+          -33.10996945745405,
+          -45.95108689071638
+        ]
+      },
+      {
+        "point": "fixedwing-80/186",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0012676992124597709,
+        "origin_null_acceleration_body_z_pitch": [
+          -19.665741711827263,
+          8.386357995480198
+        ]
+      },
+      {
+        "point": "fixedwing-80/187",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0008943939628748387,
+        "origin_null_acceleration_body_z_pitch": [
+          -10.334961574005755,
+          26.64796122112877
+        ]
+      },
+      {
+        "point": "fixedwing-80/188",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0005387508472380077,
+        "origin_null_acceleration_body_z_pitch": [
+          -8.341088707356043,
+          26.198741910738327
+        ]
+      },
+      {
+        "point": "fixedwing-80/190",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0003292517816051631,
+        "origin_null_acceleration_body_z_pitch": [
+          1.3690140119916843,
+          -1.597029071398808
+        ]
+      },
+      {
+        "point": "fixedwing-80/191",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0013551679447271242,
+        "origin_null_acceleration_body_z_pitch": [
+          18.86114914006224,
+          7.956546911716404
+        ]
+      },
+      {
+        "point": "fixedwing-81/155",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0024409745622813645,
+        "origin_null_acceleration_body_z_pitch": [
+          65.63166629740778,
+          93.20794086037101
+        ]
+      },
+      {
+        "point": "fixedwing-81/156",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0011486827758051803,
+        "origin_null_acceleration_body_z_pitch": [
+          15.780021356116421,
+          -8.485983545560671
+        ]
+      },
+      {
+        "point": "fixedwing-81/157",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.001553868181814889,
+        "origin_null_acceleration_body_z_pitch": [
+          -36.63865182502405,
+          -68.31753265922246
+        ]
+      },
+      {
+        "point": "fixedwing-81/158",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0015414725435261977,
+        "origin_null_acceleration_body_z_pitch": [
+          -152.43333235994754,
+          -330.72909475129575
+        ]
+      },
+      {
+        "point": "fixedwing-81/159",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0019882077817519844,
+        "origin_null_acceleration_body_z_pitch": [
+          39.92659957055692,
+          36.02105535494387
+        ]
+      },
+      {
+        "point": "fixedwing-81/63",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.00106926976771939,
+        "origin_null_acceleration_body_z_pitch": [
+          -201.42373440562798,
+          -371.33803425486326
+        ]
+      },
+      {
+        "point": "fixedwing-81/64",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.004793788598970405,
+        "origin_null_acceleration_body_z_pitch": [
+          -177.8969024605993,
+          -394.3431116111111
+        ]
+      },
+      {
+        "point": "fixedwing-81/65",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0015237356941518367,
+        "origin_null_acceleration_body_z_pitch": [
+          123.48591493869705,
+          137.6419873118099
+        ]
+      },
+      {
+        "point": "fixedwing-81/71",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0016279153243087929,
+        "origin_null_acceleration_body_z_pitch": [
+          1.5511268365755315,
+          -94.98362570771346
+        ]
+      },
+      {
+        "point": "fixedwing-81/72",
+        "affine_shape": [
+          37,
+          54
+        ],
+        "quadratic_shape": [
+          37,
+          120
+        ],
+        "affine_rank": 37,
+        "combined_rank": 37,
+        "conditional_design_shape": [
+          0,
+          120
+        ],
+        "conditional_rank": 0,
+        "origin_combined_null_energy_fraction": 0.0018426396178073301,
+        "origin_null_acceleration_body_z_pitch": [
+          64.42525180193317,
+          149.00556008301209
+        ]
+      }
+    ],
+    "selected_native_stages": {
+      "fixedwing-80/187": [
+        {
+          "stage": "observed_origin_and_substep_0_start",
+          "combined_null_energy_fraction": 0.0008943939628748387,
+          "polynomial_acceleration_body_z_pitch": [
+            -14.737800596318458,
+            60.939356561554845
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            -10.334961574005755,
+            26.64796122112877
+          ]
+        },
+        {
+          "stage": "substep_0_midpoint",
+          "combined_null_energy_fraction": 0.027715753535234283,
+          "polynomial_acceleration_body_z_pitch": [
+            -3.4072436403467967,
+            71.50143082386006
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            75.2974359443212,
+            284.151419359745
+          ]
+        },
+        {
+          "stage": "substep_1_start",
+          "combined_null_energy_fraction": 0.04778343618227331,
+          "polynomial_acceleration_body_z_pitch": [
+            -2.2519869677185222,
+            132.88921431867786
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            49.232869050098095,
+            408.4622447143141
+          ]
+        },
+        {
+          "stage": "substep_1_midpoint",
+          "combined_null_energy_fraction": 0.07894127000169321,
+          "polynomial_acceleration_body_z_pitch": [
+            -4.431273489062009,
+            244.82933018524534
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            0.9506751116523483,
+            457.72108360439114
+          ]
+        }
+      ],
+      "fixedwing-81/157": [
+        {
+          "stage": "observed_origin_and_substep_0_start",
+          "combined_null_energy_fraction": 0.001553868181814889,
+          "polynomial_acceleration_body_z_pitch": [
+            -350.3929341956015,
+            -570.1797997172928
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            -36.63865182502405,
+            -68.31753265922246
+          ]
+        },
+        {
+          "stage": "substep_0_midpoint",
+          "combined_null_energy_fraction": 0.02573737021623378,
+          "polynomial_acceleration_body_z_pitch": [
+            -261.10190491964386,
+            -243.95379439350495
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            2579.917429848979,
+            3254.753215059349
+          ]
+        },
+        {
+          "stage": "substep_1_start",
+          "combined_null_energy_fraction": 0.037158025266539094,
+          "polynomial_acceleration_body_z_pitch": [
+            378.0514312800483,
+            345.4268253538127
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            2181.179553953388,
+            2016.059999513991
+          ]
+        },
+        {
+          "stage": "substep_1_midpoint",
+          "combined_null_energy_fraction": 0.08453393322725093,
+          "polynomial_acceleration_body_z_pitch": [
+            811.038410208684,
+            293.88398767870035
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            1036.9612444455045,
+            581.6823507134294
+          ]
+        }
+      ],
+      "fixedwing-81/158": [
+        {
+          "stage": "observed_origin_and_substep_0_start",
+          "combined_null_energy_fraction": 0.0015414725435261977,
+          "polynomial_acceleration_body_z_pitch": [
+            -407.13177245553135,
+            -681.7124126131101
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            -152.43333235994754,
+            -330.72909475129575
+          ]
+        },
+        {
+          "stage": "substep_0_midpoint",
+          "combined_null_energy_fraction": 0.04341325293851067,
+          "polynomial_acceleration_body_z_pitch": [
+            -372.0165888541092,
+            -304.783620015212
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            3352.448376773187,
+            4178.8490817316115
+          ]
+        },
+        {
+          "stage": "substep_1_start",
+          "combined_null_energy_fraction": 0.06341969884110436,
+          "polynomial_acceleration_body_z_pitch": [
+            537.9466854712248,
+            528.4931606348099
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            3231.102681775682,
+            3151.961902224552
+          ]
+        },
+        {
+          "stage": "substep_1_midpoint",
+          "combined_null_energy_fraction": 0.17714302216918795,
+          "polynomial_acceleration_body_z_pitch": [
+            1603.2013515318333,
+            909.6687920693635
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            2086.5473194271876,
+            1865.815041622629
+          ]
+        }
+      ],
+      "fixedwing-81/64": [
+        {
+          "stage": "observed_origin_and_substep_0_start",
+          "combined_null_energy_fraction": 0.004793788598970405,
+          "polynomial_acceleration_body_z_pitch": [
+            -237.20951928610796,
+            -509.3331393199611
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            -177.8969024605993,
+            -394.3431116111111
+          ]
+        },
+        {
+          "stage": "substep_0_midpoint",
+          "combined_null_energy_fraction": 0.05817317207275245,
+          "polynomial_acceleration_body_z_pitch": [
+            -225.3603074407235,
+            -383.8330247208157
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            1471.1465390173068,
+            3539.0523797711107
+          ]
+        },
+        {
+          "stage": "substep_1_start",
+          "combined_null_energy_fraction": 0.06460262003769512,
+          "polynomial_acceleration_body_z_pitch": [
+            -94.97081673929291,
+            -328.1192555019144
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            1671.0207391485367,
+            3784.93254735434
+          ]
+        },
+        {
+          "stage": "substep_1_midpoint",
+          "combined_null_energy_fraction": 0.06528480019887062,
+          "polynomial_acceleration_body_z_pitch": [
+            -227.58473724164048,
+            -335.8847919120858
+          ],
+          "null_coefficient_contribution_body_z_pitch": [
+            1478.6774129246976,
+            3696.224023084821
+          ]
+        }
+      ]
+    },
+    "interpretation": [
+      "The current command jump independently changes initial body-z specific acceleration by about -322/-323 m/s^2 and pitch acceleration by -502/-488 rad/s^2 in the two actual contexts. Quadratic and delayed-linear head terms dominate these changes.",
+      "Native endpoint sensitivity to that command jump is much larger in context 157 than context 156 for velocity (16.73 versus 0.70 m/s). Refinement changes these to 0.57 and 1.22 m/s, demonstrating a strong command/context/integration interaction in the learned model.",
+      "Refinement reduces factual row 157 velocity error from 13.91 to 2.26 m/s while increasing rate error from 2.13 to 4.11 rad/s. It is not a complete correction of the learned response.",
+      "At every selected point, the 37 retained origin rows have full affine row rank in 54 coordinates. The conditional quadratic design therefore has exactly zero independent rows. This measures origin-head underdetermination and does not identify the integrated rollout objective.",
+      "Existing combined polynomial coefficients have nonzero response in the retained-origin right nullspace. At row 158 origin their body-z/pitch contribution is -152/-331; at its first midpoint it is 3352/4179 while the full polynomial response is -372/-305. Large cancelling terms grow along the native predicted path.",
+      "These observations justify prospective testing of a generic physically scaled constraint on learned curvature. They do not show that deleting null components or changing integration alone would improve forecasts."
+    ],
+    "limits": [
+      "Counterfactual command/context cells have no observed truth; their endpoint differences are model sensitivities, not prediction errors.",
+      "Each swapped context includes its real observation and issued-input history, reconstructed filter, and memory. The swap isolates current command, not separate historical effects.",
+      "The design samples retained forecast origins only. Integrated multistep losses impose additional parameter-dependent constraints; no full-objective nonidentifiability claim is made.",
+      "Rank and projection statistics are deterministic geometric diagnostics, not uncertainty or causal evidence that fitted coefficients produced a particular error.",
+      "Null projections and contribution magnitudes depend on the declared physical basis. Motion coordinates retain support compression; gravity uses unit directions. These are not projections in raw unbounded motion coordinates.",
+      "Zero conditional rank occurs at both ordinary and failing points, so it is not a failure classifier. Large projected contributions may cancel; removing them is an untested model change.",
+      "All 20 selected points are from two known fixed-wing tapes. No fresh recordings, fit, or controller trial is included."
+    ]
+  }
+}

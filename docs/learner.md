@@ -158,7 +158,7 @@ needed to continue deterministically.
 
 Startup initializes the existing model from one-step ridge windows. Thereafter
 each observation permits one damped Gauss-Newton proposal on 50 ms recursive
-prediction windows. Four conjugate-gradient iterations use matrix-free curvature
+prediction windows. Four preconditioned conjugate-gradient iterations use matrix-free curvature
 products; acceptance checks the complete bounded startup and recent replay
 caches, with equal weight to each role. A fixed prediction-change bound and an
 actual-versus-predicted improvement check control the step. Before that proposal,
@@ -169,7 +169,11 @@ body/input/state normalization and motion bounds stay fixed. The fixed loss
 scale is shared within each physical group: velocity, angular rate and rotation.
 Three equally weighted radial Huber terms prevent startup-axis variance from
 selecting which direction matters. Rotation uses chordal matrix distance, with
-small-angle radian units. Changed
+small-angle radian units. A fixed physical quadratic-head curvature prior uses
+measured motion/issued-command scales and known unit-gravity geometry. Its exact
+gradient and diagonal curvature enter the solve; acceptance uses data plus prior
+loss, and the trust bound still measures forecast change. It does not constrain
+all recurrent nonlinearities or establish calibrated uncertainty. Changed
 scales are committed only with an accepted proposal. Rejected proposals retain
 the full previous model and increase damping.
 There is no controller, actuator-telemetry input, simulator coefficient access,
@@ -177,8 +181,8 @@ platform dispatch or user-selected learning budget.
 
 This procedure has no development split or calibrated error envelope. Training
 loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v4.json) measures predictions before
-assimilating their targets, against authenticated saved v2 online predictions,
+[online-fitting protocol](harness/online-fit-v6.json) measures predictions before
+assimilating their targets, against authenticated saved v4 online predictions,
 an identical session frozen after startup and a no-fit kinematic predictor.
 It separately measures update latency; a bounded proposal count alone does not
 establish real-time fitting. Initial evidence and remaining limits belong in

@@ -12,6 +12,11 @@ interfaces, simulator and telemetry integrations, and obsolete experiments.
 The CLI now contains only `fit` and `evaluate`. Saved formats and supported state
 semantics have changed; old artifacts are not a compatibility interface.
 
+Add bounded causal `OnlineFit` sessions with physical-vector forecast loss,
+compensated normalization and a generic quadratic-curvature prior. The v6 mutable
+session format stores deterministic optimizer/cache state; immutable model
+archives and prediction equations are unchanged by this online iteration.
+
 This is adoption on the existing evidence, not a new claim of arbitrary-system
 accuracy, calibrated uncertainty, physical derivative fidelity or universal
 controller success. Current results and limitations live in

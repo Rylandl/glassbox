@@ -1,71 +1,43 @@
 {
-  "id": "online-fit-v4",
-  "source_commit": "8053938",
-  "protocol": "harness/online-fit-v4.json",
-  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v4/evaluation",
+  "id": "online-fit-v6",
+  "source_commit": "2e465a4",
+  "protocol": "harness/online-fit-v6.json",
+  "protocol_freeze_commit": "35cfdab",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v6/evaluation",
   "collection_manifest_sha256": "276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4",
-  "evaluation_manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349",
-  "reference_manifest_sha256": "baeea488c90eeffa9864756ca94e5f5725fe55c82dec9260b09c905421378319",
-  "failed_v3_manifest_sha256": "df78c68a5c4567f3a4681d60bf5ed152c107f92b4f70455eb988564905bb9591",
-  "comparator": "Previous working v2 online fitter on identical observations and commands. This is not a matched-input comparison to Throw\u2019s old identifier.",
-  "accuracy_passed": true,
-  "aggregate_vs_v2": 0.5911462697250337,
-  "families": {
-    "fixedwing": {
-      "aggregate": 0.4626351286187826,
-      "metric_ratios": {
-        "body_rate_rmse_rad_s": 0.4764327040794821,
-        "velocity_rmse_m_s": 0.449237133386232
-      }
-    },
-    "quad": {
-      "aggregate": 0.7553553342417646,
-      "metric_ratios": {
-        "body_rate_rmse_rad_s": 0.801295664599699,
-        "velocity_rmse_m_s": 0.7120488805496307
-      }
-    }
-  },
-  "frozen_comparison": {
-    "aggregate_ratio": 0.2699004215796245,
-    "families": {
-      "fixedwing": {
-        "aggregate": 0.3042101589709076,
-        "metric_ratios": {
-          "body_rate_rmse_rad_s": 0.30490921792360975,
-          "velocity_rmse_m_s": 0.30351270273596737
-        }
-      },
-      "quad": {
-        "aggregate": 0.2394602396425082,
-        "metric_ratios": {
-          "body_rate_rmse_rad_s": 0.16256083858417758,
-          "velocity_rmse_m_s": 0.35273690065245894
-        }
-      }
-    }
-  },
-  "real_time_target_passed": false,
-  "candidate_closed_loop_trials": 0,
+  "evaluation_manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
+  "reference_manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349",
+  "comparator": "Working v4 on byte-identical inputs, initial core and fixed comparators. This is not a matched-input comparison to the original Throw identifier.",
+  "decision": "Adopt v6 as the sole maintained streaming fitter: frozen primary and separate robustness gates pass, with regressions retained and reported.",
   "observations": 3137,
   "validation": {
-    "tests_passed": 161,
-    "full_suite_elapsed_s": 84.25,
+    "source_commit": "2e465a4",
+    "tests_passed": 204,
+    "full_suite_elapsed_s": 95.54,
     "ruff": "passed",
     "wheel_import_outside_checkout": true,
-    "wheel_sha256": "4c33c449ec4f6e5818c598bb96588528d3ba59fe35c097e49d08f545e94a5e9f",
-    "baseline": "All 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients reproduced exactly in this iteration. Core dynamics and offline learner remain unchanged."
+    "wheel_sha256": "162be9f32c7b413b318803690d1c84f99b1fb41878500d1dc94b87146f7245b2",
+    "baseline": "All 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients exact. Initial attempt correctly rejected changed current Dart planner; complete replay used the preserved byte-authenticated original Dart source.",
+    "unchanged_package_source": "Every src file except online.py is byte-identical to working v4 source8053938."
+  },
+  "no_fit_verification": {
+    "verified": true,
+    "manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
+    "cases": 6,
+    "fits": 0,
+    "model_calls": 0
   },
   "cases": [
     {
       "id": "quad-arm-115",
+      "family": "quad",
       "expected": 875,
       "complete": true,
       "metrics": {
         "candidate": {
-          "body_rate_rmse_rad_s": 0.27256069287354256,
-          "orientation_rmse_rad": 0.004024160925798094,
-          "velocity_rmse_m_s": 0.02207724085860801
+          "body_rate_rmse_rad_s": 0.2329469593996571,
+          "orientation_rmse_rad": 0.001780166109352235,
+          "velocity_rmse_m_s": 0.023747760405675344
         },
         "frozen": {
           "body_rate_rmse_rad_s": 2.309220533573504,
@@ -78,54 +50,119 @@
           "velocity_rmse_m_s": 0.03967146360153428
         },
         "reference": {
-          "body_rate_rmse_rad_s": 0.2741662265526682,
-          "orientation_rmse_rad": 0.0013194619260374298,
-          "velocity_rmse_m_s": 0.02995855670773178
+          "body_rate_rmse_rad_s": 0.27256069287354256,
+          "orientation_rmse_rad": 0.004024160925798094,
+          "velocity_rmse_m_s": 0.02207724085860801
         }
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.9941439407059235,
-        "orientation_rmse_rad": 3.0498499777733934,
-        "velocity_rmse_m_s": 0.7369260500092869
+        "body_rate_rmse_rad_s": 0.8546608718364805,
+        "orientation_rmse_rad": 0.44236951309276545,
+        "velocity_rmse_m_s": 1.0756670436204436
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 2.441089089392166,
-        "orientation_rmse_rad": 8.993685828834405,
-        "velocity_rmse_m_s": 0.5565017988838249
+        "body_rate_rmse_rad_s": 2.0863033293704287,
+        "orientation_rmse_rad": 3.97853242101078,
+        "velocity_rmse_m_s": 0.5986106447748227
+      },
+      "robustness_ratios": {
+        "orientation": 0.44236951309276545,
+        "rate_tail": 0.8974731986044785,
+        "rotation_rate": 0.30500460539833,
+        "velocity_tail": 1.1077907011071788
       },
       "latency": {
         "frozen_predict": {
           "count": 875,
-          "first_s": 0.0011062079574912786,
-          "warm_max_s": 0.003673332976177335,
-          "warm_median_s": 0.0006539999740198255,
-          "warm_p95_s": 0.0007697358494624495
+          "first_s": 0.0011661250609904528,
+          "warm_max_s": 0.008150457870215178,
+          "warm_median_s": 0.0006582294590771198,
+          "warm_p95_s": 0.0007659602561034261
         },
         "observe": {
           "count": 875,
-          "first_s": 2.4803159169387072,
-          "warm_max_s": 0.06394454184919596,
-          "warm_median_s": 0.02743579156231135,
-          "warm_p95_s": 0.02863748304080217
+          "first_s": 2.4994270419701934,
+          "warm_max_s": 0.05968108307570219,
+          "warm_median_s": 0.027541937539353967,
+          "warm_p95_s": 0.028747435216791926
         },
         "predict": {
           "count": 875,
-          "first_s": 0.5815557921305299,
-          "warm_max_s": 0.008300499990582466,
-          "warm_median_s": 0.0008141454309225082,
-          "warm_p95_s": 0.0009933373890817165
+          "first_s": 0.38985079107806087,
+          "warm_max_s": 0.006917124846950173,
+          "warm_median_s": 0.0008240628521889448,
+          "warm_p95_s": 0.0010182414087466895
+        }
+      },
+      "endpoint_objectives": {
+        "final": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 32
+          },
+          "combined_loss": 0.2545199746374075,
+          "data_loss": 7.399711408942378e-05,
+          "domain": [
+            3.1325676943109775,
+            5.965525203646288,
+            1.0,
+            1.0090173372935047,
+            1.1366050595005208,
+            2.1027459991194797,
+            58.15662908851654,
+            40.26065915639159,
+            55.51833238760852,
+            1.4926252478564164,
+            1.7194149639546241,
+            1.7433438995988138,
+            1.6666304386327797,
+            1.4926252478564164,
+            1.7194149639546241,
+            1.7433438995988138,
+            1.6666304386327797
+          ],
+          "prior_loss": 0.2544459775233181
+        },
+        "initial": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 0
+          },
+          "combined_loss": 10.865496691918592,
+          "data_loss": 0.07560962477883396,
+          "domain": [
+            3.209361479280896,
+            4.30416156180483,
+            1.182267948242618,
+            1.3654340204782272,
+            1.5247285279016678,
+            1.0,
+            58.15662908851654,
+            40.26065915639159,
+            55.51833238760852,
+            2.046036103317192,
+            2.403689936826802,
+            2.3858898843125065,
+            2.323220181155094,
+            2.046036103317192,
+            2.403689936826802,
+            2.3858898843125065,
+            2.323220181155094
+          ],
+          "prior_loss": 10.789887067139759
         }
       }
     },
     {
       "id": "quad-arm-125",
+      "family": "quad",
       "expected": 875,
       "complete": true,
       "metrics": {
         "candidate": {
-          "body_rate_rmse_rad_s": 0.10730043698014734,
-          "orientation_rmse_rad": 0.0004987846119788324,
-          "velocity_rmse_m_s": 0.012201902989812682
+          "body_rate_rmse_rad_s": 0.08106586103735926,
+          "orientation_rmse_rad": 0.00037513110537230155,
+          "velocity_rmse_m_s": 0.010245733240225747
         },
         "frozen": {
           "body_rate_rmse_rad_s": 0.6803210393280901,
@@ -138,54 +175,119 @@
           "velocity_rmse_m_s": 0.029419028657145834
         },
         "reference": {
-          "body_rate_rmse_rad_s": 0.13205685894700137,
-          "orientation_rmse_rad": 0.0006090004675840088,
-          "velocity_rmse_m_s": 0.020033228921904768
+          "body_rate_rmse_rad_s": 0.10730043698014734,
+          "orientation_rmse_rad": 0.0004987846119788324,
+          "velocity_rmse_m_s": 0.012201902989812682
         }
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.8125321004584126,
-        "orientation_rmse_rad": 0.8190217225244204,
-        "velocity_rmse_m_s": 0.6090831906019332
+        "body_rate_rmse_rad_s": 0.7555035498351047,
+        "orientation_rmse_rad": 0.7520903740074113,
+        "velocity_rmse_m_s": 0.8396832239020313
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 0.8898802016552999,
-        "orientation_rmse_rad": 1.0256077353802624,
-        "velocity_rmse_m_s": 0.4147622660154981
+        "body_rate_rmse_rad_s": 0.672307651278558,
+        "orientation_rmse_rad": 0.7713497052870357,
+        "velocity_rmse_m_s": 0.34826891668080534
+      },
+      "robustness_ratios": {
+        "orientation": 0.7520903740074113,
+        "rate_tail": 0.7739231807555668,
+        "rotation_rate": 0.9764650527429123,
+        "velocity_tail": 0.8098641941374001
       },
       "latency": {
         "frozen_predict": {
           "count": 875,
-          "first_s": 0.0006982500199228525,
-          "warm_max_s": 0.0015202919021248817,
-          "warm_median_s": 0.0006485210033133626,
-          "warm_p95_s": 0.0007322643883526325
+          "first_s": 0.0007438329048454762,
+          "warm_max_s": 0.0038882920052856207,
+          "warm_median_s": 0.0006633545272052288,
+          "warm_p95_s": 0.0007733955164439976
         },
         "observe": {
           "count": 875,
-          "first_s": 0.02741095796227455,
-          "warm_max_s": 0.05125358304940164,
-          "warm_median_s": 0.027419937076047063,
-          "warm_p95_s": 0.028011607937514782
+          "first_s": 0.0285436671692878,
+          "warm_max_s": 0.04931512498296797,
+          "warm_median_s": 0.027532896026968956,
+          "warm_p95_s": 0.02844706025207415
         },
         "predict": {
           "count": 875,
-          "first_s": 0.0008808751590549946,
-          "warm_max_s": 0.0038432921282947063,
-          "warm_median_s": 0.0008106249151751399,
-          "warm_p95_s": 0.000957224890589714
+          "first_s": 0.000998165924102068,
+          "warm_max_s": 0.0055012081284075975,
+          "warm_median_s": 0.0008326041279360652,
+          "warm_p95_s": 0.0010263352305628355
+        }
+      },
+      "endpoint_objectives": {
+        "final": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 32
+          },
+          "combined_loss": 0.0025441701936904995,
+          "data_loss": 5.135333948142693e-06,
+          "domain": [
+            3.438014875246017,
+            6.8634384659109795,
+            6.212194380146924,
+            1.0,
+            1.0,
+            4.61226897859961,
+            38.64715420808969,
+            15.008724679455828,
+            8.984674879055172,
+            1.2612824609427462,
+            1.5132026008854416,
+            1.638666000834984,
+            1.4011602588813423,
+            1.2612824609427462,
+            1.5132026008854416,
+            1.638666000834984,
+            1.4011602588813423
+          ],
+          "prior_loss": 0.0025390348597423566
+        },
+        "initial": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 0
+          },
+          "combined_loss": 0.015460238385796991,
+          "data_loss": 0.011095026947651033,
+          "domain": [
+            3.529509000311751,
+            4.919229901626173,
+            6.544616382789481,
+            1.1547331609229663,
+            1.017439265819898,
+            1.0,
+            38.64715420808969,
+            15.008724679455828,
+            8.984674879055172,
+            1.7480145863068577,
+            2.05989803499202,
+            2.2711428266876568,
+            1.9613194204311764,
+            1.7480145863068577,
+            2.05989803499202,
+            2.2711428266876568,
+            1.9613194204311764
+          ],
+          "prior_loss": 0.004365211438145958
         }
       }
     },
     {
       "id": "quad-arm-135",
+      "family": "quad",
       "expected": 62,
       "complete": true,
       "metrics": {
         "candidate": {
-          "body_rate_rmse_rad_s": 1.0763235378594698,
-          "orientation_rmse_rad": 0.005225876571102893,
-          "velocity_rmse_m_s": 1.1992855381959449
+          "body_rate_rmse_rad_s": 0.912603718792254,
+          "orientation_rmse_rad": 0.004427632726715565,
+          "velocity_rmse_m_s": 1.177408844295878
         },
         "frozen": {
           "body_rate_rmse_rad_s": 4.525367984737336,
@@ -198,54 +300,119 @@
           "velocity_rmse_m_s": 1.1738888059918617
         },
         "reference": {
-          "body_rate_rmse_rad_s": 1.7133277407275986,
-          "orientation_rmse_rad": 0.007511907955393586,
-          "velocity_rmse_m_s": 1.273409567652261
+          "body_rate_rmse_rad_s": 1.0763235378594698,
+          "orientation_rmse_rad": 0.005225876571102893,
+          "velocity_rmse_m_s": 1.1992855381959449
         }
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.6282064500994933,
-        "orientation_rmse_rad": 0.6956789942228576,
-        "velocity_rmse_m_s": 0.9417908963940204
+        "body_rate_rmse_rad_s": 0.8478897717011631,
+        "orientation_rmse_rad": 0.8472516842817697,
+        "velocity_rmse_m_s": 0.9817585610738079
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 0.9602494620250229,
-        "orientation_rmse_rad": 1.164024574611283,
-        "velocity_rmse_m_s": 1.0216347000452266
+        "body_rate_rmse_rad_s": 0.8141856971325614,
+        "orientation_rmse_rad": 0.9862217813847799,
+        "velocity_rmse_m_s": 1.002998613059473
+      },
+      "robustness_ratios": {
+        "orientation": 0.8472516842817697,
+        "rate_tail": 0.9462231921764452,
+        "rotation_rate": 0.6085529154830023,
+        "velocity_tail": 0.9870046236019394
       },
       "latency": {
         "frozen_predict": {
           "count": 62,
-          "first_s": 0.0006400828715413809,
-          "warm_max_s": 0.0007406668737530708,
-          "warm_median_s": 0.0006535840220749378,
-          "warm_p95_s": 0.0007252919021993876
+          "first_s": 0.0007692079525440931,
+          "warm_max_s": 0.0009101671166718006,
+          "warm_median_s": 0.0006560839246958494,
+          "warm_p95_s": 0.000740166986361146
         },
         "observe": {
           "count": 62,
-          "first_s": 0.02721483400091529,
-          "warm_max_s": 0.028166749980300665,
-          "warm_median_s": 0.02743979194201529,
-          "warm_p95_s": 0.027991291834041476
+          "first_s": 0.027615166967734694,
+          "warm_max_s": 0.028610625071451068,
+          "warm_median_s": 0.027506167069077492,
+          "warm_p95_s": 0.028157917084172368
         },
         "predict": {
           "count": 62,
-          "first_s": 0.0009345000144094229,
-          "warm_max_s": 0.0010087499395012856,
-          "warm_median_s": 0.000814415980130434,
-          "warm_p95_s": 0.0009704160038381815
+          "first_s": 0.00101883290335536,
+          "warm_max_s": 0.0010727918706834316,
+          "warm_median_s": 0.0008282919880002737,
+          "warm_p95_s": 0.0009645000100135803
+        }
+      },
+      "endpoint_objectives": {
+        "final": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 32
+          },
+          "combined_loss": 0.08202950972645474,
+          "data_loss": 0.023060181727309045,
+          "domain": [
+            8.6560174976584,
+            8.286666575979558,
+            6.012621700259683,
+            4.05123596745537,
+            2.4974940403785983,
+            7.4218391066336205,
+            34.82765934740348,
+            59.71453619218759,
+            18.255710935485375,
+            1.7388979318541893,
+            1.8600548276951512,
+            1.42013242721393,
+            1.881353417202257,
+            1.7388979318541893,
+            1.8600548276951512,
+            1.42013242721393,
+            1.881353417202257
+          ],
+          "prior_loss": 0.0589693279991457
+        },
+        "initial": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 0
+          },
+          "combined_loss": 0.14216772234363578,
+          "data_loss": 0.014119163126884072,
+          "domain": [
+            3.415598173319186,
+            4.058830872433121,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            34.82765934740348,
+            59.71453619218759,
+            18.255710935485375,
+            2.0249888229930866,
+            2.441248512888127,
+            1.526477022170343,
+            2.335351935959635,
+            2.0249888229930866,
+            2.441248512888127,
+            1.526477022170343,
+            2.335351935959635
+          ],
+          "prior_loss": 0.1280485592167517
         }
       }
     },
     {
       "id": "quad-change",
+      "family": "quad",
       "expected": 875,
       "complete": true,
       "metrics": {
         "candidate": {
-          "body_rate_rmse_rad_s": 0.10730292908207009,
-          "orientation_rmse_rad": 0.0004987952334413871,
-          "velocity_rmse_m_s": 0.012201312882339995
+          "body_rate_rmse_rad_s": 0.08107406915548329,
+          "orientation_rmse_rad": 0.00037516587586412375,
+          "velocity_rmse_m_s": 0.01024578965702752
         },
         "frozen": {
           "body_rate_rmse_rad_s": 0.6803340285962546,
@@ -258,54 +425,119 @@
           "velocity_rmse_m_s": 0.02941859906068214
         },
         "reference": {
-          "body_rate_rmse_rad_s": 0.13207864163146518,
-          "orientation_rmse_rad": 0.0006090661167439254,
-          "velocity_rmse_m_s": 0.020064222864730794
+          "body_rate_rmse_rad_s": 0.10730292908207009,
+          "orientation_rmse_rad": 0.0004987952334413871,
+          "velocity_rmse_m_s": 0.012201312882339995
         }
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.812416964292183,
-        "orientation_rmse_rad": 0.8189508818976046,
-        "velocity_rmse_m_s": 0.608112906470335
+        "body_rate_rmse_rad_s": 0.7555624981446145,
+        "orientation_rmse_rad": 0.7521440677684605,
+        "velocity_rmse_m_s": 0.8397284583905006
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 0.889890627412958,
-        "orientation_rmse_rad": 1.0256179522038709,
-        "velocity_rmse_m_s": 0.4147482637488
+        "body_rate_rmse_rad_s": 0.672367985523613,
+        "orientation_rmse_rad": 0.771412458546978,
+        "velocity_rmse_m_s": 0.34827592013791653
+      },
+      "robustness_ratios": {
+        "orientation": 0.7521440677684605,
+        "rate_tail": 0.7739231807555668,
+        "rotation_rate": 0.9764388769719465,
+        "velocity_tail": 0.8098641941374001
       },
       "latency": {
         "frozen_predict": {
           "count": 875,
-          "first_s": 0.0007130841258913279,
-          "warm_max_s": 0.0041423330549150705,
-          "warm_median_s": 0.0006490618688985705,
-          "warm_p95_s": 0.0007506227120757102
+          "first_s": 0.0006542920600622892,
+          "warm_max_s": 0.021924125030636787,
+          "warm_median_s": 0.0006671040318906307,
+          "warm_p95_s": 0.0007821102393791075
         },
         "observe": {
           "count": 875,
-          "first_s": 0.02739374991506338,
-          "warm_max_s": 0.14900154201313853,
-          "warm_median_s": 0.02744966687168926,
-          "warm_p95_s": 0.028564074879977853
+          "first_s": 0.02756799990311265,
+          "warm_max_s": 0.16426425008103251,
+          "warm_median_s": 0.027581645525060594,
+          "warm_p95_s": 0.029527346021495746
         },
         "predict": {
           "count": 875,
-          "first_s": 0.000846249982714653,
-          "warm_max_s": 0.005232375115156174,
-          "warm_median_s": 0.0008115419186651707,
-          "warm_p95_s": 0.000989170337561518
+          "first_s": 0.0010501658543944359,
+          "warm_max_s": 0.00759191601537168,
+          "warm_median_s": 0.0008392499294131994,
+          "warm_p95_s": 0.0010679306695237753
+        }
+      },
+      "endpoint_objectives": {
+        "final": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 32
+          },
+          "combined_loss": 0.0025443405958792318,
+          "data_loss": 5.283282565942216e-06,
+          "domain": [
+            3.439381775200821,
+            6.8643579695704755,
+            6.212543038896294,
+            1.0,
+            1.0,
+            4.612271012407864,
+            38.64715420808969,
+            15.008724679455828,
+            8.984674879055172,
+            1.2612809230391149,
+            1.513201810316421,
+            1.638663095959227,
+            1.4011594217174994,
+            1.2612809230391149,
+            1.513201810316421,
+            1.638663095959227,
+            1.4011594217174994
+          ],
+          "prior_loss": 0.0025390573133132898
+        },
+        "initial": {
+          "cache_windows": {
+            "bootstrap": 21,
+            "recent": 0
+          },
+          "combined_loss": 0.015460238385796991,
+          "data_loss": 0.011095026947651033,
+          "domain": [
+            3.529509000311751,
+            4.919229901626173,
+            6.544616382789481,
+            1.1547331609229663,
+            1.017439265819898,
+            1.0,
+            38.64715420808969,
+            15.008724679455828,
+            8.984674879055172,
+            1.7480145863068577,
+            2.05989803499202,
+            2.2711428266876568,
+            1.9613194204311764,
+            1.7480145863068577,
+            2.05989803499202,
+            2.2711428266876568,
+            1.9613194204311764
+          ],
+          "prior_loss": 0.004365211438145958
         }
       }
     },
     {
       "id": "fixedwing-80",
+      "family": "fixedwing",
       "expected": 225,
       "complete": true,
       "metrics": {
         "candidate": {
-          "body_rate_rmse_rad_s": 1.1301919732462908,
-          "orientation_rmse_rad": 0.02634565345406928,
-          "velocity_rmse_m_s": 0.2990665993598846
+          "body_rate_rmse_rad_s": 0.7832933502092078,
+          "orientation_rmse_rad": 0.025641464432725584,
+          "velocity_rmse_m_s": 0.308985463425904
         },
         "frozen": {
           "body_rate_rmse_rad_s": 2.856183243399267,
@@ -318,54 +550,115 @@
           "velocity_rmse_m_s": 0.16863034175627478
         },
         "reference": {
-          "body_rate_rmse_rad_s": 2.9534610462840183,
-          "orientation_rmse_rad": 0.06781498510653382,
-          "velocity_rmse_m_s": 1.1625283519871212
+          "body_rate_rmse_rad_s": 1.1301919732462908,
+          "orientation_rmse_rad": 0.02634565345406928,
+          "velocity_rmse_m_s": 0.2990665993598846
         }
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.3826669644647165,
-        "orientation_rmse_rad": 0.3884930950391219,
-        "velocity_rmse_m_s": 0.25725531669716883
+        "body_rate_rmse_rad_s": 0.6930622131029,
+        "orientation_rmse_rad": 0.9732711499234069,
+        "velocity_rmse_m_s": 1.033166070993048
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 3.004422578091613,
-        "orientation_rmse_rad": 2.7660503703457153,
-        "velocity_rmse_m_s": 1.7735040814430199
+        "body_rate_rmse_rad_s": 2.0822517610684934,
+        "orientation_rmse_rad": 2.6921170246924397,
+        "velocity_rmse_m_s": 1.8323242437146194
+      },
+      "robustness_ratios": {
+        "orientation": 0.9732711499234069,
+        "rate_tail": 0.6105786403795792,
+        "rotation_rate": 1.1394068280512122,
+        "velocity_tail": 1.0188894621536189
       },
       "latency": {
         "frozen_predict": {
           "count": 225,
-          "first_s": 0.0008483750279992819,
-          "warm_max_s": 0.0007808750960975885,
-          "warm_median_s": 0.0005918960087001324,
-          "warm_p95_s": 0.0006459079799242317
+          "first_s": 0.0008790830615907907,
+          "warm_max_s": 0.0011902500409632921,
+          "warm_median_s": 0.0006032496457919478,
+          "warm_p95_s": 0.0007275188923813403
         },
         "observe": {
           "count": 225,
-          "first_s": 2.0715935830958188,
-          "warm_max_s": 0.004573583835735917,
-          "warm_median_s": 0.0036683540092781186,
-          "warm_p95_s": 0.003967775078490376
+          "first_s": 2.150810959050432,
+          "warm_max_s": 0.005347583908587694,
+          "warm_median_s": 0.003944416530430317,
+          "warm_p95_s": 0.004602259886451065
         },
         "predict": {
           "count": 225,
-          "first_s": 0.27251608297228813,
-          "warm_max_s": 0.0014518341049551964,
-          "warm_median_s": 0.0006533124251291156,
-          "warm_p95_s": 0.0008004080154933035
+          "first_s": 0.28495700005441904,
+          "warm_max_s": 0.0011637089774012566,
+          "warm_median_s": 0.0007521873340010643,
+          "warm_p95_s": 0.0009305346640758216
+        }
+      },
+      "endpoint_objectives": {
+        "final": {
+          "cache_windows": {
+            "bootstrap": 5,
+            "recent": 32
+          },
+          "combined_loss": 0.28173798076903145,
+          "data_loss": 0.07319859403957893,
+          "domain": [
+            5.375515928046347,
+            9.911790437866522,
+            1.0,
+            7.63304697179443,
+            1.237488546009913,
+            11.382287294585653,
+            37.54680687128117,
+            500.9246585376661,
+            782.0344605454499,
+            32.919242016136856,
+            12.00510105565502,
+            1.0,
+            32.919242016136856,
+            12.00510105565502,
+            1.0
+          ],
+          "prior_loss": 0.20853938672945252
+        },
+        "initial": {
+          "cache_windows": {
+            "bootstrap": 5,
+            "recent": 0
+          },
+          "combined_loss": 10.27817968842551,
+          "data_loss": 0.029514143600900846,
+          "domain": [
+            3.5996083198641378,
+            2.8774423635197532,
+            1.0,
+            1.5849501133178436,
+            1.2923757274488277,
+            3.164412097690012,
+            37.54680687128117,
+            500.9246585376661,
+            782.0344605454499,
+            10.826870992677325,
+            1.0,
+            1.0,
+            10.826870992677325,
+            1.0,
+            1.0
+          ],
+          "prior_loss": 10.24866554482461
         }
       }
     },
     {
       "id": "fixedwing-81",
+      "family": "fixedwing",
       "expected": 225,
       "complete": true,
       "metrics": {
         "candidate": {
-          "body_rate_rmse_rad_s": 2.9052830716321174,
-          "orientation_rmse_rad": 0.10164180162921546,
-          "velocity_rmse_m_s": 2.890975876317351
+          "body_rate_rmse_rad_s": 2.340879242497436,
+          "orientation_rmse_rad": 0.10892172257038309,
+          "velocity_rmse_m_s": 1.2442823169777963
         },
         "frozen": {
           "body_rate_rmse_rad_s": 12.365551689155017,
@@ -378,79 +671,177 @@
           "velocity_rmse_m_s": 0.17023272979733872
         },
         "reference": {
-          "body_rate_rmse_rad_s": 4.8978591765271595,
-          "orientation_rmse_rad": 0.13698230308811007,
-          "velocity_rmse_m_s": 3.6851700437400585
+          "body_rate_rmse_rad_s": 2.9052830716321174,
+          "orientation_rmse_rad": 0.10164180162921546,
+          "velocity_rmse_m_s": 2.890975876317351
         }
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.5931740719609901,
-        "orientation_rmse_rad": 0.7420068091849586,
-        "velocity_rmse_m_s": 0.7844891394437028
+        "body_rate_rmse_rad_s": 0.8057318976434151,
+        "orientation_rmse_rad": 1.0716232969553652,
+        "velocity_rmse_m_s": 0.4304021791294974
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 7.661705490336263,
-        "orientation_rmse_rad": 10.60489476864491,
-        "velocity_rmse_m_s": 16.982491438391694
+        "body_rate_rmse_rad_s": 6.17328050391361,
+        "orientation_rmse_rad": 11.364452295839962,
+        "velocity_rmse_m_s": 7.309301322131818
+      },
+      "robustness_ratios": {
+        "orientation": 1.0716232969553652,
+        "rate_tail": 0.8063538940858095,
+        "rotation_rate": 0.995187545799789,
+        "velocity_tail": 0.409685959310446
       },
       "latency": {
         "frozen_predict": {
           "count": 225,
-          "first_s": 0.0005925418809056282,
-          "warm_max_s": 0.0006872499361634254,
-          "warm_median_s": 0.0005863124970346689,
-          "warm_p95_s": 0.0006309375865384936
+          "first_s": 0.000717374961823225,
+          "warm_max_s": 0.0008068329188972712,
+          "warm_median_s": 0.0005922908894717693,
+          "warm_p95_s": 0.0006496356218121946
         },
         "observe": {
           "count": 225,
-          "first_s": 0.003821791848167777,
-          "warm_max_s": 0.0057017498183995485,
-          "warm_median_s": 0.0036256456514820457,
-          "warm_p95_s": 0.003920208103954792
+          "first_s": 0.004224833101034164,
+          "warm_max_s": 0.007081333082169294,
+          "warm_median_s": 0.003789958544075489,
+          "warm_p95_s": 0.00438320372486487
         },
         "predict": {
           "count": 225,
-          "first_s": 0.0008347500115633011,
-          "warm_max_s": 0.0009759580716490746,
-          "warm_median_s": 0.0006451875669881701,
-          "warm_p95_s": 0.0007782287779264152
+          "first_s": 0.001193332951515913,
+          "warm_max_s": 0.0010959168430417776,
+          "warm_median_s": 0.0006949794478714466,
+          "warm_p95_s": 0.0008936750120483339
+        }
+      },
+      "endpoint_objectives": {
+        "final": {
+          "cache_windows": {
+            "bootstrap": 5,
+            "recent": 32
+          },
+          "combined_loss": 4.778676646362622,
+          "data_loss": 0.6741115100775202,
+          "domain": [
+            7.483859243505131,
+            7.169026211300467,
+            1.0,
+            25.180683925654545,
+            1.0156568690717303,
+            7.646256264675054,
+            53.27727534608137,
+            1299.680453519056,
+            907.8834900240399,
+            27.231006906530247,
+            28.607326340478394,
+            1.0,
+            27.231006906530247,
+            28.607326340478394,
+            1.0
+          ],
+          "prior_loss": 4.1045651362851014
+        },
+        "initial": {
+          "cache_windows": {
+            "bootstrap": 5,
+            "recent": 0
+          },
+          "combined_loss": 19.184915232118282,
+          "data_loss": 0.049986518013432193,
+          "domain": [
+            3.235471168244428,
+            1.4297719360626673,
+            1.0,
+            3.880123321538683,
+            1.1678127148977913,
+            1.0,
+            53.27727534608137,
+            1299.680453519056,
+            907.8834900240399,
+            2.6366695446257378,
+            1.5772881154665581,
+            1.0,
+            2.6366695446257378,
+            1.5772881154665581,
+            1.0
+          ],
+          "prior_loss": 19.13492871410485
         }
       }
     }
   ],
-  "decision": "Retain the physical-vector objective and compensated coordinate conditioning as the single streaming fitter. Live-controller adoption remains unqualified.",
-  "remaining_gaps": [
-    "Fixedwing-81 absolute forecast error remains large.",
-    "Fixedwing-81 has a 31.14 m/s forecast-error spike at 7.90 s plus persistent later errors.",
-    "Quad-arm-115 orientation error regresses 3.05 times versus v2.",
-    "Quad update latency exceeds 10 ms sampling.",
-    "Known recordings of one quad family and one fixed-wing airframe do not establish broad generalization or closed-loop recovery."
-  ],
-  "no_fit_verification": {
-    "verified": true,
-    "cases": 6,
+  "accuracy_passed": true,
+  "aggregate_ratio": 0.780570234326304,
+  "all_cases_complete": true,
+  "candidate_closed_loop_trials": 0,
+  "families": {
+    "fixedwing": {
+      "aggregate": 0.7059140791248797,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 0.7472766101975523,
+        "velocity_rmse_m_s": 0.6668410068060219
+      }
+    },
+    "quad": {
+      "aggregate": 0.8631218851330416,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 0.801973522741379,
+        "velocity_rmse_m_s": 0.9289326486104665
+      }
+    }
+  },
+  "frozen_comparison": {
+    "aggregate_ratio": 0.21067623531717572,
+    "families": {
+      "fixedwing": {
+        "aggregate": 0.21474623423038147,
+        "metric_ratios": {
+          "body_rate_rmse_rad_s": 0.22785152678794182,
+          "velocity_rmse_m_s": 0.2023947162708693
+        }
+      },
+      "quad": {
+        "aggregate": 0.20668337345465154,
+        "metric_ratios": {
+          "body_rate_rmse_rad_s": 0.13036948837914558,
+          "velocity_rmse_m_s": 0.32766882338573566
+        }
+      }
+    }
+  },
+  "real_time_target_passed": false,
+  "robustness": {
+    "aggregate_ratios": {
+      "orientation": 0.8324632802162677,
+      "rotation_rate": 0.8310635819241495,
+      "upper_decile": 0.7704268964314046
+    },
+    "families": {
+      "fixedwing": {
+        "orientation": 1.0212639416490044,
+        "rate_tail": 0.7016711938762292,
+        "rotation_rate": 1.0648584341948033,
+        "upper_decile": 0.6733042587482283,
+        "velocity_tail": 0.6460841328601947
+      },
+      "quad": {
+        "orientation": 0.678566122475126,
+        "rate_tail": 0.8445059166705076,
+        "rotation_rate": 0.6485995274318768,
+        "upper_decile": 0.8815592579919769,
+        "velocity_tail": 0.9202383429299008
+      }
+    }
+  },
+  "robustness_passed": true,
+  "independent_audit": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v6/checks/independent-audit.json",
+    "sha256": "0a28eea331c36c2e07e5726a24e77876278fb436b12d6e474cdf20ee2ad35282",
+    "payloads_verified": 242,
     "observations": 3137,
     "fits": 0,
     "model_calls": 0,
-    "identical_inputs_and_fixed_comparator_bytes_to": [
-      "online-fit-v2",
-      "online-fit-v3"
-    ]
-  },
-  "attribution_vs_v3": {
-    "aggregate": 0.5829473922849409,
-    "quad": 0.9128868469380593,
-    "fixedwing": 0.37225606142934226
-  },
-  "next_gap": "Constrain unsupported nonlinear response during short online fits",
-  "rejected_v5": {
-    "result": "online-fit-v5.json",
-    "source_commit": "5db9059",
-    "evaluation_manifest_sha256": "f4d05ec868cc3981bc33d9919e565d386f935c69b3b19c14a90a733205df0413",
-    "aggregate_vs_v4": 0.9533792360725059,
-    "accuracy_passed": false,
-    "robustness_passed": true,
-    "decision": "Retain v4; v5 provides modest average improvement with worse fixed-wing angular errors and greater fitting cost."
-  },
-  "causal_diagnosis": "online-causal-trace.json"
+    "complete": true
+  }
 }
