@@ -24,7 +24,7 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v6"
+_FORMAT = "glassbox-online-fit-v7"
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
@@ -48,10 +48,11 @@ _RECIPE = dict(
         head="explicit quadratic current-feature head only",
         strength=0.01,
         penalty="0.01/4 times squared scaled physical Hessian Frobenius norm",
-        motion_domain="max(1, role-balanced measured supported-motion RMS)",
+        motion_domain="immutable full supported-motion envelope",
         gravity_domain="inverse immutable body gravity-direction scales",
-        command_domain="max(1, measured issued RMS), copied to filtered coordinates",
-        time_domain="same eligible measured positions as reconditioning",
+        command_domain="max(1, actual-cache issued maxabs), copied to filtered coordinates",
+        time_domain="all completed-cache issued positions, including before delay",
+        inclusion="positive-weight windows only; weight magnitudes do not affect maxima",
         output_domain="dt divided by fixed first-step velocity/rate group scales",
         hessian_factors="2 on diagonal, sqrt(2) on upper off-diagonal",
         acceptance="exact data plus prior loss; domain fixed within each proposal",
@@ -192,25 +193,20 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
 def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
     """Diagonal of the quadratic-head prior in current parameter coordinates.
 
-    Domain lengths use completed measured positions and immutable raw scales.
-    Issued commands supply both command domains, so no learned filter parameter
-    can weaken the prior. Compensated reconditioning preserves its physical
-    value, although damping and the truncated solve remain coordinate dependent.
+    Motion uses its immutable feature envelope; command lengths cover every
+    issued position in positive-weight completed-cache windows. The existing
+    filter forms convex combinations of issued values, so the same command
+    envelope applies independently of learned lag. Cache eviction can shrink
+    that envelope; it does not bound unseen commands. Compensated reconditioning
+    preserves the prior value, not the coordinate-dependent truncated optimizer.
     """
-    past, past_inputs, future_inputs, targets = data
-    states = jnp.concatenate((past, targets[:, :-1]), axis=1)
-    commands = jnp.concatenate((past_inputs, future_inputs), axis=1)
-    # Only supported motion and issued coordinates are used from this call.
-    # Supplying issued values for the unused filtered block avoids a filter pass.
-    current = current_features(states, commands, commands, norms)[:, delay:]
-    rms = jnp.sqrt(
-        jnp.sum(weights[:, None, None] * current**2, axis=(0, 1)) / current.shape[1]
-    )
-    count = commands.shape[-1]
-    issued = jnp.maximum(1.0, rms[9 : 9 + count])
+    commands = jnp.concatenate((data[1], data[2]), axis=1)
+    normalized = (commands - norms["input_mean"]) / norms["input_scale"]
+    observed = jnp.where(weights[:, None, None] > 0, jnp.abs(normalized), 0.0)
+    issued = jnp.maximum(1.0, jnp.max(observed, axis=(0, 1)))
     domain = jnp.concatenate(
         (
-            jnp.maximum(1.0, rms[:6]),
+            norms["motion_bound_scale"],
             1.0 / norms["body_scale"][6:9],
             issued,
             issued,

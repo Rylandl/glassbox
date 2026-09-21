@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v6.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v7.json"
 
 COUNTERS = (
     "observations",
@@ -170,7 +170,11 @@ def summarize(data, info, reference=None, protocol=None, stream=None):
         if np.isfinite(data["command_z"]).any()
         else None,
     )
-    if protocol is not None and protocol["id"] in ("online-fit-v5", "online-fit-v6"):
+    if protocol is not None and protocol["id"] in (
+        "online-fit-v5",
+        "online-fit-v6",
+        "online-fit-v7",
+    ):
         require(stream is not None, "prospective diagnostics require observed origins")
         origins = observed(stream["states"][data["origin"]])
         forecasts = {arm: data[arm] for arm in ("candidate", "frozen", "kinematic")}
@@ -197,8 +201,10 @@ def summarize(data, info, reference=None, protocol=None, stream=None):
             if a is not None and b is not None
             else None
         )
-    if protocol is not None and protocol["id"] == "online-fit-v6":
+    if protocol is not None and protocol["id"] in ("online-fit-v6", "online-fit-v7"):
         result["endpoint_objectives"] = info.get("endpoint_objectives")
+    if protocol is not None and protocol["id"] == "online-fit-v7":
+        result["causal_captures"] = info.get("causal_captures", [])
     return result
 
 
@@ -293,6 +299,7 @@ def aggregate(cases, protocol=None):
         "online-fit-v4",
         "online-fit-v5",
         "online-fit-v6",
+        "online-fit-v7",
     )
     comparison = comparison_aggregate(cases, "reference_ratios" if paired else "ratios")
     total, families = comparison["aggregate_ratio"], comparison["families"]
@@ -332,7 +339,7 @@ def aggregate(cases, protocol=None):
             + protocol["comparison"]["reference"]["protocol_id"],
             frozen_comparison=comparison_aggregate(cases, "ratios"),
         )
-    if protocol["id"] in ("online-fit-v5", "online-fit-v6"):
+    if protocol["id"] in ("online-fit-v5", "online-fit-v6", "online-fit-v7"):
         robustness = {}
         for family in ("quad", "fixedwing"):
             selected = [case for case in cases if case["family"] == family]
@@ -379,7 +386,13 @@ def counter_names(protocol):
     return (
         COUNTERS
         if protocol["id"]
-        in ("online-fit-v3", "online-fit-v4", "online-fit-v5", "online-fit-v6")
+        in (
+            "online-fit-v3",
+            "online-fit-v4",
+            "online-fit-v5",
+            "online-fit-v6",
+            "online-fit-v7",
+        )
         else COUNTERS[:7]
     )
 
@@ -391,7 +404,13 @@ def dynamic_normalizers(protocol):
         == (
             ["feature_scale", "quadratic_scale", "output_scale"]
             if protocol["id"]
-            in ("online-fit-v3", "online-fit-v4", "online-fit-v5", "online-fit-v6")
+            in (
+                "online-fit-v3",
+                "online-fit-v4",
+                "online-fit-v5",
+                "online-fit-v6",
+                "online-fit-v7",
+            )
             else []
         ),
         "dynamic normalization contract differs",
@@ -480,6 +499,7 @@ def reference_contract(reference, protocol):
             "online-fit-v4": "online-fit-v2",
             "online-fit-v5": "online-fit-v4",
             "online-fit-v6": "online-fit-v4",
+            "online-fit-v7": "online-fit-v6",
         }.get(protocol["id"]),
         "reference protocol contract differs",
     )
@@ -529,6 +549,147 @@ def make_data(rows, times, commands):
     return data
 
 
+def capture_origins(protocol, case_id):
+    if protocol["id"] != "online-fit-v7":
+        return []
+    chosen = protocol["causal_captures"]["origins"].get(case_id, [])
+    require(chosen == sorted(set(chosen)), "capture declaration differs")
+    return chosen
+
+
+def verify_causal_captures(case, data, stream, info, protocol):
+    """Authenticate causal snapshot arrays against the tape; never load a model."""
+    from glassbox._learner_arrays import array_fingerprint, load_arrays
+
+    expected = capture_origins(protocol, info["id"])
+    found = sorted(int(path.name) for path in case.iterdir() if path.is_dir())
+    require(set(found) <= set(expected), "unexpected causal capture")
+    if info["status"] == "complete":
+        require(found == expected, "missing successful causal capture")
+    reports = {
+        row["index"]: row["report"]
+        for row in (
+            json.loads(line)
+            for line in (case / "events.jsonl").read_text().splitlines()
+        )
+        if row["phase"] == "predicted"
+    }
+    initial = None
+    completed = []
+    for origin in found:
+        selected = np.flatnonzero(data["origin"] == origin)
+        require(len(selected) == 1, "capture outside scored origins")
+        index = int(selected[0])
+        path = case / str(origin)
+        if not (path / "session.npz").exists():
+            require(info["status"] == "failed", "missing captured session")
+            continue
+        values = session_arrays(
+            path / "session.npz",
+            info,
+            origin - info["first"],
+            data["model_before"][index],
+            protocol,
+            reports.get(origin),
+        )
+        meta, _ = load_arrays(path / "session.npz")
+        for name in counter_names(protocol):
+            count = (
+                origin - info["first"]
+                if name == "observations"
+                else meta["counts"][name]
+            )
+            require(
+                count == data[name + "_before"][index], "capture before counter differs"
+            )
+        if initial is None:
+            initial = load_arrays(case / "initial-online.npz")
+        first_meta, first_arrays = initial
+        for name in ("contract", "initial_cursor", "initial_count", "horizon"):
+            require(meta[name] == first_meta[name], "capture initial identity differs")
+        for name in first_arrays:
+            if name == "scale" or name.startswith("bootstrap_"):
+                paired_exact(
+                    values[name], first_arrays[name], "capture fixed cache " + name
+                )
+        h, horizon = meta["model"]["history_steps"], meta["horizon"]
+        states, commands = observed(stream["states"]), stream["commands"]
+        paired_exact(
+            values["tail_states"],
+            states[origin - h - horizon : origin + 1],
+            "capture causal state tail",
+        )
+        paired_exact(
+            values["tail_inputs"],
+            commands[origin - h - horizon : origin],
+            "capture causal command tail",
+        )
+        count = min(32, origin - info["first"])
+        starts = range(origin - horizon + 1 - count, origin - horizon + 1)
+        windows = (
+            dict(
+                past_states=np.stack([states[k - h : k + 1] for k in starts]),
+                past_inputs=np.stack([commands[k - h : k] for k in starts]),
+                future_inputs=np.stack([commands[k : k + horizon] for k in starts]),
+                future_states=np.stack(
+                    [states[k + 1 : k + horizon + 1] for k in starts]
+                ),
+            )
+            if count
+            else {
+                name: first_arrays["bootstrap_" + name][:0]
+                for name in (
+                    "past_states",
+                    "past_inputs",
+                    "future_inputs",
+                    "future_states",
+                )
+            }
+        )
+        for name, wanted in windows.items():
+            paired_exact(
+                values["recent_" + name], wanted, "capture recent cache " + name
+            )
+        if not all((path / name).exists() for name in ("context.npz", "capture.json")):
+            require(info["status"] == "failed", "missing successful capture context")
+            continue
+        context = arrays(path / "context.npz")
+        wanted = dict(
+            origin=np.asarray(origin, dtype=np.int64),
+            past_states=states[origin - h : origin + 1],
+            past_inputs=commands[origin - h : origin],
+            command=commands[origin],
+            truth=data["truth"][index],
+            recorded_prediction=data["candidate"][index],
+        )
+        require(set(context) == set(wanted), "capture context inventory differs")
+        require(
+            data["predicted"][index] and data["revealed"][index],
+            "capture precedes prediction or revelation",
+        )
+        for name, value in wanted.items():
+            paired_exact(context[name], value, "capture context " + name)
+        paired_exact(context["truth"], states[origin + 1], "capture revealed truth")
+        require(
+            read(path / "capture.json")
+            == dict(
+                origin=origin,
+                time_s=float(stream["time_s"][origin]),
+                session_fingerprint=array_fingerprint(meta, values),
+                model_fingerprint=data["model_before"][index],
+                report=reports[origin],
+            ),
+            "capture full identity differs",
+        )
+        completed.append(origin)
+    require(
+        completed == info["causal_captures"], "capture completion inventory differs"
+    )
+    if info["status"] == "complete":
+        require(completed == expected, "incomplete successful causal captures")
+    return completed
+
+
 def evaluate_case(source, output, info, protocol=None, reference=None):
     import jax
 
@@ -549,6 +710,9 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
         status="complete",
     )
     journal, online, frozen = Journal(output), None, None
+    captures = capture_origins(protocol, info["id"])
+    if protocol["id"] == "online-fit-v7":
+        info["causal_captures"] = []
 
     def save():
         for arm in ("candidate", "frozen", "kinematic"):
@@ -567,6 +731,7 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
             "input sample grid",
         )
         require(len(u) > first, "stream cannot reach the fixed startup prefix")
+        require(set(captures) <= set(rows), "capture outside scored origins")
         require(np.isfinite(x).all() and np.isfinite(u).all(), "nonfinite input tape")
         history = observed(x[begin : first + 1])
         issued = u[begin:first].copy()
@@ -635,6 +800,15 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
             data["model_before"][i] = fingerprint(online.model)
             for key in counters:
                 data[key + "_before"][i] = before[key]
+            if k in captures:
+                capture = output / str(int(k))
+                capture.mkdir()
+                session_identity = online.fingerprint()
+                online.save(capture / "session.npz")
+                require(
+                    online.fingerprint() == session_identity,
+                    "capture saving mutated session",
+                )
             for arm, learner, latency_name in (
                 ("candidate", online, "predict"),
                 ("frozen", frozen, "frozen_predict"),
@@ -673,6 +847,31 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
             data["truth"][i] = truth
             journal.event(dict(phase="revealed", index=int(k)), dict(truth=truth))
             data["revealed"][i] = True
+            if k in captures:
+                require(
+                    online.fingerprint() == session_identity,
+                    "capture prediction mutated session",
+                )
+                checkpoint(
+                    capture / "context.npz",
+                    origin=np.asarray(k, dtype=np.int64),
+                    past_states=history.copy(),
+                    past_inputs=issued.copy(),
+                    command=u[k].copy(),
+                    truth=truth,
+                    recorded_prediction=data["candidate"][i].copy(),
+                )
+                write(
+                    capture / "capture.json",
+                    dict(
+                        origin=int(k),
+                        time_s=float(times[k]),
+                        session_fingerprint=session_identity,
+                        model_fingerprint=data["model_before"][i],
+                        report=before,
+                    ),
+                )
+                info["causal_captures"].append(int(k))
             started = time.perf_counter()
             online.observe(int(k), u[k], truth)
             updated = online.model
@@ -724,6 +923,10 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
                     ),
                     flush=True,
                 )
+        if protocol["id"] == "online-fit-v7":
+            require(
+                info["causal_captures"] == captures, "missing successful causal capture"
+            )
         require(
             fingerprint(frozen.model) == info["initial_model_fingerprint"],
             "frozen comparator changed",
@@ -740,7 +943,7 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
                     info[name + "_final_report"] = learner.report
                 except Exception as error:
                     info.update(status="failed", final_save_error=repr(error))
-        if protocol["id"] == "online-fit-v6" and online is not None:
+        if protocol["id"] in ("online-fit-v6", "online-fit-v7") and online is not None:
             try:
                 info["endpoint_objectives"] = save_endpoint_diagnostics(output)
             except Exception as error:
@@ -759,7 +962,18 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
 def endpoint_objective(meta, values, predictions):
     """Independent NumPy arithmetic from one saved cache/model endpoint."""
     norms = {key[5:]: value for key, value in values.items() if key.startswith("norm_")}
-    role_losses, motion_squares, command_squares, counts = [], [], [], {}
+    require(
+        meta["format"] in ("glassbox-online-fit-v6", "glassbox-online-fit-v7"),
+        "unsupported endpoint session format",
+    )
+    envelope = meta["format"] == "glassbox-online-fit-v7"
+    role_losses, motion_squares, command_squares, command_maxima, counts = (
+        [],
+        [],
+        [],
+        [],
+        {},
+    )
     dt, delay = meta["model"]["dt_s"], meta["model"]["delay_steps"]
     require(
         set(predictions) == {"bootstrap", "recent"},
@@ -791,6 +1005,15 @@ def endpoint_objective(meta, values, predictions):
         role_losses.append(
             float(np.mean(np.where(groups <= 1, 0.5 * groups**2, groups - 0.5)))
         )
+        if envelope:
+            commands = np.concatenate((up, future), axis=1)
+            command_maxima.append(
+                np.max(
+                    np.abs((commands - norms["input_mean"]) / norms["input_scale"]),
+                    axis=(0, 1),
+                )
+            )
+            continue
         states = np.concatenate((past, truth[:, :-1]), axis=1)[:, delay:]
         commands = np.concatenate((up, future), axis=1)[:, delay:]
         rotation = states[..., 6:].reshape(*states.shape[:-1], 3, 3)
@@ -817,9 +1040,14 @@ def endpoint_objective(meta, values, predictions):
             )
         )
     require(bool(role_losses), "endpoint has no measured cache")
-    issued = np.maximum(1.0, np.sqrt(np.mean(command_squares, axis=0)))
+    if envelope:
+        issued = np.maximum(1.0, np.max(command_maxima, axis=0))
+        motion = norms["motion_bound_scale"]
+    else:
+        issued = np.maximum(1.0, np.sqrt(np.mean(command_squares, axis=0)))
+        motion = np.maximum(1.0, np.sqrt(np.mean(motion_squares, axis=0)))
     domain = np.r_[
-        np.maximum(1.0, np.sqrt(np.mean(motion_squares, axis=0))),
+        motion,
         1 / norms["body_scale"][6:9],
         issued,
         issued,
@@ -938,12 +1166,16 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v6",
+            p["id"] == "online-fit-v7",
             "unsupported candidate protocol for current learner",
         )
         require(
             reference is not None,
             "current candidate requires the authority-pinned reference pack",
+        )
+        require(
+            sum(len(rows) for rows in p["causal_captures"]["origins"].values()) == 23,
+            "causal capture contract differs",
         )
         reference_contract(reference, p)
         shutil.copytree(reference, output / "reference")
@@ -1074,6 +1306,7 @@ def accounting(report, count, protocol):
         "online-fit-v4",
         "online-fit-v5",
         "online-fit-v6",
+        "online-fit-v7",
     ):
         require(
             report["cg_iterations"] == report["curvature_calls"] == 4 * count
@@ -1087,6 +1320,7 @@ def accounting(report, count, protocol):
         "online-fit-v4",
         "online-fit-v5",
         "online-fit-v6",
+        "online-fit-v7",
     ):
         require(
             report["conditioning_calls"] == count, "conditioning accounting differs"
@@ -1269,6 +1503,7 @@ def verify(output, authority):
         "online-fit-v4",
         "online-fit-v5",
         "online-fit-v6",
+        "online-fit-v7",
     ):
         reference = output / "reference"
         reference_contract(reference, protocol)
@@ -1332,6 +1567,7 @@ def verify(output, authority):
                 "online-fit-v4",
                 "online-fit-v5",
                 "online-fit-v6",
+                "online-fit-v7",
             ):
                 norm = arrays(case / "normalization.npz")
                 for key, value in norm.items():
@@ -1376,7 +1612,7 @@ def verify(output, authority):
                             final[key],
                             "fixed normalization/frozen session",
                         )
-        if protocol["id"] == "online-fit-v6":
+        if protocol["id"] in ("online-fit-v6", "online-fit-v7"):
             if info.get("endpoint_objectives") is not None:
                 require(
                     verify_endpoint_diagnostics(case) == info["endpoint_objectives"],
@@ -1387,6 +1623,8 @@ def verify(output, authority):
                     info["status"] == "failed",
                     "missing successful endpoint diagnostics",
                 )
+        if protocol["id"] == "online-fit-v7":
+            verify_causal_captures(case, data, stream, info, protocol)
         for arm in ("candidate", "frozen", "kinematic"):
             error, angles = residuals(data[arm], data["truth"])
             exact(data[arm + "_residual"], error, "component residual")
@@ -1400,6 +1638,11 @@ def verify(output, authority):
         ),
         "aggregate differs",
     )
+    if protocol["id"] == "online-fit-v7" and report["all_cases_complete"]:
+        require(
+            sum(len(row["causal_captures"]) for row in results) == 23,
+            "successful evaluation requires all23 captures",
+        )
     return dict(
         verified=True,
         manifest_sha256=authority,

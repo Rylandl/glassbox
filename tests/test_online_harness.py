@@ -307,7 +307,7 @@ def test_generic_session_archive_verification_without_optimizer_loader(
             evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 6])
 def test_other_protocol_cannot_run_maintained_candidate(tmp_path, monkeypatch, version):
     protocol = tmp_path / "protocol.json"
     protocol.write_text(json.dumps(dict(id=f"online-fit-v{version}")))
@@ -517,7 +517,7 @@ def test_v5_rotation_rate_uses_observed_nonlinear_defect_not_zero_target():
     assert changed["truth_relative_rmse_rad_s"] == pytest.approx(0.1)
 
 
-@pytest.mark.parametrize("version", [5, 6])
+@pytest.mark.parametrize("version", [5, 6, 7])
 def test_prospective_diagnostics_recompute_every_arm(tmp_path, monkeypatch, version):
     _result, output, stream = run_fixture(tmp_path, monkeypatch)
     data = evaluate.arrays(output / "predictions.npz")
@@ -548,7 +548,7 @@ def test_prospective_diagnostics_recompute_every_arm(tmp_path, monkeypatch, vers
     )
 
 
-@pytest.mark.parametrize("version", [5, 6])
+@pytest.mark.parametrize("version", [5, 6, 7])
 def test_robustness_is_separate_and_uses_equal_families_without_case_veto(version):
     protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     cases = [
@@ -563,7 +563,10 @@ def test_robustness_is_separate_and_uses_equal_families_without_case_veto(versio
         )
     result = evaluate.aggregate(cases, protocol)
     assert result["accuracy_passed"] and result["robustness_passed"]
-    assert result["primary_comparison"] == "candidate / saved online-fit-v4"
+    assert (
+        result["primary_comparison"]
+        == "candidate / saved " + protocol["comparison"]["reference"]["protocol_id"]
+    )
     assert result["robustness"]["aggregate_ratios"] == pytest.approx(
         dict.fromkeys(("upper_decile", "orientation", "rotation_rate"), 0.45)
     )
@@ -582,7 +585,7 @@ def test_robustness_is_separate_and_uses_equal_families_without_case_veto(versio
     assert not evaluate.aggregate(cases, protocol)["robustness_passed"]
 
 
-@pytest.mark.parametrize("version", [5, 6])
+@pytest.mark.parametrize("version", [5, 6, 7])
 def test_prospective_run_rejects_weaker_v2_reference(tmp_path, monkeypatch, version):
     protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     protocol["comparison"]["reference"]["protocol_id"] = "online-fit-v2"
@@ -595,15 +598,17 @@ def test_prospective_run_rejects_weaker_v2_reference(tmp_path, monkeypatch, vers
         evaluate.reference_contract(tmp_path, protocol)
 
 
-def test_current_candidate_runner_uses_v6_against_working_v4():
+def test_current_candidate_runner_uses_v7_against_working_v6():
     protocol = evaluate.read(evaluate.PROTOCOL)
-    assert protocol["id"] == "online-fit-v6"
-    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v4"
+    assert protocol["id"] == "online-fit-v7"
+    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v6"
     assert evaluate.run.__defaults__[0] == evaluate.PROTOCOL
 
 
-def endpoint_fixture(*, initial=False):
-    meta = dict(format="synthetic-endpoint", model=dict(dt_s=0.05, delay_steps=1))
+def endpoint_fixture(*, initial=False, version=6):
+    meta = dict(
+        format=f"glassbox-online-fit-v{version}", model=dict(dt_s=0.05, delay_steps=1)
+    )
     values = dict(
         norm_body_mean=np.zeros(9),
         norm_body_scale=np.r_[np.ones(6), [0.5, 2, 4]],
@@ -674,8 +679,9 @@ def test_endpoint_numpy_objective_preserves_role_weights_and_physical_prior():
     )
 
 
+@pytest.mark.parametrize("version", [6, 7])
 def test_endpoint_verifier_uses_saved_predictions_without_model_or_optimizer(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, version
 ):
     from glassbox import OnlineFit
     from glassbox._dynamics import VehicleSequenceModel
@@ -683,7 +689,9 @@ def test_endpoint_verifier_uses_saved_predictions_without_model_or_optimizer(
 
     result, saved = {}, {}
     for endpoint in ("initial", "final"):
-        meta, values, predictions = endpoint_fixture(initial=endpoint == "initial")
+        meta, values, predictions = endpoint_fixture(
+            initial=endpoint == "initial", version=version
+        )
         save_arrays(tmp_path / (endpoint + "-online.npz"), meta, values)
         result[endpoint] = evaluate.endpoint_objective(meta, values, predictions)
         saved.update(
@@ -708,8 +716,11 @@ def test_endpoint_verifier_uses_saved_predictions_without_model_or_optimizer(
         evaluate.verify_endpoint_diagnostics(tmp_path)
 
 
-def test_v6_endpoint_diagnostics_run_after_all_timed_updates(tmp_path, monkeypatch):
-    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v6.json")
+@pytest.mark.parametrize("version", [6, 7])
+def test_endpoint_diagnostics_run_after_all_timed_updates(
+    tmp_path, monkeypatch, version
+):
+    protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     calls = []
 
     def saved(output):
@@ -729,4 +740,281 @@ def test_v6_endpoint_diagnostics_run_after_all_timed_updates(tmp_path, monkeypat
     assert (
         result["endpoint_objectives"]
         == evaluate.read(output / "case.json")["endpoint_objectives"]
+    )
+
+
+def test_endpoint_v7_domain_uses_full_support_and_all_actual_issued_positions():
+    meta, values, predictions = endpoint_fixture(version=7)
+    values["norm_motion_bound_scale"] = np.arange(2.0, 8.0)
+    values["norm_input_mean"][:] = 1
+    values["norm_input_scale"][:] = 2
+    # A pre-delay negative command dominates; RMS and truncating history are wrong.
+    values["bootstrap_past_inputs"][0, 0, 0] = -2001
+    result = evaluate.endpoint_objective(meta, values, predictions)
+    expected_domain = np.r_[np.arange(2.0, 8.0), [2, 0.5, 0.25], 1001, 1001]
+    np.testing.assert_array_equal(result["domain"], expected_domain)
+    expected_prior = (
+        0.01 / 4 * ((2 * 2**2 * 0.05) ** 2 + 2 * (2 * 1001 * 0.05 * 0.8) ** 2)
+    )
+    assert result["prior_loss"] == pytest.approx(expected_prior)
+    assert result["data_loss"] == pytest.approx((4.5 / 3 + 0.5 / 3) / 2)
+    changed = copy.deepcopy(values)
+    changed["bootstrap_past_states"][:, :, :6] *= 1000
+    changed["recent_past_states"][:, :, :6] -= 10000
+    changed["param_raw_tau"] = np.array([100.0])
+    changed["norm_output_scale"] *= 3
+    changed["norm_quadratic_scale"] *= 7
+    changed["param_quadratic"] *= 7 / 3
+    again = evaluate.endpoint_objective(meta, changed, predictions)
+    np.testing.assert_array_equal(again["domain"], expected_domain)
+    assert again["prior_loss"] == pytest.approx(result["prior_loss"], rel=2e-15)
+    # Last future command is included too; caches contain no zero-weight padded slots.
+    values["recent_future_inputs"][-1, -1, 0] = 3001
+    assert evaluate.endpoint_objective(meta, values, predictions)["domain"][-2:] == [
+        1500,
+        1500,
+    ]
+    initial_meta, initial, initial_predictions = endpoint_fixture(
+        version=7, initial=True
+    )
+    initial["bootstrap_past_inputs"][:] = 0.2
+    initial["bootstrap_future_inputs"][:] = -0.3
+    result = evaluate.endpoint_objective(initial_meta, initial, initial_predictions)
+    assert result["domain"][-2:] == [1, 1] and result["data_loss"] == 1.5
+    meta["format"] = "unknown"
+    with pytest.raises(ValueError, match="endpoint session format"):
+        evaluate.endpoint_objective(meta, values, predictions)
+
+
+class CaptureOnline(FakeOnline):
+    """Causal archive fixture; verifies bookkeeping without a dynamics learner."""
+
+    events = None
+
+    def __init__(self, prefix):
+        super().__init__(prefix)
+        self.states = prefix.segments[0].states.copy()
+        self.inputs = prefix.segments[0].inputs.copy()
+        self.dt_s = prefix.segments[0].dt_s
+        self.bootstrap = self.windows(
+            range(self.initial_cursor - 5, self.initial_cursor)
+        )
+
+    def windows(self, origins):
+        return dict(
+            past_states=np.stack(
+                [self.states[k - self.history : k + 1] for k in origins]
+            ),
+            past_inputs=np.stack([self.inputs[k - self.history : k] for k in origins]),
+            future_inputs=np.stack([self.inputs[k : k + 1] for k in origins]),
+            future_states=np.stack([self.states[k + 1 : k + 2] for k in origins]),
+        )
+
+    def metadata(self):
+        return dict(
+            format="glassbox-online-fit-v7",
+            model=dict(
+                format="synthetic",
+                history_steps=self.history,
+                delay_steps=2,
+                dt_s=self.dt_s,
+            ),
+            recipe=dict(proposals=1),
+            initial_cursor=self.initial_cursor,
+            cursor=self.cursor,
+            initial_count=5,
+            horizon=1,
+            contract=dict(input_channels=["x", "y", "z"]),
+            damping=1.0,
+            counts={
+                key: self.report[key]
+                for key in evaluate.COUNTERS
+                if key != "observations"
+            },
+        )
+
+    @property
+    def model(self):
+        from glassbox._learner_arrays import array_fingerprint
+
+        model = super().model
+        model.fingerprint = array_fingerprint(
+            self.metadata()["model"],
+            dict(
+                param_w=model.params["w"],
+                **{"norm_" + key: value for key, value in model.norms.items()},
+            ),
+        )
+        return model
+
+    def archive(self):
+        recent = (
+            self.windows(range(max(self.initial_cursor, self.cursor - 32), self.cursor))
+            if self.count
+            else {name: value[:0] for name, value in self.bootstrap.items()}
+        )
+        return dict(
+            param_w=np.array([float(self.count)]),
+            **{"norm_" + key: value for key, value in self.norms.items()},
+            scale=np.ones((1, 15)),
+            tail_states=self.states[-self.history - 2 :],
+            tail_inputs=self.inputs[-self.history - 1 :],
+            **{"bootstrap_" + key: value for key, value in self.bootstrap.items()},
+            **{"recent_" + key: value for key, value in recent.items()},
+        )
+
+    def fingerprint(self):
+        from glassbox._learner_arrays import array_fingerprint
+
+        return array_fingerprint(self.metadata(), self.archive())
+
+    def save(self, path):
+        from glassbox._learner_arrays import save_arrays
+
+        self.events.append(("save", self.cursor, str(path)))
+        save_arrays(path, self.metadata(), self.archive())
+
+    def predict(self, *args):
+        self.events.append(("predict", self.cursor))
+        return super().predict(*args)
+
+    def observe(self, index, command, observation):
+        self.events.append(("observe", self.cursor))
+        super().observe(index, command, observation)
+        self.states = np.concatenate((self.states, observation[None]))
+        self.inputs = np.concatenate((self.inputs, command[None]))
+
+
+def capture_fixture(tmp_path, monkeypatch):
+    protocol = evaluate.read(evaluate.PROTOCOL)
+    protocol["causal_captures"]["origins"] = dict(fixture=[16, 18])
+    events = []
+    monkeypatch.setattr(CaptureOnline, "events", events)
+    monkeypatch.setattr(sys.modules[__name__], "FakeOnline", CaptureOnline)
+    monkeypatch.setattr(evaluate, "save_endpoint_diagnostics", lambda path: {})
+    counter = 0
+
+    def clock():
+        nonlocal counter
+        counter += 1
+        events.append(("clock", counter))
+        return float(counter)
+
+    checkpoint = evaluate.checkpoint
+
+    def saved(path, **values):
+        if path.name == "context.npz":
+            events.append(("context", int(path.parent.name)))
+        return checkpoint(path, **values)
+
+    monkeypatch.setattr(evaluate.time, "perf_counter", clock)
+    monkeypatch.setattr(evaluate, "checkpoint", saved)
+    result, output, stream = run_fixture(tmp_path, monkeypatch, protocol=protocol)
+    assert result["complete"]
+    return protocol, output, stream, events
+
+
+def test_v7_capture_before_prediction_after_reveal_and_outside_all_call_timers(
+    tmp_path, monkeypatch
+):
+    protocol, output, stream, events = capture_fixture(tmp_path, monkeypatch)
+    data, info = (
+        evaluate.arrays(output / "predictions.npz"),
+        evaluate.read(output / "case.json"),
+    )
+    assert info["causal_captures"] == [16, 18]
+    assert len(data["origin"]) == 5 and data["assimilated"].all()
+    for row in info["causal_captures"]:
+        saved = next(
+            i
+            for i, event in enumerate(events)
+            if event == ("save", row, str(output / str(row) / "session.npz"))
+        )
+        assert (
+            events[saved + 1][0] == "clock"
+            and events[saved + 2] == ("predict", row)
+            and events[saved + 3][0] == "clock"
+        )
+        context = events.index(("context", row))
+        assert context > saved + 3
+        assert (
+            events[context + 1][0] == "clock"
+            and events[context + 2] == ("observe", row)
+            and events[context + 3][0] == "clock"
+        )
+    from glassbox import OnlineFit
+    from glassbox._dynamics import VehicleSequenceModel
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("capture verification called a learner")
+
+    monkeypatch.setattr(OnlineFit, "load", forbidden, raising=False)
+    monkeypatch.setattr(OnlineFit, "predict", forbidden)
+    monkeypatch.setattr(OnlineFit, "observe", forbidden)
+    monkeypatch.setattr(VehicleSequenceModel, "rollout", forbidden)
+    assert evaluate.verify_causal_captures(output, data, stream, info, protocol) == [
+        16,
+        18,
+    ]
+    real = evaluate.read(evaluate.PROTOCOL)
+    assert sum(len(rows) for rows in real["causal_captures"]["origins"].values()) == 23
+
+
+@pytest.mark.parametrize(
+    "alteration",
+    ["command", "recorded_prediction", "cursor", "tail", "recent", "missing"],
+)
+def test_v7_capture_verifier_rejects_resigned_wrong_stage_context_and_caches(
+    tmp_path, monkeypatch, alteration
+):
+    from glassbox._learner_arrays import load_arrays, save_arrays
+
+    protocol, output, stream, _events = capture_fixture(tmp_path, monkeypatch)
+    data, info = (
+        evaluate.arrays(output / "predictions.npz"),
+        evaluate.read(output / "case.json"),
+    )
+    path = output / "16"
+    if alteration in ("command", "recorded_prediction"):
+        values = evaluate.arrays(path / "context.npz")
+        values[alteration].flat[1] = (
+            -0.0 if alteration == "recorded_prediction" else 1.0
+        )
+        evaluate.checkpoint(path / "context.npz", **values)
+    elif alteration == "missing":
+        (path / "context.npz").unlink()
+    else:
+        meta, values = load_arrays(path / "session.npz")
+        if alteration == "cursor":
+            # Core unchanged; cursor alone identifies the wrong causal stage.
+            meta["cursor"] += 1
+        elif alteration == "tail":
+            values["tail_states"][-1, 0] += 1
+        else:
+            values["recent_future_states"][0, 0, 0] += 1
+        save_arrays(path / "session.npz", meta, values)
+    with pytest.raises(ValueError):
+        evaluate.verify_causal_captures(output, data, stream, info, protocol)
+
+
+def test_v7_capture_save_mutation_stops_before_prediction(tmp_path, monkeypatch):
+    original = CaptureOnline.save
+
+    def mutate(self, path):
+        original(self, path)
+        if path.name == "session.npz":
+            self.count += 1
+
+    monkeypatch.setattr(CaptureOnline, "save", mutate)
+    protocol = evaluate.read(evaluate.PROTOCOL)
+    protocol["causal_captures"]["origins"] = dict(fixture=[16])
+    events = []
+    monkeypatch.setattr(CaptureOnline, "events", events)
+    monkeypatch.setattr(sys.modules[__name__], "FakeOnline", CaptureOnline)
+    monkeypatch.setattr(evaluate, "save_endpoint_diagnostics", lambda path: {})
+    result, output, _stream = run_fixture(tmp_path, monkeypatch, protocol=protocol)
+    assert not result["complete"] and result["assimilated"] == 1
+    assert ("predict", 16) not in events
+    assert (
+        "capture saving mutated session" in evaluate.read(output / "case.json")["error"]
     )
