@@ -163,7 +163,9 @@
     "inherited_v4_wind_tail_guards": "Report unchanged v1-vs-v4 guard limits on the new candidate separately. Existing failures remain obligations; no claim those passed merely because refinement beats shared-v1.",
     "public_promotion": false,
     "research_refinement_acceptance": {
-      "all_models_and_eligible_predictions_finite": true,
+      "candidate_and_shared_reference_models_available": true,
+      "candidate_input_eligible_predictions_finite": true,
+      "comparison_failure_policy": "Every required shared_v1 paired comparison must be defined and pass; never drop failed reference queries to improve ratios. Public_v4 numerical failures remain visible context and do not veto refinement acceptance.",
       "crazyflow_primary_250ms_rate_forecast_response_and_p95_ratio_max": 1.05,
       "dart_fresh_long_horizons_s": [
         0.6,
@@ -246,6 +248,12 @@
     "scoring": "Inherited physical component endpoint/prefix RMSEs, hierarchical geometric aggregates, floors and parent p95. Fresh confirmation scored separately from inspected+14M.",
     "source_policy": "Native collection/replay in pinned historical oracle source; baseline inference in pinned source or proven unchanged complete inference closure; no fit through reference importer.",
     "truth": "Identical native truth and eligibility masks for every arm; preserve failures and missing parents."
+  },
+  "prefit_policy_clarification": {
+    "new_evaluation_forecasts_or_simulations_started": 0,
+    "previous_protocol_sha256": "7792889ef57fb9e9d3646809c81c01a67dea2d3e4187f4480129d38d4483cf56",
+    "reason": "Correct the ambiguous all-models-finite gate to honor the frozen comparator roles: shared_v1 measures progress; public_v4 is historical context. Candidate input-eligible predictions must remain finite and every required paired reference comparison remains mandatory. This precedes source binding and all scientific work.",
+    "scientific_refinements_started": 0
   },
   "recordings": {
     "cascade": {
