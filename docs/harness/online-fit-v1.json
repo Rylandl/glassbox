@@ -79,7 +79,9 @@
     "primary": "One-step velocity vector RMSE (m/s) and body-rate vector RMSE (rad/s), over every scored transition in each stream. Save all component residuals.",
     "secondary": "SO(3) geodesic RMSE (rad); post-change windows0-1s and1s-end separately; prefix command span/rank and fixed-scale support excursions.",
     "aggregation": "Geometric mean candidate/frozen RMSE ratios for velocity and body-rate with1e-9 denominator floor, equal case weights within each family; then equal quad/fixed-wing family weights. Report every case and metric. No single-cell veto.",
-    "long_horizon": "Not a primary claim in this iteration; no use of unknown future behavior-policy commands as online forecasts."
+    "long_horizon": "Not a primary claim in this iteration; no use of unknown future behavior-policy commands as online forecasts.",
+    "kinematic_diagnostic": "Also score a no-fit baseline holding current world velocity and body-rate while integrating orientation with that body-rate over the sample interval. Report its physical errors and candidate/kinematic ratios. This is a declared absolute-accuracy sanity check, not a change to the frozen primary acceptance gate.",
+    "incumbent_limit": "The old Throw identifier uses measured applied rotor telemetry and is not a matched-input baseline. This experiment does not establish superiority over that identifier or a controller recovery result."
   },
   "acceptance": {
     "accuracy": "Aggregate ratio<=0.8 and each family aggregate<1.0; all declared cases represented. Report every regression even if aggregate passes. Any nonfinite candidate prediction/parameter fails accuracy acceptance, with missing samples retained as failure.",
