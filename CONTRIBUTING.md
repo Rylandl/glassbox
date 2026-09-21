@@ -66,6 +66,50 @@ still checks the models, flight arrays, selected trajectories and independent
 contact reconstruction, but reports `complete: false` and zero gradient replays.
 The result is a preservation check on existing evidence, not a fresh flight trial.
 
+## Reproduce Dart precision
+
+The preserved `artifacts/dart-precision-v1/dart-original` snapshot supplies the
+old objective for the baseline verifier after Dart's live objective changes.
+The winning consumer is `artifacts/dart-precision-v1/dart-lateral`. The evidence
+pack and its identities are described in [the precision result](docs/dart-precision.md).
+Use the same pinned runtime as the baseline, with Dart/Crazyflow installed.
+The scripts import Glassbox from this checkout and require a clean Git commit.
+
+A fresh nominal run uses the one retained frozen controller protocol:
+
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/run_dart.py artifacts/baseline \
+  --dart-root artifacts/dart-precision-v1/dart-lateral \
+  --output artifacts/dart-precision-reproduction
+```
+
+The output directory must not exist. This performs controller optimization and
+native simulation with the existing learned model; it does not fit a model.
+Compare the issued commands, native states and numerical scores with
+`native-lateral`, rather than runtime-dependent journal/manifest bytes.
+The original scientific run used commit `ddbefa793f4b0be0e19f6e996130612a749298b8`.
+Earlier protocols and the completed attribution tool remain in their recorded
+Git commits, not as maintained alternatives.
+
+The arithmetic-precision audit independently replays the **preserved winning
+command tape**, without model or controller calls. Its supplemental protocol
+pins that exact trial and does not automatically certify a new run:
+
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/audit_dart_resolution.py artifacts/baseline \
+  artifacts/dart-precision-v1/native-lateral \
+  --dart-root artifacts/dart-precision-v1/dart-lateral \
+  --protocol docs/harness/dart-lateral-precision-v1.json \
+  --trial-manifest-sha256 e44c9794c859cbefa1290a4dbdfac45176be8004ffc5b429ff01ffcda61eaa91 \
+  --output artifacts/dart-resolution-reproduction
+```
+
+The original float32 convergence failure remains in
+`artifacts/dart-precision-v1/lateral-resolution-audit`. A fresh trial, target or
+control change requires a new prospective measurement contract.
+
 ## Package boundaries
 
 - `learner.py` owns fit, predict, update and saved model revisions.

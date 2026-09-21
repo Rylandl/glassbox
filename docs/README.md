@@ -6,6 +6,8 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
+- [Dart precision](dart-precision.md): nominal contact performance, every attempted
+  intervention and numerical qualification.
 - [Cleanup result](cleanup.md): adopted implementation, preserved evidence and
   verification of the removal of superseded experiments.
 - [Onboarding example](../examples/onboarding.py): the public API on analytic

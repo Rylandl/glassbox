@@ -12,8 +12,8 @@ does not rewrite prior frozen failures or establish arbitrary-system readiness.
 | --- | --- |
 | Recipe | One shared rigid-body formulation with learned forces/effective accelerations, command filtering and memory. Separate weights per configuration; no vehicle-type or layout inputs. |
 | Accuracy | Original shared physics reduced matched aggregate forecast/response errors 43.95%/22.12% versus v4. The supported map preserves original local response on both inspected Crazyflow/Cascade cohorts. Cascade wind forecast velocity RMSE remains 0.426–0.434 m/s at 250 ms; known Dart 1.2 s response errors remain 3.942 m/s and 9.601 rad/s. Original wind/tail acceptance failures remain historical facts. |
-| Dart | The supported revision completes the nominal task: 6.19 mm miss, 1.33° axis error, contact at 1.194419 s; 4,144 gradients, 40 selected means and 120 native steps all finite. Exact replay and independent contact audit passed. 26/40 solves converged. One known task with an existing command seed; neighborhood reliability remains open. |
-| Runtime | The instrumented control stage took 36.69 s for 1.2 simulated seconds. Real-time execution is not qualified. |
+| Dart | The unchanged supported model now reaches **0.720 mm** nominal miss through a radius-aware lateral objective and 10 ms feedback: 0.93° axis error, 0.126 m/s tangent speed, contact at 1.192093 s. All 9,874 gradients, 120 selected means and 120 native steps are finite; 103/120 solves converged. Finer float32 replays both pass task limits but fail the separate convergence gate. Double-precision qualification is in progress. One known task with an existing seed; neighborhood reliability remains open. |
+| Runtime | The precision trial took 59.24 s for 1.2 simulated seconds, including durable callback recording. It uses 120 solves versus the baseline’s 40, with the same 100-iteration cap per solve. Real-time execution is not qualified. |
 | Updates | Fixed-budget refitting produces immutable revisions and retains development roles. Accuracy improvement and live adoption require new evaluation. |
 | Calibration | Fresh fits estimate envelopes on development data also used for checkpoint selection. Independent coverage remains open. Adopted migrated revisions carry no transferred old-map envelope. |
 | System scope | Canonical rigid-body velocity, angular rate and orientation with arbitrary ordered command dimensions. Articulated/flexible systems and broad JSBSim coverage remain unproved. |
@@ -32,19 +32,24 @@ No new long fit, controller optimization or simulator trial was run.
 
 ## Current iteration
 
-**Dart contact precision below 1 mm.** The user set this target after cleanup.
-First attribute the saved 6.19 mm miss to the learned forecast, the controller's
-deadline objective, or optimization. The [saved-evidence protocol](harness/dart-precision-v1.json)
-scores all 40 plans and their actually executed 10/20/30 ms prefixes. The
-[native reproduction protocol](harness/dart-precision-native-v1.json) then checks
-the unchanged nominal trial through the lean public implementation. No precision
-intervention has been selected or measured yet. All original attitude, speed and
-deadline limits remain required alongside the stricter miss criterion.
+**Dart contact precision below 1 mm.** The closed-loop nominal trial reached
+0.720 mm without changing the learner or model weights. The winning consumer
+change tightens lateral position cost with target radius while retaining the
+original normal-depth scale, plus feedback at every 10 ms observation. All
+original alignment, velocity and deadline gates pass. The original 6.19 mm
+baseline was reproduced exactly before interventions. All six native trials,
+including unsuccessful changes, are recorded in [the result index](dart-precision.json).
+
+The first fine-grid audit reached 0.607 / 0.696 mm, but failed the declared
+20 micrometer / 20 microsecond convergence gate. A separately frozen
+[arithmetic-precision audit](harness/dart-resolution-precision-v1.json) now tests
+the exact issued command tape and rounded plant coefficients in float64. The
+original float32 failure remains recorded. No model fit or package change.
 
 ## Following scientific gap
 
-Freeze neighborhood reliability and prediction accuracy around
-the successful Dart task, keeping the model/controller fixed and reporting every
-attempted condition. Measure direct model residuals alongside control outcomes.
-The narrow tangential-speed margin and fourteen budget-limited solves motivate
-that evaluation. No neighborhood protocol has been run.
+Freeze neighborhood reliability and prediction accuracy around the successful
+Dart task, keeping the learner and controller fixed and reporting every attempted
+condition. Measure direct model residuals alongside control outcomes. One nominal
+case and seventeen nonconverged solves do not establish robust control.
+No neighborhood protocol has been run.

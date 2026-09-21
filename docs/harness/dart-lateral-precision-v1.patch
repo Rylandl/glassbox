@@ -15,7 +15,15 @@
      rate_error = states[end, 10:13] / 0.5
 --- a/tests/test_planning.py
 +++ b/tests/test_planning.py
-@@ -31,3 +31,46 @@
+@@ -1,7 +1,6 @@
+ import jax
+ import jax.numpy as jnp
+ import numpy as np
+-
+ from crazydart.mission import Target
+ from crazydart.planning import strike_cost
+ 
+@@ -31,3 +30,53 @@
          strike_cost(rotated, commands, Target()),
          rtol=1e-6,
      )
@@ -52,13 +60,20 @@
 +    commands = jnp.full((3, 4), 0.65)
 +
 +    def gradient(radius):
-+        return np.asarray(jax.grad(
-+            lambda x: strike_cost(x, commands, replace(target, radius_m=radius))
-+        )(states)[-1, :3])
++        return np.asarray(
++            jax.grad(
++                lambda x: strike_cost(x, commands, replace(target, radius_m=radius))
++            )(states)[-1, :3]
++        )
 +
 +    default, tight = gradient(0.02), gradient(0.001)
 +    np.testing.assert_allclose(tight @ normal, default @ normal, rtol=2e-4)
-+    tangent = lambda g: g - (g @ normal) * normal
++
++    def tangent(g):
++        return g - (g @ normal) * normal
++
 +    np.testing.assert_allclose(tangent(tight), 400 * tangent(default), rtol=2e-5)
-+    point_delta = np.array([0.652, 0.003, 0.998]) - np.asarray(target.center) + 0.002 * normal
++    point_delta = (
++        np.array([0.652, 0.003, 0.998]) - np.asarray(target.center) + 0.002 * normal
++    )
 +    np.testing.assert_allclose(default, 2 * point_delta / 0.01**2, atol=0.001)

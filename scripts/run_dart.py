@@ -18,6 +18,7 @@ from verify_baseline import (
     compare_contact,
     contact_score,
     digest,
+    kinematics,
     read,
     require,
     runtime_check,
@@ -25,6 +26,13 @@ from verify_baseline import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+_METRICS = (
+    "contact_position_m",
+    "position_m",
+    "velocity_m_s",
+    "body_rate_rad_s",
+    "contact_velocity_m_s",
+)
 
 
 def clean(value):
@@ -200,9 +208,23 @@ def array_comparison(actual, expected):
     )
 
 
-def matched_prefixes(selected, trajectory, replan_steps, target):
-    from evaluate_dart import prefix_error
+def prefix_error(prediction, truth, target):
+    point, _, contact_velocity = kinematics(prediction, target)
+    true_point, _, true_contact_velocity = kinematics(truth, target)
+    deltas = (
+        point - true_point,
+        prediction[:3].astype(float) - truth[:3],
+        prediction[3:6].astype(float) - truth[3:6],
+        prediction[10:13].astype(float) - truth[10:13],
+        contact_velocity - true_contact_velocity,
+    )
+    return {
+        name: dict(vector=value.tolist(), norm=float(np.linalg.norm(value)))
+        for name, value in zip(_METRICS, deltas, strict=True)
+    }
 
+
+def matched_prefixes(selected, trajectory, replan_steps, target):
     rows = []
     for item in selected:
         origin = item["origin"]
@@ -494,7 +516,7 @@ def main():
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=ROOT / "docs/harness/dart-precision-native-v1.json",
+        default=ROOT / "docs/harness/dart-lateral-precision-v1.json",
     )
     args = parser.parse_args()
     result = run(

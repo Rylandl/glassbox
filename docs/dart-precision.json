@@ -1,0 +1,254 @@
+{
+  "attribution": {
+    "method": "Compare only each plan prefix actually executed before the next replan; no refit or new model evaluation.",
+    "original_10ms_contact_point_rmse_m": 5.8854e-05,
+    "original_30ms_contact_point_rmse_m": 0.000498332,
+    "original_actual_miss_m": 0.006190460465979897,
+    "original_final_planned_miss_m": 0.005485702,
+    "saved_tool_source_commit": "306ad5f"
+  },
+  "audits": [
+    {
+      "arithmetic": "float32",
+      "manifest_sha256": "b0ed838aa65ad8b2b9cd3759484912c0826a0eb05d61cbdd67287343ab5c352e",
+      "name": "lateral-resolution-audit",
+      "note": "Both grids meet contact limits but fail the original 20 micrometer and 20 microsecond convergence criteria.",
+      "resolution_qualified": false
+    }
+  ],
+  "baseline_manifest_sha256": "55009687fd5ca48a77a5cb69b0c5ce264dc5196f2863753942cdd4a51a097407",
+  "closed_evidence": {
+    "archive": "artifacts/dart-precision-v1/closed-attempts.tar.gz",
+    "archive_sha256": "457955ef4f56ab19379559ee2fbfe6941d16ca2323aeb98b0697f139c4a24769",
+    "inventory_sha256": "56b203c2914c63614755f3040fde8f1922b33525ddce1d5094ca48a540d6b50f",
+    "roots": [
+      "attribution",
+      "candidate-attribution",
+      "candidate-attribution-2",
+      "dart-candidate",
+      "dart-terminal-rate",
+      "native-baseline",
+      "native-cadence",
+      "native-candidate",
+      "native-resolution",
+      "native-terminal-rate",
+      "cadence-console.log",
+      "cadence-final-plans.json",
+      "cadence-terminal-cost-terms.json",
+      "candidate-console.log",
+      "resolution-console.log",
+      "terminal-rate-console.log",
+      "terminal-rate-run-console.log"
+    ],
+    "verified_payloads": 130
+  },
+  "fits": 0,
+  "format": "glassbox-dart-precision-result-v1",
+  "glassbox_package_changed": false,
+  "learned_model_changed": false,
+  "non_trial_failures": [
+    {
+      "name": "candidate-attribution",
+      "reason": "System Git required Xcode license; failed source binding before any numerical reduction or model, optimizer, native call. Corrected PATH in candidate-attribution-2."
+    },
+    {
+      "name": "terminal-rate-console.log",
+      "reason": "CLI rejected an invalid --baseline option before loading source or making numerical calls; corrected positional syntax in terminal-rate-run-console.log."
+    }
+  ],
+  "scope": "One known nominal task, original seed and prelude, exact-state simulator observations. Controller outcomes are separate from learned-dynamics accuracy.",
+  "trials": [
+    {
+      "all_finite": true,
+      "block_steps": 3,
+      "coarse_submillimeter": false,
+      "contact": {
+        "axis_error_deg": 1.3304566649892355,
+        "contact": true,
+        "contact_position_m": [
+          0.6499999165534973,
+          -0.0014316784217953682,
+          0.9939773678779602
+        ],
+        "fraction": 0.44186793081462383,
+        "hit": true,
+        "interval": 119,
+        "miss_distance_m": 0.006190460465979897,
+        "normal_speed_m_s": 1.4902750253677368,
+        "tangent_speed_m_s": 0.1860731227048401,
+        "time_s": 1.1944186793081462
+      },
+      "converged_solves": 26,
+      "elapsed_s": 23.71176154189743,
+      "gradient_calls": 4144,
+      "intervention": "Exact baseline reproduction",
+      "manifest_sha256": "5160f6720d366b15284d15db27d2de1ec37fae6e8b82e7e131792e3dea68a5a2",
+      "name": "native-baseline",
+      "protocol": "docs/harness/dart-precision-native-v1.json",
+      "protocol_sha256": "c40963f41e3fd6217051e914543dbfd8852be72436eae867e72680e7a388e875",
+      "replan_steps": 3,
+      "solves": 40,
+      "source_commit": "7b9f708e95033496ab77da2994db4b8eea96915e"
+    },
+    {
+      "all_finite": true,
+      "block_steps": 3,
+      "coarse_submillimeter": false,
+      "contact": {
+        "axis_error_deg": 3.1268115923471256,
+        "contact": true,
+        "contact_position_m": [
+          0.6499999761581421,
+          -0.0032663210295140743,
+          0.9951410889625549
+        ],
+        "fraction": 0.37716235406696796,
+        "hit": false,
+        "interval": 119,
+        "miss_distance_m": 0.005854730526476124,
+        "normal_speed_m_s": 1.533735990524292,
+        "tangent_speed_m_s": 0.19408044617245773,
+        "time_s": 1.1937716235406697
+      },
+      "converged_solves": 37,
+      "elapsed_s": 21.112483749864623,
+      "gradient_calls": 3120,
+      "intervention": "Radius-scaled isotropic position cost",
+      "manifest_sha256": "14da174905a318d6ce9bce8963c8176db9e170fc472cc937ff5b763930a55012",
+      "name": "native-candidate",
+      "protocol": "docs/harness/dart-task-radius-precision-v1.json",
+      "protocol_sha256": "0d530b7cb38706928b0ba912443715e2ba16b69672240bb2985fd7877cca17ec",
+      "replan_steps": 3,
+      "solves": 40,
+      "source_commit": "7b9f708e95033496ab77da2994db4b8eea96915e"
+    },
+    {
+      "all_finite": true,
+      "block_steps": 3,
+      "coarse_submillimeter": false,
+      "contact": {
+        "axis_error_deg": 2.4975566819438133,
+        "contact": true,
+        "contact_position_m": [
+          0.6499999165534973,
+          -0.0006040644366294146,
+          0.9982012510299683
+        ],
+        "fraction": 0.6464450042694807,
+        "hit": false,
+        "interval": 119,
+        "miss_distance_m": 0.0018974698155150324,
+        "normal_speed_m_s": 1.4268633127212524,
+        "tangent_speed_m_s": 0.16029646540786294,
+        "time_s": 1.1964644500426949
+      },
+      "converged_solves": 105,
+      "elapsed_s": 55.66934566712007,
+      "gradient_calls": 8831,
+      "intervention": "Radius-scaled cost with 10 ms feedback",
+      "manifest_sha256": "06d605c4e226269bd44a7d4a9ef337c7c36c3129e151dba4de1b13468ad4da38",
+      "name": "native-cadence",
+      "protocol": "docs/harness/dart-observation-cadence-v1.json",
+      "protocol_sha256": "88d6abe57bc178d1207d74c3332cafc1602a3e722e69a9631937dcab41f25f1a",
+      "replan_steps": 1,
+      "solves": 120,
+      "source_commit": "2ecf6ff8add8d779677fc9baedf0dd797b4005e7"
+    },
+    {
+      "all_finite": true,
+      "block_steps": 1,
+      "coarse_submillimeter": false,
+      "contact": {
+        "axis_error_deg": 2.0474617634569015,
+        "contact": true,
+        "contact_position_m": [
+          0.6499999761581421,
+          -0.0021235360763967037,
+          0.9955964088439941
+        ],
+        "fraction": 0.47948421724140644,
+        "hit": false,
+        "interval": 119,
+        "miss_distance_m": 0.004888866999317053,
+        "normal_speed_m_s": 1.486818552017212,
+        "tangent_speed_m_s": 0.18952391953614725,
+        "time_s": 1.194794842172414
+      },
+      "converged_solves": 101,
+      "elapsed_s": 56.97938287490979,
+      "gradient_calls": 9204,
+      "intervention": "10 ms planning blocks instead of 30 ms",
+      "manifest_sha256": "e4efea63761f9f8e45189957467ca12eafc328a2d3e25710c4f3080ff17dace5",
+      "name": "native-resolution",
+      "protocol": "docs/harness/dart-command-resolution-v1.json",
+      "protocol_sha256": "69dd276cd8fd1c404a8c5f48f3bad0b9e1e2622c90b7b64a7b7ba92617aa4f68",
+      "replan_steps": 1,
+      "solves": 120,
+      "source_commit": "e11fc6ab0ad980da79299d11d069be8bb1b2b125"
+    },
+    {
+      "all_finite": true,
+      "block_steps": 3,
+      "coarse_submillimeter": false,
+      "contact": {
+        "axis_error_deg": 5.200929371098297,
+        "contact": true,
+        "contact_position_m": [
+          0.6499999165534973,
+          -0.01621977612376213,
+          0.9912108182907104
+        ],
+        "fraction": 0.7217057626694441,
+        "hit": false,
+        "interval": 119,
+        "miss_distance_m": 0.01844805823451005,
+        "normal_speed_m_s": 1.3956505060195923,
+        "tangent_speed_m_s": 0.4777708578910585,
+        "time_s": 1.1972170576266945
+      },
+      "converged_solves": 112,
+      "elapsed_s": 52.60645058285445,
+      "gradient_calls": 7541,
+      "intervention": "Remove terminal angular-rate cost",
+      "manifest_sha256": "eeb05fcc470beb5d510d0ef3c01f9c2900f6c4981454e8338793cdf6c131249d",
+      "name": "native-terminal-rate",
+      "protocol": "docs/harness/dart-terminal-rate-v1.json",
+      "protocol_sha256": "8c80342070733aac1a24fd78198f266a002f34b7c6ad205367afebfe11b72d90",
+      "replan_steps": 1,
+      "solves": 120,
+      "source_commit": "ff4431d74252810637c0870e3ef5a4b2b9905e4f"
+    },
+    {
+      "all_finite": true,
+      "block_steps": 3,
+      "coarse_submillimeter": true,
+      "contact": {
+        "axis_error_deg": 0.9299906592627134,
+        "contact": true,
+        "contact_position_m": [
+          0.6499999165534973,
+          0.0006414164090529084,
+          0.9996738433837891
+        ],
+        "fraction": 0.20929562114179134,
+        "hit": true,
+        "interval": 119,
+        "miss_distance_m": 0.0007195784516649291,
+        "normal_speed_m_s": 1.4559544324874878,
+        "tangent_speed_m_s": 0.12627164764012394,
+        "time_s": 1.1920929562114178
+      },
+      "converged_solves": 103,
+      "elapsed_s": 59.242628916865215,
+      "gradient_calls": 9874,
+      "intervention": "Radius-scaled lateral cost, original normal-depth weight",
+      "manifest_sha256": "e44c9794c859cbefa1290a4dbdfac45176be8004ffc5b429ff01ffcda61eaa91",
+      "name": "native-lateral",
+      "protocol": "docs/harness/dart-lateral-precision-v1.json",
+      "protocol_sha256": "9ac4aca604357f4c6531bbc58a775f00ee5353ce53ea64d9e84927c7ed5e35e9",
+      "replan_steps": 1,
+      "solves": 120,
+      "source_commit": "ddbefa793f4b0be0e19f6e996130612a749298b8"
+    }
+  ]
+}
