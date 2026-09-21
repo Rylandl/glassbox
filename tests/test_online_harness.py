@@ -70,16 +70,17 @@ def test_aggregation_equal_family_weights_and_no_single_cell_veto():
         for name in ("quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change")
     ]
     cases += [aggregate_case(f"fixedwing-{i}", "fixedwing", 0.81) for i in (80, 81)]
-    result = evaluate.aggregate(cases)
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v2.json")
+    result = evaluate.aggregate(cases, protocol)
     assert result["aggregate_ratio"] == pytest.approx(0.45)
     assert result["accuracy_passed"]
     cases[0]["ratios"] = {"velocity_rmse_m_s": 2.0, "body_rate_rmse_rad_s": 2.0}
-    assert evaluate.aggregate(cases)["accuracy_passed"]
+    assert evaluate.aggregate(cases, protocol)["accuracy_passed"]
     cases[0]["complete"] = False
-    assert not evaluate.aggregate(cases)["accuracy_passed"]
+    assert not evaluate.aggregate(cases, protocol)["accuracy_passed"]
     cases[0]["complete"] = True
     cases[0]["id"] = cases[1]["id"]
-    assert not evaluate.aggregate(cases)["accuracy_passed"]
+    assert not evaluate.aggregate(cases, protocol)["accuracy_passed"]
 
 
 class FakeOnline:
@@ -97,6 +98,9 @@ class FakeOnline:
             motion_bound_scale=np.full(6, 4.0),
             input_mean=np.zeros(segment.inputs.shape[1]),
             input_scale=np.ones(segment.inputs.shape[1]),
+            feature_scale=np.ones(12),
+            quadratic_scale=np.ones(6),
+            output_scale=np.ones(6),
         )
         self.predicted = False
 
@@ -120,6 +124,7 @@ class FakeOnline:
             accepted_proposals=self.count,
             cg_iterations=4 * self.count,
             curvature_calls=4 * self.count,
+            conditioning_calls=self.count,
             damping=1.0,
         )
 
@@ -249,7 +254,7 @@ def test_collection_reuse_is_bound_to_original_manifest_and_protocol(tmp_path):
         evaluate.collection_contract(tmp_path, "sealed", {}, "v2")
 
 
-@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1)])
+@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1), (3, 1)])
 def test_generic_session_archive_verification_without_optimizer_loader(
     tmp_path, monkeypatch, version, proposals
 ):
@@ -268,11 +273,13 @@ def test_generic_session_archive_verification_without_optimizer_loader(
     counts = dict(
         optimizer_steps=proposals,
         gradient_calls=proposals,
-        objective_calls=2 if version == 2 else 8,
+        objective_calls=2 if version >= 2 else 8,
         accepted_proposals=1,
     )
-    if version == 2:
+    if version >= 2:
         counts.update(cg_iterations=4, curvature_calls=4)
+    if version == 3:
+        counts["conditioning_calls"] = 1
     meta = dict(
         format=f"glassbox-online-fit-v{version}",
         model=model,
@@ -289,7 +296,7 @@ def test_generic_session_archive_verification_without_optimizer_loader(
     np.testing.assert_array_equal(result["param_w"], core["param_w"])
     with pytest.raises(ValueError, match="endpoint differs"):
         evaluate.session_arrays(path, dict(first=75), 1, "wrong", protocol)
-    if version == 2:
+    if version >= 2:
         meta["counts"]["curvature_calls"] = 3
         save_arrays(path, meta, core)
         with pytest.raises(ValueError, match="curvature accounting"):
@@ -308,3 +315,148 @@ def test_old_protocol_cannot_run_new_candidate(tmp_path, monkeypatch):
         evaluate.run(tmp_path, "unused", tmp_path / "out", protocol)
     assert (tmp_path / "out/failure.json").exists()
     assert (tmp_path / "out/manifest.json").exists()
+
+
+def test_v3_gate_uses_saved_online_not_weak_frozen_baseline():
+    cases = [
+        aggregate_case(name, "quad", 0.1)
+        for name in ("quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change")
+    ] + [aggregate_case(f"fixedwing-{i}", "fixedwing", 0.1) for i in (80, 81)]
+    for case in cases:
+        case["reference_ratios"] = dict.fromkeys(case["ratios"], 1.1)
+    actual = evaluate.aggregate(cases)
+    assert actual["aggregate_ratio"] == pytest.approx(1.1)
+    assert actual["frozen_comparison"]["aggregate_ratio"] == pytest.approx(0.1)
+    assert not actual["accuracy_passed"]
+    for case in cases:
+        case["reference_ratios"] = dict.fromkeys(case["ratios"], 0.7)
+    assert evaluate.aggregate(cases)["accuracy_passed"]
+    cases[0]["reference_ratios"] = dict.fromkeys(cases[0]["ratios"], 1.1)
+    assert evaluate.aggregate(cases)["accuracy_passed"]
+    cases[0]["complete"] = False
+    assert not evaluate.aggregate(cases)["accuracy_passed"]
+
+
+def test_reference_input_comparison_rejects_changed_commands_and_inventory():
+    stream = dict(states=np.zeros((3, 13)), commands=np.zeros((2, 3)))
+    evaluate.paired_inputs(stream, copy.deepcopy(stream))
+    changed = copy.deepcopy(stream)
+    changed["commands"][1, 0] = 1.0
+    with pytest.raises(ValueError, match="reference input commands"):
+        evaluate.paired_inputs(stream, changed)
+    with pytest.raises(ValueError, match="input inventory"):
+        evaluate.paired_inputs(stream, {"states": stream["states"]})
+
+
+@pytest.mark.parametrize("key", ["origin", "time_s", "truth", "frozen", "kinematic"])
+def test_paired_reference_requires_matching_rows_targets_and_comparators(
+    tmp_path, monkeypatch, key
+):
+    _, output, _ = run_fixture(tmp_path, monkeypatch)
+    data = evaluate.arrays(output / "predictions.npz")
+    info = evaluate.read(output / "case.json")
+    reference = copy.deepcopy(data)
+    evaluate.paired_case(data, info, reference, info)
+    reference[key].flat[0] += 1
+    with pytest.raises(ValueError, match="reference " + key):
+        evaluate.paired_case(data, info, reference, info)
+
+
+def test_paired_metrics_recompute_reference_from_predictions(tmp_path, monkeypatch):
+    _, output, _ = run_fixture(tmp_path, monkeypatch)
+    data = evaluate.arrays(output / "predictions.npz")
+    info = evaluate.read(output / "case.json")
+    reference = copy.deepcopy(data)
+    reference["candidate"][:, 0] += 2
+    result = evaluate.summarize(data, info, reference)
+    expected = evaluate.metrics(reference["candidate"], data["truth"])
+    assert result["metrics"]["reference"] == expected
+    assert result["reference_ratios"]["velocity_rmse_m_s"] == pytest.approx(
+        result["metrics"]["candidate"]["velocity_rmse_m_s"]
+        / expected["velocity_rmse_m_s"]
+    )
+
+
+def normalization_fixture():
+    return dict(
+        feature_scale=np.ones(12),
+        quadratic_scale=np.ones(3),
+        output_scale=np.ones(6),
+        input_scale=np.ones(3),
+    )
+
+
+def test_only_declared_coordinates_can_grow_after_accepted_proposal():
+    protocol = evaluate.read(evaluate.PROTOCOL)
+    initial = normalization_fixture()
+    changed = copy.deepcopy(initial)
+    changed["feature_scale"][:4] *= 2
+    changed["quadratic_scale"] *= 3
+    changed["output_scale"] *= 4
+    evaluate.check_normalizers(initial, changed, protocol)
+    with pytest.raises(ValueError, match="fixed normalization"):
+        evaluate.check_normalizers(initial, changed, protocol, accepted=False)
+    bad = copy.deepcopy(changed)
+    bad["input_scale"] *= 2
+    with pytest.raises(ValueError, match="fixed normalization input_scale"):
+        evaluate.check_normalizers(initial, bad, protocol)
+    bad = copy.deepcopy(changed)
+    bad["feature_scale"][-1] *= 2
+    with pytest.raises(ValueError, match="fixed hidden"):
+        evaluate.check_normalizers(initial, bad, protocol)
+    with pytest.raises(ValueError, match="decreasing"):
+        evaluate.check_normalizers(initial, initial, protocol, previous=changed)
+    bad = copy.deepcopy(changed)
+    bad["output_scale"][0] = np.nan
+    with pytest.raises(ValueError, match="nonfinite"):
+        evaluate.check_normalizers(initial, bad, protocol)
+    protocol["candidate"]["dynamic_normalizers"].append("input_scale")
+    with pytest.raises(ValueError, match="normalization contract"):
+        evaluate.check_normalizers(initial, changed, protocol)
+
+
+def test_journal_rejects_normalizer_decrease_from_saved_payload(tmp_path, monkeypatch):
+    _, output, source = run_fixture(tmp_path, monkeypatch)
+    data = evaluate.arrays(output / "predictions.npz")
+    info = evaluate.read(output / "case.json")
+    events = [
+        json.loads(line) for line in (output / "events.jsonl").read_text().splitlines()
+    ]
+    event = next(row for row in events if row["phase"] == "assimilated")
+    offset = event["arrays"]["norm_feature_scale"]
+    with (output / "arrays.bin").open("r+b") as stream:
+        stream.seek(offset)
+        changed = np.load(stream, allow_pickle=False)
+        changed[0] = 0.5
+        stream.seek(offset)
+        np.save(stream, changed, allow_pickle=False)
+    with pytest.raises(ValueError, match="decreasing dynamic normalization"):
+        evaluate.verify_journal(output, data, source, info)
+
+
+def test_reference_authority_is_checked_before_candidate_or_source_work(
+    tmp_path, monkeypatch
+):
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    (reference / "protocol.json").write_text(json.dumps(dict(id="online-fit-v2")))
+    collect.seal(reference, "fixture")
+    protocol = tmp_path / "protocol.json"
+    protocol.write_text(json.dumps(evaluate.read(evaluate.PROTOCOL)))
+
+    def forbidden(*args):
+        raise AssertionError("no source work before reference authentication")
+
+    monkeypatch.setattr(evaluate, "binding", forbidden)
+    with pytest.raises(ValueError, match="manifest authority"):
+        evaluate.run(tmp_path, "unused", tmp_path / "out", protocol, reference)
+    assert (tmp_path / "out/failure.json").exists()
+
+
+def test_reference_initial_core_arrays_are_compared_without_session_loader():
+    model = SimpleNamespace(params={"w": np.arange(3.0)}, norms={"s": np.ones(3)})
+    archive = dict(param_w=np.arange(3.0), norm_s=np.ones(3), irrelevant=np.asarray(1))
+    evaluate.paired_initial(model, archive)
+    archive["param_w"][0] = 1.0
+    with pytest.raises(ValueError, match="reference initialization"):
+        evaluate.paired_initial(model, archive)

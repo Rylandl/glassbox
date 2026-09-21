@@ -10,13 +10,21 @@ import jax.numpy as jnp
 import numpy as np
 from jax.flatten_util import ravel_pytree
 
-from ._dynamics import VehicleSequenceModel, _rollout, initialize
+from ._dynamics import (
+    GRAVITY,
+    VehicleSequenceModel,
+    _rollout,
+    current_features,
+    initialize,
+    quadratic_features,
+    time_constants,
+)
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
 from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v2"
+_FORMAT = "glassbox-online-fit-v3"
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
@@ -32,6 +40,15 @@ _RECIPE = dict(
     minimum_gain_ratio=0.1,
     trust_fraction=0.5,
     minimum_trust_radius=1.0,
+    conditioning=dict(
+        calls_per_observation=1,
+        scales=["feature_scale", "quadratic_scale", "output_scale"],
+        statistic="role-balanced uncentered measured-cache RMS",
+        update="elementwise maximum with existing scales",
+        hidden_scales="fixed at 1",
+        compensation="exact feature/output row and column rescaling",
+        acceptance="commit coordinates only with an accepted finite proposal",
+    ),
 )
 
 
@@ -47,6 +64,93 @@ def _residual(params, norms, data, scale, delay, dt_s):
 def _huber(residual):
     magnitude = jnp.abs(residual)
     return jnp.where(magnitude <= 1, 0.5 * residual**2, magnitude - 0.5)
+
+
+@partial(jax.jit, static_argnames=("delay", "dt_s"))
+def _recondition(params, norms, data, weights, *, delay, dt_s):
+    """Grow three coordinate scales from completed observations, preserving the map.
+
+    Measured histories and targets set feature statistics; no model trajectory or
+    future observation enters. The known tanh bound keeps hidden scales fixed.
+    An invalid transformation returns the original arrays and a false flag, so
+    callers can retain the normal proposal accounting while forcing rejection.
+    """
+    past, past_inputs, future_inputs, targets = data
+    states = jnp.concatenate((past, targets[:, :-1]), axis=1)
+    commands = jnp.concatenate((past_inputs, future_inputs), axis=1)
+    tau = time_constants(params)
+
+    def filter_step(applied, command):
+        return command + (applied - command) * jnp.exp(-dt_s / tau), applied
+
+    _, filtered = jax.lax.scan(filter_step, commands[:, 0], commands.swapaxes(0, 1))
+    features = current_features(states, commands, filtered.swapaxes(0, 1), norms)
+    current = features[:, delay:]
+    previous = jnp.stack(
+        [features[:, t - delay : t] for t in range(delay, features.shape[1])],
+        axis=1,
+    )
+    differences = (previous - current[:, :, None]).reshape(
+        (*current.shape[:2], delay * current.shape[2])
+    )
+    sampled = jnp.concatenate((current, differences), axis=-1)
+
+    def rms(values):
+        return jnp.sqrt(
+            jnp.sum(weights[:, None, None] * values**2, axis=(0, 1)) / values.shape[1]
+        )
+
+    feature_scale = jnp.concatenate(
+        (
+            jnp.maximum(norms["feature_scale"][: sampled.shape[-1]], rms(sampled)),
+            norms["feature_scale"][sampled.shape[-1] :],
+        )
+    )
+    quadratic_scale = jnp.maximum(
+        norms["quadratic_scale"], rms(quadratic_features(current))
+    )
+    preceding = jnp.concatenate((past[:, -1:], targets[:, :-1]), axis=1)
+    rotation = preceding[..., 6:].reshape((*preceding.shape[:-1], 3, 3))
+    world_force = (targets[..., :3] - preceding[..., :3]) / dt_s - jnp.asarray(
+        GRAVITY, dtype=states.dtype
+    )
+    body_force = jnp.einsum("...ji,...j->...i", rotation, world_force)
+    angular = (targets[..., 3:6] - preceding[..., 3:6]) / dt_s
+    output_scale = jnp.maximum(
+        norms["output_scale"], rms(jnp.concatenate((body_force, angular), axis=-1))
+    )
+    sf = feature_scale / norms["feature_scale"]
+    sq = quadratic_scale / norms["quadratic_scale"]
+    so = norms["output_scale"] / output_scale
+    changed_params = dict(
+        params,
+        linear=sf[:, None] * params["linear"] * so[None, :],
+        quadratic=sq[:, None] * params["quadratic"] * so[None, :],
+        bias=params["bias"] * so,
+        w1=sf[:, None] * params["w1"],
+        w2=params["w2"] * so[None, :],
+        memory=sf[:, None] * params["memory"],
+    )
+    changed_norms = dict(
+        norms,
+        feature_scale=feature_scale,
+        quadratic_scale=quadratic_scale,
+        output_scale=output_scale,
+    )
+    finite = jnp.all(
+        jnp.stack(
+            [
+                jnp.all(jnp.isfinite(value))
+                for value in jax.tree.leaves((changed_params, changed_norms))
+            ]
+        )
+    )
+    conditioned = jax.tree.map(
+        lambda new, old: jnp.where(finite, new, old),
+        (changed_params, changed_norms),
+        (params, norms),
+    )
+    return *conditioned, finite
 
 
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
@@ -210,6 +314,7 @@ class OnlineFit:
         self._initial_count, self._horizon = count, horizon
         self._damping = 1.0
         self._counts = dict(
+            conditioning_calls=0,
             optimizer_steps=0,
             gradient_calls=0,
             objective_calls=0,
@@ -303,10 +408,11 @@ class OnlineFit:
         return result[0] if single else result
 
     def observe(self, index, command, next_observation):
-        """Assimilate one valid transition with one bounded curvature proposal.
+        """Recondition from measured data, then attempt one curvature proposal.
 
-        Invalid inputs leave the session untouched. Numerical proposal rejection
-        preserves parameters, increases damping and still consumes the transition.
+        Invalid inputs leave the session untouched. Numerical rejection preserves
+        the complete model, including its coordinates, increases damping, and
+        still consumes the valid transition.
         """
         if (
             isinstance(index, (bool, np.bool_))
@@ -343,19 +449,33 @@ class OnlineFit:
                 jnp.asarray, (self._model.params, self._model.norms)
             )
             data, weights = _full_cache(self._bootstrap, recent)
+            data = tuple(jnp.asarray(v) for v in data)
+            weights = jnp.asarray(weights)
+            params, norms, conditioning_finite = _recondition(
+                params,
+                norms,
+                data,
+                weights,
+                delay=self._model.delay_steps,
+                dt_s=self._model.dt_s,
+            )
             proposal, current, trial, predicted, finite = _proposal(
                 params,
                 norms,
-                tuple(jnp.asarray(v) for v in data),
+                data,
                 jnp.asarray(self._scale),
-                jnp.asarray(weights),
+                weights,
                 jnp.asarray(self._damping),
                 delay=self._model.delay_steps,
                 dt_s=self._model.dt_s,
             )
-            finite = bool(finite) and all(
-                np.isfinite(np.asarray(v)).all()
-                for v in jax.tree.leaves((proposal, current, trial, predicted))
+            finite = (
+                bool(conditioning_finite)
+                and bool(finite)
+                and all(
+                    np.isfinite(np.asarray(v)).all()
+                    for v in jax.tree.leaves((proposal, current, trial, predicted))
+                )
             )
             current, trial, predicted = map(float, (current, trial, predicted))
             gain = (
@@ -375,8 +495,9 @@ class OnlineFit:
                     model.history_steps,
                     model.delay_steps,
                     jax.tree.map(np.asarray, proposal),
-                    model.norms,
+                    jax.tree.map(np.asarray, norms),
                 )
+        counts["conditioning_calls"] += 1
         counts["optimizer_steps"] += 1
         counts["gradient_calls"] += 1
         counts["objective_calls"] += 2
@@ -501,12 +622,14 @@ class OnlineFit:
             or model.delay_steps != steps_for(model.dt_s)["delay"]
             or model.params["b1"].shape != (32,)
             or model.params["memory_bias"].shape != (8,)
+            or not np.array_equal(model.norms["feature_scale"][-8:], np.ones(8))
             or self._initial_cursor < p + self._initial_count
             or self.cursor < self._initial_cursor
         ):
             raise ValueError("invalid online timing or signal contract")
         observations = self.cursor - self._initial_cursor
         expected = dict(
+            conditioning_calls=observations,
             optimizer_steps=observations,
             gradient_calls=observations,
             objective_calls=2 * observations,

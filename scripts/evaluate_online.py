@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v2.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v3.json"
 
 COUNTERS = (
     "observations",
@@ -29,6 +29,7 @@ COUNTERS = (
     "accepted_proposals",
     "cg_iterations",
     "curvature_calls",
+    "conditioning_calls",
 )
 
 
@@ -92,11 +93,13 @@ def ratio(a, b):
     return {key: a[key] / max(b[key], 1e-9) for key in a} if a and b else None
 
 
-def summarize(data, info):
+def summarize(data, info, reference=None):
     summaries = {
         arm: metrics(data[arm], data["truth"])
         for arm in ("candidate", "frozen", "kinematic")
     }
+    if reference is not None:
+        summaries["reference"] = metrics(reference["candidate"], data["truth"])
     result = dict(
         id=info["id"],
         family=info["family"],
@@ -124,6 +127,10 @@ def summarize(data, info):
             name: info.get(name + "_startup_s") for name in ("candidate", "frozen")
         },
     )
+    if reference is not None:
+        result["reference_ratios"] = ratio(
+            summaries["candidate"], summaries["reference"]
+        )
     if info.get("change_at_s") is not None:
         change = info["change_at_s"]
         result["adaptation"] = {}
@@ -138,11 +145,19 @@ def summarize(data, info):
                 arm: metrics(data[arm][mask], data["truth"][mask])
                 for arm in ("candidate", "frozen", "kinematic")
             }
+            if reference is not None:
+                part["reference"] = metrics(
+                    reference["candidate"][mask], data["truth"][mask]
+                )
             result["adaptation"][label] = dict(
                 count=int(mask.sum()),
                 metrics=part,
                 ratios=ratio(part["candidate"], part["frozen"]),
             )
+            if reference is not None:
+                result["adaptation"][label]["reference_ratios"] = ratio(
+                    part["candidate"], part["reference"]
+                )
             result["complete"] &= bool(mask.any())
     support = data["motion_support_ratio"]
     result["support"] = dict(
@@ -168,14 +183,14 @@ def geometric(values):
     )
 
 
-def aggregate(cases, protocol=None):
+def comparison_aggregate(cases, ratio_key):
     primary = ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
     families = {}
     for family in ("quad", "fixedwing"):
         chosen = [case for case in cases if case["family"] == family]
         per_metric = {
             key: geometric(
-                [case["ratios"][key] if case["ratios"] else None for case in chosen]
+                [case[ratio_key][key] if case[ratio_key] else None for case in chosen]
             )
             if chosen
             else None
@@ -184,8 +199,17 @@ def aggregate(cases, protocol=None):
         families[family] = dict(
             metric_ratios=per_metric, aggregate=geometric(list(per_metric.values()))
         )
-    total = geometric([row["aggregate"] for row in families.values()])
+    return dict(
+        families=families,
+        aggregate_ratio=geometric([row["aggregate"] for row in families.values()]),
+    )
+
+
+def aggregate(cases, protocol=None):
     protocol = read(PROTOCOL) if protocol is None else protocol
+    paired = protocol["id"] == "online-fit-v3"
+    comparison = comparison_aggregate(cases, "reference_ratios" if paired else "ratios")
+    total, families = comparison["aggregate_ratio"], comparison["families"]
     expected = {case["id"]: "quad" for case in protocol["streams"]["quad"]["cases"]}
     expected.update(
         {
@@ -198,9 +222,8 @@ def aggregate(cases, protocol=None):
         and {case["id"]: case["family"] for case in cases} == expected
         and all(case["complete"] for case in cases)
     )
-    return dict(
-        families=families,
-        aggregate_ratio=total,
+    result = dict(
+        **comparison,
         all_cases_complete=complete,
         accuracy_passed=bool(
             complete
@@ -217,6 +240,122 @@ def aggregate(cases, protocol=None):
             )
         ),
     )
+    if paired:
+        result.update(
+            primary_comparison="candidate / saved online-fit-v2",
+            frozen_comparison=comparison_aggregate(cases, "ratios"),
+        )
+    return result
+
+
+def counter_names(protocol):
+    if protocol["id"] == "online-fit-v1":
+        return COUNTERS[:5]
+    return COUNTERS if protocol["id"] == "online-fit-v3" else COUNTERS[:7]
+
+
+def dynamic_normalizers(protocol):
+    allowed = protocol["candidate"].get("dynamic_normalizers", [])
+    require(
+        allowed
+        == (
+            ["feature_scale", "quadratic_scale", "output_scale"]
+            if protocol["id"] == "online-fit-v3"
+            else []
+        ),
+        "dynamic normalization contract differs",
+    )
+    return allowed
+
+
+def check_normalizers(initial, current, protocol, previous=None, accepted=True):
+    """Only the frozen allowlist may grow, and only with an accepted proposal."""
+    allowed = dynamic_normalizers(protocol)
+    require(set(initial) == set(current), "normalization inventory differs")
+    previous = initial if previous is None else previous
+    for key, value in current.items():
+        if key == "feature_scale" and key in allowed:
+            exact(value[-8:], initial[key][-8:], "fixed hidden feature normalization")
+        if key not in allowed or not accepted:
+            exact(value, previous[key], "fixed normalization " + key)
+        else:
+            require(
+                value.dtype == initial[key].dtype
+                and value.shape == initial[key].shape
+                and np.isfinite(value).all()
+                and np.all(value > 0)
+                and np.all(value >= previous[key]),
+                "nonfinite or decreasing dynamic normalization " + key,
+            )
+
+
+def paired_exact(actual, expected, label):
+    exact(actual, expected, label)
+    require(
+        np.asarray(actual).tobytes() == np.asarray(expected).tobytes(),
+        label + ": bytes differ",
+    )
+
+
+def paired_inputs(stream, reference):
+    require(set(stream) == set(reference), "reference input inventory differs")
+    for key in stream:
+        paired_exact(stream[key], reference[key], "reference input " + key)
+
+
+def paired_case(data, info, reference, reference_info):
+    for key in (
+        "id",
+        "family",
+        "opaque_id",
+        "dt_s",
+        "begin",
+        "first",
+        "ordered_commands",
+    ):
+        require(
+            info[key] == reference_info[key], "reference case identity differs: " + key
+        )
+    for key in ("origin", "time_s"):
+        paired_exact(data[key], reference[key], "reference " + key)
+    for key, mask in (
+        ("truth", data["revealed"]),
+        ("frozen", data["predicted"]),
+        ("kinematic", data["predicted"]),
+    ):
+        paired_exact(data[key][mask], reference[key][mask], "reference " + key)
+
+
+def paired_initial(initial, reference):
+    for prefix, values in (("param_", initial.params), ("norm_", initial.norms)):
+        for key, value in values.items():
+            paired_exact(
+                value, reference[prefix + key], "reference initialization " + key
+            )
+    require(
+        {key for key in reference if key.startswith(("param_", "norm_"))}
+        == {"param_" + key for key in initial.params}
+        | {"norm_" + key for key in initial.norms},
+        "reference initial core inventory differs",
+    )
+
+
+def reference_contract(reference, protocol):
+    wanted = protocol["comparison"]["reference"]
+    require(
+        wanted["protocol_id"] == "online-fit-v2", "reference protocol contract differs"
+    )
+    authenticate(reference, wanted["manifest_sha256"])
+    require(
+        read(reference / "protocol.json")["id"] == wanted["protocol_id"],
+        "reference protocol differs",
+    )
+    result = verify(reference, wanted["manifest_sha256"])
+    require(
+        read(reference / "summary.json")["all_cases_complete"],
+        "reference cases incomplete",
+    )
+    return result
 
 
 def make_data(rows, times, commands):
@@ -252,11 +391,13 @@ def make_data(rows, times, commands):
     return data
 
 
-def evaluate_case(source, output, info):
+def evaluate_case(source, output, info, protocol=None, reference=None):
     import jax
 
     from glassbox import STATE_CHANNELS, OnlineFit, SequenceCollection, SequenceSegment
 
+    protocol = read(PROTOCOL) if protocol is None else protocol
+    counters = counter_names(protocol)
     output.mkdir()
     write(output / "attempt.json", info)
     dt, first, begin = info["dt_s"], info["first"], info["begin"]
@@ -312,6 +453,13 @@ def evaluate_case(source, output, info):
             "cold initial models differ",
         )
         info["initial_model_fingerprint"] = fingerprint(initial)
+        if reference is not None:
+            paired_initial(initial, arrays(reference / "initial-online.npz"))
+            require(
+                info["initial_model_fingerprint"]
+                == read(reference / "case.json")["initial_model_fingerprint"],
+                "reference initial fingerprint differs",
+            )
         for key in initial.params:
             exact(
                 initial.params[key],
@@ -342,11 +490,12 @@ def evaluate_case(source, output, info):
         )
         h = initial.history_steps
         history, issued = history[-h - 1 :], issued[-h:]
+        previous_norms = initial.norms
         for i, k in enumerate(rows):
             require(online.cursor == k, "causal cursor differs")
             before = online.report
             data["model_before"][i] = fingerprint(online.model)
-            for key in COUNTERS:
+            for key in counters:
                 data[key + "_before"][i] = before[key]
             for arm, learner, latency_name in (
                 ("candidate", online, "predict"),
@@ -396,13 +545,17 @@ def evaluate_case(source, output, info):
                 all(np.isfinite(v).all() for v in updated.params.values()),
                 "nonfinite parameters",
             )
-            for key in initial.norms:
-                exact(
-                    updated.norms[key], initial.norms[key], "fixed normalization " + key
-                )
+            check_normalizers(
+                initial.norms,
+                updated.norms,
+                protocol,
+                previous_norms,
+                online.report["accepted_proposals"] > before["accepted_proposals"],
+            )
+            previous_norms = updated.norms
             data["assimilated"][i] = True
             data["model_after"][i] = fingerprint(updated)
-            for key in COUNTERS:
+            for key in counters:
                 data[key + "_after"][i] = online.report[key]
             body = np.r_[truth[6:].reshape(3, 3).T @ truth[:3], truth[3:6]]
             norm = initial.norms
@@ -417,7 +570,10 @@ def evaluate_case(source, output, info):
                     model=data["model_after"][i],
                     report=online.report,
                 ),
-                {},
+                {
+                    "norm_" + key: updated.norms[key]
+                    for key in dynamic_normalizers(protocol)
+                },
             )
             history = np.concatenate((history[1:], truth[None]))
             issued = np.concatenate((issued[1:], u[k : k + 1]))
@@ -447,23 +603,40 @@ def evaluate_case(source, output, info):
                 except Exception as error:
                     info.update(status="failed", final_save_error=repr(error))
         write(output / "case.json", info)
-    result = summarize(data, info)
+    reference_data = (
+        arrays(reference / "predictions.npz") if reference is not None else None
+    )
+    if reference is not None:
+        paired_case(data, info, reference_data, read(reference / "case.json"))
+    result = summarize(data, info, reference_data)
     write(output / "summary.json", result)
     return result
 
 
-def run(collection, authority, output, protocol=PROTOCOL):
+def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     output.mkdir(parents=True, exist_ok=False)
     write(
         output / "attempt.json",
-        dict(collection=str(collection), authority=authority, protocol=str(protocol)),
+        dict(
+            collection=str(collection),
+            authority=authority,
+            protocol=str(protocol),
+            reference=str(reference),
+        ),
     )
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v2",
+            p["id"] == "online-fit-v3",
             "unsupported candidate protocol for current learner",
         )
+        require(
+            reference is not None, "v3 requires the authority-pinned reference pack"
+        )
+        reference_contract(reference, p)
+        shutil.copytree(reference, output / "reference")
+        reference = output / "reference"
+        reference_contract(reference, p)
         shutil.copyfile(protocol, output / "protocol.json")
         bound = binding(protocol)
         require(
@@ -474,6 +647,9 @@ def run(collection, authority, output, protocol=PROTOCOL):
         authenticate(collection, authority)
         collection_contract(collection, authority, p, digest(protocol))
         bound["collection_manifest_sha256"] = authority
+        bound["reference_manifest_sha256"] = p["comparison"]["reference"][
+            "manifest_sha256"
+        ]
         write(output / "binding.json", bound)
         inputs = output / "inputs"
         inputs.mkdir()
@@ -520,14 +696,26 @@ def run(collection, authority, output, protocol=PROTOCOL):
                 time_s=data["time_s"],
             )
             cases.append(case)
+        for case in cases:
+            paired_inputs(
+                arrays(inputs / (case["id"] + ".npz")),
+                arrays(reference / "inputs" / (case["id"] + ".npz")),
+            )
         results = []
         for i, case in enumerate(cases):
             case["opaque_id"] = f"stream-{i:02d}"
             print(json.dumps(dict(case=case["id"], status="starting")), flush=True)
             results.append(
-                evaluate_case(inputs / (case["id"] + ".npz"), output / case["id"], case)
+                evaluate_case(
+                    inputs / (case["id"] + ".npz"),
+                    output / case["id"],
+                    case,
+                    p,
+                    reference / case["id"],
+                )
             )
             print(json.dumps(dict(case=case["id"], result=results[-1])), flush=True)
+        reference_contract(reference, p)
         check_source(bound)
         write(
             output / "summary.json",
@@ -568,12 +756,17 @@ def accounting(report, count, protocol):
         and report["optimizer_steps"] == report["gradient_calls"] == proposals * count,
         "proposal accounting differs",
     )
-    if protocol["id"] == "online-fit-v2":
+    if protocol["id"] in ("online-fit-v2", "online-fit-v3"):
         require(
             report["cg_iterations"] == report["curvature_calls"] == 4 * count
             and report["objective_calls"] == 2 * count
             and 1e-8 <= report["damping"] <= 1e8,
             "curvature accounting differs",
+        )
+
+    if protocol["id"] == "online-fit-v3":
+        require(
+            report["conditioning_calls"] == count, "conditioning accounting differs"
         )
 
 
@@ -617,7 +810,17 @@ def session_arrays(path, info, count, endpoint, protocol, report=None):
 
 def verify_journal(case, data, stream, info, protocol=None):
     protocol = read(PROTOCOL) if protocol is None else protocol
-    counters = COUNTERS if protocol["id"] == "online-fit-v2" else COUNTERS[:5]
+    counters = counter_names(protocol)
+    dynamic = dynamic_normalizers(protocol)
+    normalizers = {}
+    if dynamic and (case / "normalization.npz").exists():
+        normalizers = arrays(case / "normalization.npz")
+    elif dynamic:
+        require(
+            info["status"] == "failed" and not data["assimilated"].any(),
+            "missing normalization archive",
+        )
+    previous_accepted = 0
     position, phase, offset = 0, "predicted", 0
     with (
         (case / "arrays.bin").open("rb") as binary,
@@ -677,9 +880,26 @@ def verify_journal(case, data, stream, info, protocol=None):
                 phase = "assimilated"
             else:
                 require(
-                    not values and data["assimilated"][position],
+                    set(values) == {"norm_" + key for key in dynamic}
+                    and data["assimilated"][position],
                     "unexpected assimilation payload",
                 )
+                current = dict(
+                    normalizers, **{key: values["norm_" + key] for key in dynamic}
+                )
+                accepted = event["report"]["accepted_proposals"]
+                if dynamic:
+                    require(
+                        accepted - previous_accepted in (0, 1),
+                        "acceptance accounting differs",
+                    )
+                check_normalizers(
+                    normalizers,
+                    current,
+                    protocol,
+                    accepted=accepted > previous_accepted,
+                )
+                normalizers, previous_accepted = current, accepted
                 require(
                     event["model"] == data["model_after"][position],
                     "updated fingerprint differs",
@@ -698,6 +918,10 @@ def verify_journal(case, data, stream, info, protocol=None):
         require(
             offset == (case / "arrays.bin").stat().st_size, "unreferenced journal bytes"
         )
+    if dynamic and (case / "final-online.npz").exists():
+        final = arrays(case / "final-online.npz")
+        for key in dynamic:
+            exact(final["norm_" + key], normalizers[key], "journal final normalization")
     require(
         position == int(data["assimilated"].sum()), "journal assimilation count differs"
     )
@@ -716,11 +940,28 @@ def verify(output, authority):
         == read(output / "binding.json")["protocol_sha256"],
         "saved protocol differs",
     )
+    reference = None
+    if protocol["id"] == "online-fit-v3":
+        reference = output / "reference"
+        reference_contract(reference, protocol)
+        require(
+            read(output / "binding.json")["reference_manifest_sha256"]
+            == protocol["comparison"]["reference"]["manifest_sha256"],
+            "bound reference authority differs",
+        )
     report, results = read(output / "summary.json"), []
     for wanted in report["cases"]:
         case = output / wanted["id"]
         info, data = read(case / "case.json"), arrays(case / "predictions.npz")
         stream = arrays(output / "inputs" / (wanted["id"] + ".npz"))
+        reference_data = None
+        if reference is not None:
+            paired_inputs(
+                stream, arrays(reference / "inputs" / (wanted["id"] + ".npz"))
+            )
+            reference_case = reference / wanted["id"]
+            reference_data = arrays(reference_case / "predictions.npz")
+            paired_case(data, info, reference_data, read(reference_case / "case.json"))
         exact(
             data["origin"],
             np.arange(
@@ -758,6 +999,19 @@ def verify(output, authority):
             for key in initial:
                 if key != "metadata":
                     exact(initial[key], frozen[key], "independent initialization")
+            if protocol["id"] == "online-fit-v3":
+                norm = arrays(case / "normalization.npz")
+                for key, value in norm.items():
+                    exact(
+                        value, initial["norm_" + key], "initial normalization archive"
+                    )
+            if reference is not None:
+                previous = arrays(reference_case / "initial-online.npz")
+                for key in initial:
+                    if key.startswith(("param_", "norm_")):
+                        paired_exact(
+                            initial[key], previous[key], "reference initial core"
+                        )
             for name in ("online", "frozen"):
                 path = case / ("final-" + name + ".npz")
                 if not path.exists():
@@ -774,14 +1028,16 @@ def verify(output, authority):
                 final = session_arrays(
                     path, info, count, endpoint, protocol, info[name + "_final_report"]
                 )
+                exact(initial["scale"], final["scale"], "fixed loss scale")
                 for key in final:
                     if key != "metadata":
                         require(
                             np.isfinite(final[key]).all(), "nonfinite saved session"
                         )
-                    if key.startswith("norm_") or (
-                        name == "frozen" and key != "metadata"
-                    ):
+                    if (
+                        key.startswith("norm_")
+                        and key[5:] not in dynamic_normalizers(protocol)
+                    ) or (name == "frozen" and key != "metadata"):
                         exact(
                             initial[key],
                             final[key],
@@ -791,7 +1047,7 @@ def verify(output, authority):
             error, angles = residuals(data[arm], data["truth"])
             exact(data[arm + "_residual"], error, "component residual")
             exact(data[arm + "_orientation_error_rad"], angles, "orientation residual")
-        result = summarize(data, info)
+        result = summarize(data, info, reference_data)
         require(result == wanted == read(case / "summary.json"), "case metrics differ")
         results.append(result)
     require(
@@ -817,6 +1073,7 @@ if __name__ == "__main__":
     execute.add_argument("--collection-sha256", required=True)
     execute.add_argument("--protocol", type=Path, default=PROTOCOL)
     execute.add_argument("--output", type=Path, required=True)
+    execute.add_argument("--reference", type=Path, required=True)
     audit = commands.add_parser("verify")
     audit.add_argument("output", type=Path)
     audit.add_argument("--manifest-sha256", required=True)
@@ -827,6 +1084,7 @@ if __name__ == "__main__":
             args.collection_sha256,
             args.output.resolve(),
             args.protocol.resolve(),
+            args.reference.resolve(),
         )
     else:
         print(

@@ -161,15 +161,21 @@ each observation permits one damped Gauss-Newton proposal on 50 ms recursive
 prediction windows. Four conjugate-gradient iterations use matrix-free curvature
 products; acceptance checks the complete bounded startup and recent replay
 caches, with equal weight to each role. A fixed prediction-change bound and an
-actual-versus-predicted improvement check control the step. Normalization stays
-fixed. Rejected proposals retain the previous parameters and increase damping.
+actual-versus-predicted improvement check control the step. Before that proposal,
+one causal cache pass can grow feature, quadratic and output scales. Compensating
+parameter changes preserve the recurrent prediction function before optimization;
+this changes the optimizer's coordinates without adding model equations. Raw
+body/input/state normalization, motion bounds and loss scales stay fixed. Changed
+scales are committed only with an accepted proposal. Rejected proposals retain
+the full previous model and increase damping.
 There is no controller, actuator-telemetry input, simulator coefficient access,
 platform dispatch or user-selected learning budget.
 
 This procedure has no development split or calibrated error envelope. Training
 loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v2.json) measures predictions before
-assimilating their targets, against an identical session frozen after startup.
+[online-fitting protocol](harness/online-fit-v3.json) measures predictions before
+assimilating their targets, against authenticated saved v2 online predictions,
+an identical session frozen after startup and a no-fit kinematic predictor.
 It separately measures update latency; a bounded proposal count alone does not
 establish real-time fitting. Initial evidence and remaining limits belong in
 [status](status.md), not in the API's guarantees.

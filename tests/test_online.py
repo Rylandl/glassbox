@@ -15,6 +15,7 @@ from glassbox import (
     SequenceSegment,
     online,
 )
+from glassbox._dynamics import VehicleSequenceModel
 from glassbox._learner_arrays import load_arrays, save_arrays
 
 
@@ -73,6 +74,20 @@ def predict_args(session, states, commands, row):
     )
 
 
+DYNAMIC_NORMALIZERS = {"feature_scale", "quadratic_scale", "output_scale"}
+
+
+def assert_normalizers_advance(initial, current):
+    for name, value in initial.items():
+        if name in DYNAMIC_NORMALIZERS:
+            assert np.all(current[name] >= value)
+        else:
+            np.testing.assert_array_equal(current[name], value)
+    np.testing.assert_array_equal(
+        current["feature_scale"][-8:], initial["feature_scale"][-8:]
+    )
+
+
 def snapshot(session):
     return (
         session.fingerprint(),
@@ -92,6 +107,7 @@ def test_same_public_api_initializes_and_learns_arbitrary_command_count(commands
     assert session.report["history_steps"] == 10
     assert session.report["training_horizon_steps"] == 1
     initial = session.model
+    initial_loss_scale = session._scale.copy()
     assert initial.params["raw_tau"].shape == (commands,)
     with jax.enable_x64(False):
         args = predict_args(session, states, issued, 15)
@@ -109,8 +125,9 @@ def test_same_public_api_initializes_and_learns_arbitrary_command_count(commands
     assert session.report["curvature_calls"] == 4
     assert session.report["objective_calls"] == 2
     assert jax.config.x64_enabled == before_precision
-    for name, value in initial.norms.items():
-        np.testing.assert_array_equal(session.model.norms[name], value)
+    assert session.report["conditioning_calls"] == 1
+    assert_normalizers_advance(initial.norms, session.model.norms)
+    np.testing.assert_array_equal(session._scale, initial_loss_scale)
     for value in session.model.arrays().values():
         assert value.dtype == np.float64 and np.isfinite(value).all()
 
@@ -137,6 +154,7 @@ def test_input_errors_are_rejected_before_optimizer_or_session_mutation(monkeypa
         pytest.fail("invalid observation reached the optimizer")
 
     monkeypatch.setattr(online, "_proposal", unexpected)
+    monkeypatch.setattr(online, "_recondition", unexpected)
     before = snapshot(session)
     for args in invalid:
         with pytest.raises((ValueError, TypeError)):
@@ -172,6 +190,7 @@ def test_nonfinite_proposal_preserves_parameters_and_ingests_once(monkeypatch):
     assert session.cursor == 73 + 16
     assert session.report["observations"] == 1
     assert session.report["accepted_proposals"] == 0
+    assert session.report["conditioning_calls"] == 1
     assert session.report["damping"] == 4.0
     session.observe(session.cursor, issued[16], states[17])
     assert session.report["observations"] == 2
@@ -193,6 +212,7 @@ def test_saved_resume_preserves_optimizer_history_and_future_revisions(tmp_path)
         resumed.observe(resumed.cursor, issued[row], states[row + 1])
         assert snapshot(resumed) == snapshot(session)
     assert session.report["accepted_proposals"] > 0
+    assert session.report["conditioning_calls"] == 8
 
 
 def retained_loss(model, session):
@@ -221,6 +241,7 @@ def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_pat
     initial_norms = {name: value.copy() for name, value in frozen.norms.items()}
     initial_fingerprint = frozen.fingerprint
     errors, frozen_errors, archive_sizes = [], [], []
+    preceding_norms = initial_norms
     for row in range(15, 79):
         previous = session.model if row in (15, 46, 78) else None
         args = predict_args(session, states, issued, row)
@@ -232,6 +253,8 @@ def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_pat
         frozen_errors.append(np.linalg.norm(reference[0, :3] - states[row + 1, :3]))
         session.observe(session.cursor, issued[row], states[row + 1])
         report = session.report
+        assert_normalizers_advance(preceding_norms, session.model.norms)
+        preceding_norms = session.model.norms
         if previous is not None:
             # Score both revisions on exactly the same now-completed full cache.
             old_loss = retained_loss(previous, session)
@@ -258,8 +281,8 @@ def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_pat
     assert session.report["accepted_proposals"] > 0
     assert session.model.fingerprint != initial_fingerprint
     assert frozen.fingerprint == initial_fingerprint
-    for name, expected in initial_norms.items():
-        np.testing.assert_array_equal(session.model.norms[name], expected)
+    assert session.report["conditioning_calls"] == 64
+    assert_normalizers_advance(initial_norms, session.model.norms)
     # The changed plant is scored before each corresponding observation is released.
     # This analytic capability assertion is deliberately weaker than the physical gate.
     actual = np.sqrt(np.mean(np.square(errors[-16:])))
@@ -369,6 +392,7 @@ def test_rejection_preserves_parameters_and_damping_survives_resume(
     assert session.report["cg_iterations"] == 4
     assert session.report["curvature_calls"] == 4
     assert session.report["accepted_proposals"] == 0
+    assert session.report["conditioning_calls"] == 1
     assert session.report["damping"] == 4.0
     path = tmp_path / "rejected.npz"
     session.save(path)
@@ -422,6 +446,7 @@ def test_repaired_archive_cannot_break_causal_or_optimizer_consistency(tmp_path)
         lambda m, a: m.update(cursor=m["cursor"] + 1),
         lambda m, a: m.update(damping=-1.0),
         lambda m, a: m["counts"].update(cg_iterations=3),
+        lambda m, a: m["counts"].update(conditioning_calls=1),
         lambda m, a: a["tail_states"].__setitem__(
             (-1, 0), a["tail_states"][-1, 0] + 0.1
         ),
@@ -517,3 +542,228 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
             else:
                 assert float(predicted) > 0 and float(trial) < float(current)
                 assert prediction_change == pytest.approx(radius, rel=1e-10)
+
+
+def conditioning_fixture():
+    """Independent smooth motion with unequal cache sizes and active recurrent heads."""
+    from scipy.spatial.transform import Rotation
+
+    states, issued = stream()
+    original = OnlineFit(prefix(states, issued)).model
+    rng = np.random.default_rng(731)
+    params = {
+        name: rng.normal(0, 0.003, value.shape)
+        for name, value in original.params.items()
+    }
+    params["raw_tau"] = np.array([-3.0, -2.7, -3.3])
+    norms = {
+        name: np.zeros_like(value) if name.endswith("_mean") else np.ones_like(value)
+        for name, value in original.norms.items()
+    }
+    norms["motion_bound_scale"][:] = 8.0
+    model = VehicleSequenceModel(0.05, 10, 2, params, norms)
+    t = np.arange(40) * model.dt_s
+    states = np.column_stack(
+        (
+            0.7 + 2.0 * t + 0.4 * t**2,
+            -0.2 + 0.6 * t**2,
+            0.3 - t,
+            0.1 + 0.2 * t,
+            -0.15 + 0.1 * t**2,
+            0.12 * np.sin(t),
+            Rotation.from_rotvec(
+                np.column_stack((0.3 * t, -0.2 * t**2, 0.1 * np.sin(t)))
+            )
+            .as_matrix()
+            .reshape(-1, 9),
+        )
+    )
+    commands = np.column_stack(
+        (3 * np.sin(4 * t), 4 * np.cos(3 * t), 2 * np.sin(5 * t + 0.7))
+    )[:-1]
+    bootstrap = online._windows(states, commands, [10, 11], 10, 3)
+    recent = online._windows(states, commands, [21, 22, 23, 24, 25], 10, 3)
+    return model, bootstrap, recent
+
+
+def numpy_conditioning_scales(model, roles):
+    """Literal per-role/window/time computation without any model feature helpers."""
+    role_feature, role_quadratic, role_output = [], [], []
+    norms, delay = model.norms, model.delay_steps
+    tau = 0.001 + np.logaddexp(0.0, model.params["raw_tau"])
+    for windows in roles:
+        window_feature, window_quadratic, window_output = [], [], []
+        for past, inputs, future, targets in zip(
+            *(windows[key] for key in online._FIELDS)
+        ):
+            observed = np.concatenate((past, targets[:-1]))
+            issued = np.concatenate((inputs, future))
+            applied = issued[0].copy()
+            features = []
+            for state, command in zip(observed, issued):
+                rotation = state[6:].reshape(3, 3)
+                body = np.r_[rotation.T @ state[:3], state[3:6], -rotation[2]]
+                body = (body - norms["body_mean"]) / norms["body_scale"]
+                support = norms["motion_bound_scale"] / 4
+                for axis in range(6):
+                    excess = abs(body[axis]) - support[axis]
+                    if excess > 0:
+                        body[axis] = (
+                            np.sign(body[axis])
+                            * support[axis]
+                            * (1 + 3 * np.tanh(excess / (3 * support[axis])))
+                        )
+                features.append(
+                    np.r_[
+                        body,
+                        (command - norms["input_mean"]) / norms["input_scale"],
+                        (applied - norms["input_mean"]) / norms["input_scale"],
+                    ]
+                )
+                applied = command + (applied - command) * np.exp(-model.dt_s / tau)
+            features = np.asarray(features)
+            linear, quadratic = [], []
+            for time in range(delay, len(features)):
+                current = features[time]
+                linear.append(
+                    np.r_[
+                        current,
+                        np.concatenate(
+                            [
+                                features[previous] - current
+                                for previous in range(time - delay, time)
+                            ]
+                        ),
+                    ]
+                )
+                quadratic.append(
+                    [
+                        current[left] * current[right]
+                        for left in range(len(current))
+                        for right in range(left, len(current))
+                    ]
+                )
+            output = []
+            preceding = past[-1]
+            for target in targets:
+                output.append(
+                    np.r_[
+                        preceding[6:].reshape(3, 3).T
+                        @ (
+                            (target[:3] - preceding[:3]) / model.dt_s - [0, 0, -9.80665]
+                        ),
+                        (target[3:6] - preceding[3:6]) / model.dt_s,
+                    ]
+                )
+                preceding = target
+            window_feature.append(np.mean(np.square(linear), axis=0))
+            window_quadratic.append(np.mean(np.square(quadratic), axis=0))
+            window_output.append(np.mean(np.square(output), axis=0))
+        role_feature.append(np.mean(window_feature, axis=0))
+        role_quadratic.append(np.mean(window_quadratic, axis=0))
+        role_output.append(np.mean(window_output, axis=0))
+    return {
+        "feature_scale": np.r_[
+            np.maximum(
+                norms["feature_scale"][:-8], np.sqrt(np.mean(role_feature, axis=0))
+            ),
+            norms["feature_scale"][-8:],
+        ],
+        "quadratic_scale": np.maximum(
+            norms["quadratic_scale"], np.sqrt(np.mean(role_quadratic, axis=0))
+        ),
+        "output_scale": np.maximum(
+            norms["output_scale"], np.sqrt(np.mean(role_output, axis=0))
+        ),
+    }
+
+
+def test_conditioning_matches_independent_role_window_time_rms_and_never_shrinks():
+    model, bootstrap, recent = conditioning_fixture()
+    data, weights = online._full_cache(bootstrap, recent)
+    expected = numpy_conditioning_scales(model, (bootstrap, recent))
+    with jax.enable_x64(True):
+        params, norms, finite = online._recondition(
+            model.params,
+            model.norms,
+            data,
+            weights,
+            delay=model.delay_steps,
+            dt_s=model.dt_s,
+        )
+        assert bool(finite)
+        for name, values in expected.items():
+            np.testing.assert_allclose(norms[name], values, rtol=2e-13, atol=2e-13)
+            assert np.any(np.asarray(norms[name]) > model.norms[name])
+        assert_normalizers_advance(model.norms, norms)
+        for name in ("b1", "memory_bias", "raw_tau"):
+            np.testing.assert_array_equal(params[name], model.params[name])
+        high = {name: np.asarray(value).copy() for name, value in norms.items()}
+        for name in DYNAMIC_NORMALIZERS:
+            high[name] *= 4
+        high["feature_scale"][-8:] = 1
+        _, following, finite = online._recondition(
+            params,
+            high,
+            data,
+            weights,
+            delay=model.delay_steps,
+            dt_s=model.dt_s,
+        )
+        assert bool(finite)
+        for name in DYNAMIC_NORMALIZERS:
+            np.testing.assert_array_equal(following[name], high[name])
+
+
+def test_conditioning_preserves_recursive_predictions_and_command_jacobian():
+    model, bootstrap, recent = conditioning_fixture()
+    assert all(np.all(value != 0) for value in model.params.values())
+    data, weights = online._full_cache(bootstrap, recent)
+    with jax.enable_x64(True):
+        params, norms, finite = online._recondition(
+            model.params,
+            model.norms,
+            data,
+            weights,
+            delay=model.delay_steps,
+            dt_s=model.dt_s,
+        )
+        assert bool(finite)
+        transformed = replace(
+            model,
+            params={name: np.asarray(value) for name, value in params.items()},
+            norms={name: np.asarray(value) for name, value in norms.items()},
+        )
+        args = tuple(recent[name] for name in online._FIELDS[:3])
+        np.testing.assert_allclose(
+            transformed.rollout(*args), model.rollout(*args), rtol=2e-11, atol=2e-12
+        )
+        past, inputs, future = (value[:1] for value in args)
+        future = jnp.asarray(future + 0.13)
+        before = jax.jacrev(lambda u: model.rollout(past, inputs, u))(future)
+        after = jax.jacrev(lambda u: transformed.rollout(past, inputs, u))(future)
+        assert np.max(np.abs(before)) > 1e-6
+        np.testing.assert_allclose(after, before, rtol=2e-10, atol=2e-12)
+
+
+def test_invalid_conditioning_retains_original_full_model_and_consumes_once(
+    monkeypatch,
+):
+    states, issued = stream()
+    session = OnlineFit(prefix(states, issued))
+    initial = session.model
+    original_scale = session._scale.copy()
+    actual = online._recondition
+
+    def invalid(*args, **kwargs):
+        params, norms, _ = actual(*args, **kwargs)
+        return params, norms, False
+
+    monkeypatch.setattr(online, "_recondition", invalid)
+    session.observe(session.cursor, issued[15], states[16])
+    assert session.model.fingerprint == initial.fingerprint
+    np.testing.assert_array_equal(session._scale, original_scale)
+    assert session.report["conditioning_calls"] == 1
+    assert session.report["accepted_proposals"] == 0
+    assert session.report["damping"] == 4
+    assert session.cursor == 73 + 16
