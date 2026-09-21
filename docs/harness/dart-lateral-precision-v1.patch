@@ -15,15 +15,7 @@
      rate_error = states[end, 10:13] / 0.5
 --- a/tests/test_planning.py
 +++ b/tests/test_planning.py
-@@ -1,7 +1,6 @@
- import jax
- import jax.numpy as jnp
- import numpy as np
--
- from crazydart.mission import Target
- from crazydart.planning import strike_cost
- 
-@@ -31,3 +30,53 @@
+@@ -31,3 +31,53 @@
          strike_cost(rotated, commands, Target()),
          rtol=1e-6,
      )

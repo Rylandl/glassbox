@@ -62,10 +62,13 @@ not a quick test or physical validation.
 ## Current evidence
 
 The supported shared-physics learner is the single maintained implementation. Its
-saved Dart revision completes the nominal contact task through Dart's unchanged
-controller: **6.19 mm miss and 1.33° axis error**, with all **4,144 objective and
-gradient evaluations finite**. That is one known task with an existing command
-seed, not a claim of broad control reliability or real-time operation.
+saved Dart revision now reaches **0.720 mm nominal contact miss** through a
+radius-aware lateral objective and 10 ms feedback, with **0.93° axis error** and
+all **9,874 objective/gradient evaluations finite**. The learned model is unchanged.
+Fine-grid float64 replay confirms **0.756 mm** with submicrometer convergence;
+the original float32 convergence failure remains documented. This is one known
+seeded simulated task, not broad control reliability or real-time qualification.
+See [the full precision result](docs/dart-precision.md), including every attempt.
 
 Forecast and response errors across Crazyflow and Cascade remain improvement
 work, including wind cases and longer horizons. Error-envelope calibration and

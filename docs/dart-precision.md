@@ -50,10 +50,19 @@ native RK4 substeps per interval. Both float32 replays met every task limit:
 and contact times by 136.43 microseconds. **The original float32 convergence
 qualification failed** its frozen 20 micrometer / 20 microsecond limits.
 
-A separately frozen float64 audit is in progress. It preserves the exact original
-float32 initial state, actual issued commands and rounded plant coefficients,
-including the inverse inertia already computed by the original simulator.
-It changes native arithmetic precision, not controller decisions or task gates.
+The separately frozen float64 audit **passes**: 0.755601 / 0.755487 mm miss,
+with 0.1515 micrometer contact-point difference and 0.2277 microsecond contact-time
+difference. Both scorers pass all original task limits at both resolutions;
+all 3,600 native calls are finite. It preserves the exact original float32 initial
+state, journal-authoritative issued commands and rounded plant coefficients,
+including the original inverse inertia. It changes native arithmetic precision,
+not controller decisions or task gates. This supports floating-point effects in
+the native calculation as the cause of the original fine-grid disagreement;
+it does not isolate RK4 accumulation from derivative or command-conversion rounding.
+
+This qualifies the recorded command tape under float64 native dynamics. It is
+not a fresh closed-loop policy trial at 1 ms, and it does not turn the original
+float32 convergence failure into a pass.
 
 ## Scope and reproduction
 
@@ -61,7 +70,10 @@ This is one known nominal trajectory with the original warm-start command seed,
 exact-state simulated observations and an existing fitted revision. It establishes
 neither neighborhood reliability nor hardware precision. No refit, platform branch,
 new model option or learned correction was added. The next scientific gap is
-performance across prospectively selected neighboring conditions.
+performance across prospectively selected neighboring conditions. The winning
+objective and its four regression tests are applied to the live Dart project.
+The 10 ms feedback cadence belongs to the frozen benchmark; Dart launcher
+defaults have not been changed.
 
 [The result index](dart-precision.json) records every trial’s source commit,
 protocol hash, manifest hash, numerical outcome and orchestration failures.
@@ -69,6 +81,12 @@ The preserved local evidence root is `artifacts/dart-precision-v1`; it and the
 original `artifacts/baseline` pack remain outside Git. The winning external Dart
 source is retained in `dart-lateral`, with its standalone
 [consumer patch](harness/dart-lateral-precision-v1.patch). Historical protocols
-and attribution tooling are recoverable from their scientific commits.
+and attribution tooling are recoverable from their scientific commits. Closed
+attempts are retained losslessly in `closed-attempts.tar.gz`; all 130 payload
+hashes were verified before removing their expanded copies. Extract that archive
+in the evidence root to inspect the old journals. The learner package remains
+14 modules / 2,216 lines; the maintained evaluation surface adds only the native
+trial runner and precision audit to the existing baseline verifier. All 105
+repository tests and four consumer objective tests pass.
 
 Use the [development guide](../CONTRIBUTING.md) for the pinned runtime and commands.

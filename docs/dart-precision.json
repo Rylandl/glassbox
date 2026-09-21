@@ -1,4 +1,10 @@
 {
+  "adoption": {
+    "dart_objective_applied": "/Users/ryland/autonomy/dart/src/crazydart/planning.py",
+    "dart_tests_applied": "/Users/ryland/autonomy/dart/tests/test_planning.py",
+    "feedback_cadence": "10 ms in the frozen Glassbox consumer benchmark; Dart launcher defaults were not changed.",
+    "model_accuracy_claim": "None: identical learned weights and inference."
+  },
   "attribution": {
     "method": "Compare only each plan prefix actually executed before the next replan; no refit or new model evaluation.",
     "original_10ms_contact_point_rmse_m": 5.8854e-05,
@@ -14,6 +20,34 @@
       "name": "lateral-resolution-audit",
       "note": "Both grids meet contact limits but fail the original 20 micrometer and 20 microsecond convergence criteria.",
       "resolution_qualified": false
+    },
+    {
+      "all_native_finite": true,
+      "arithmetic": "float64",
+      "convergence": {
+        "canonical": {
+          "contact_point_difference_m": 1.5146616468440818e-07,
+          "contact_time_difference_s": 2.2768322383015516e-07,
+          "passed": true
+        },
+        "independent": {
+          "contact_point_difference_m": 1.5146616468440818e-07,
+          "contact_time_difference_s": 2.2768322383015516e-07,
+          "passed": true
+        },
+        "passed": true
+      },
+      "manifest_sha256": "1e3a5d7076e54fe3849a99a792f4b0ebc083663da60bc50b7217a984ff850cfb",
+      "miss_distance_m": [
+        0.0007556005982379253,
+        0.0007554868697161616
+      ],
+      "name": "lateral-resolution-float64",
+      "native_calls": 3600,
+      "original_float32_resolution_qualified": false,
+      "resolution_qualified": true,
+      "source_commit": "70d24757e49369c77f6a5d77291a49dc6ddf08f9",
+      "supplemental_contract_sha256": "f4a5662133bd15b185fc9d8e93df61f17b664cd1c4068621d9f2ce84cb85b9b4"
     }
   ],
   "baseline_manifest_sha256": "55009687fd5ca48a77a5cb69b0c5ce264dc5196f2863753942cdd4a51a097407",
@@ -41,6 +75,14 @@
       "terminal-rate-run-console.log"
     ],
     "verified_payloads": 130
+  },
+  "evidence_pack": {
+    "bytes": 110292997,
+    "manifest": "manifest-pack.json",
+    "manifest_sha256": "5041bc46cc58c7939c18fcc0ff7f88f87ae91521eddd7cb784ae4aa7b0759a9c",
+    "path": "artifacts/dart-precision-v1",
+    "payloads": 101,
+    "source_snapshot_sha256": "403740502390e806937925d705c3e0c16d7c3b52869ec8a8bbe99944867149db"
   },
   "fits": 0,
   "format": "glassbox-dart-precision-result-v1",
@@ -250,5 +292,12 @@
       "solves": 120,
       "source_commit": "ddbefa793f4b0be0e19f6e996130612a749298b8"
     }
-  ]
+  ],
+  "verification": {
+    "dart_objective_tests_passed": 4,
+    "independent_review": "All trial/audit manifest payloads, exact parameter and issued-command promotion, native journal continuity and independent fine-grid scores verified without new model or native calls.",
+    "model_and_package_unchanged": true,
+    "repository_tests_passed": 105,
+    "ruff": "passed"
+  }
 }
