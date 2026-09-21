@@ -1,0 +1,110 @@
+{
+  "id": "online-proposal-audit-v1",
+  "gap": "Causal optimizer effectiveness under the existing physical quadratic prior: distinguish an unfinished local solve, forecast trust clipping, and nonlinear objective mismatch before changing the learner.",
+  "scope": "Read-only reconstruction and diagnostics of46 existing fixed-wing updates,23 each under adoptedv6 and rejectedv7. No initialization, observe call, session mutation, newly trained model, changed learner, additional observations, controller trial or candidate accuracy claim. Production proposal reconstruction and diagnostic PCG/derivative/objective work are explicitly counted; this is not zero optimizer computation.",
+  "references": {
+    "v6": {
+      "evaluation": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v6/evaluation",
+      "evaluation_manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
+      "captures": "/Users/ryland/autonomy/glassbox/artifacts/online-causal-trace-v2/diagnosis",
+      "capture_manifest_sha256": "f6c24c63c44d8c33cdf837d172556b2c7cc7cd1190ed9ffe0d0c0ffe3c7df574",
+      "source_commit": "2e465a46075b00c7ff1ea8ecaa3824dd5fd550a1",
+      "online_source_sha256": "257341b74a08072dc1bfe65e45d21d60d39daf0e52765341b2da50117e64ed98"
+    },
+    "v7": {
+      "evaluation": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v7/evaluation",
+      "evaluation_manifest_sha256": "ab193bfd3f54b287df413fbd65733376a882369a822bef5aa36970896f7bb261",
+      "captures": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v7/causal-diagnosis",
+      "capture_manifest_sha256": "5b55067e6206c96f80a560a28347306be5546aae4ac4287f2e636afdba11b440",
+      "source_commit": "3ca94986594939d26de89979cf867bbd04bd77c0",
+      "online_source_sha256": "2461eae5b160071b9a8e3f7f270992e79cf2b923a4d5240c7ccef02f8c270f63"
+    }
+  },
+  "origins": {
+    "fixedwing-80": [
+      20,
+      21,
+      27,
+      28,
+      30,
+      31,
+      32,
+      35,
+      36,
+      37
+    ],
+    "fixedwing-81": [
+      63,
+      64,
+      65,
+      71,
+      72,
+      146,
+      147,
+      149,
+      150,
+      151,
+      156,
+      157,
+      158
+    ]
+  },
+  "selection": "All23 previously frozen v6-selected origins under both recipes. Selection remains unchanged after v7 outcomes. These known fixed-wing failure/control snapshots are neither blind nor representative of the full six-tape cohort; no claim about quad optimizer failures follows.",
+  "reconstruction": {
+    "source": "Commit this protocol before implementation and completed diagnostic source before measurement. Require all15 current package source files identical to adoptedv6. Authenticate each complete input pack and runtime. Extract historical online.py directly from its pinned Git commit, verify its hash against the authenticated evaluation binding, and load under a private glassbox module alias so relative imports use the14 byte-identical shared files. Do not relabel archives or maintain a selectable historical learner. Copy the inspected source bytes and authority manifests into evidence.",
+    "cache": "For each pre-prediction capture validate original session/context/before identity. The audited update assimilates command[k] and recorded truth[k+1]. On copies only, drop first saved tail state/input, append the revealed truth/issued command, construct the newly completed window using the original history/horizon indexing, append recent and keep32. Preserve bootstrap and fixed loss scales. Apply the original equal-role padded64 cache and reconditioning once. Use this post-reveal cache for every compared direction.",
+    "production": "Call version-pinned production _proposal once on reconstructed conditioned inputs under float64. Reproduce original finite checks, acceptance/gain, rollback and damping update. Require exact historical model_after fingerprint, acceptance count/counters and damping from sealed predictions/journal. If next origin is also captured, require exact complete after-session fingerprint, including caches. Original objectives/gain were not logged: report reconstructed values without claiming independent original scalar matches. No call to observe/init and no modified session is retained."
+  },
+  "linear_system": {
+    "coordinates": "Use the actual proposal reconditioned parameter chart and ravel_pytree order. Each origin/version defines a distinct system. Four versus reference share the same chart, residual/J, priorA, damping and IRLS within that update; v6 versus v7 generally do not.",
+    "equations": "r is normalized forecast residual; W=role_weight/(horizon*3), repeated across physical residual components; IRLS repeats 1/max(1,group_L2(r)) over3/3/9 coordinates. g_data=J.T@(W*IRLS*r); g_prior=A*theta; g=g_data+g_prior. H p=J.T@(W*IRLS*(Jp))+(A+damping)*p. M=A+damping is diagonal. The quadratic priorA is computed by that original recipe on the reconstructed post-reveal cache and frozen within the solve.",
+    "four": "Reproduce the original safeguarded four PCG steps with zero initial delta. Independently check instrumented four-step proposal/current/trial/predicted values against the separately called production implementation using declared numerical tolerances, since extra trace outputs can change JIT fusion.",
+    "reference_max_iterations": 128,
+    "reference_checkpoints": [
+      4,
+      8,
+      16,
+      32,
+      64,
+      128
+    ],
+    "reference_relative_residual_tolerance": 1e-06,
+    "reference": "Continue the same safeguarded PCG recurrence from the same zero start, with the same frozen H,g,M. Recompute true residual b-Hdelta with b=-g at every declared checkpoint; stop at first checkpoint with sqrt(r_true.T M^-1 r_true)/sqrt(g.T M^-1 g)<=1e-6. An exactly zero gradient is a zero-step solved case. No residual replacement, restart, new damping, relinearization, second solver, sweep or iteration-budget extension. Stop and retain breakdown/nonfinite states. A capped or broken-down probe is not called a converged reference.",
+    "gap_bound": "Report q(delta)=g.dot(delta)+0.5*delta.dot(Hdelta), its decrease and the computed remaining damped-quadratic gap bound0.5*r_true.T M^-1 r_true because H>=M. Compare this upper bound and the achieved q4-qref improvement separately. The bound is subject to float64 action error and says nothing about nonlinear, undamped or constrained optimality."
+  },
+  "probes": {
+    "labels": [
+      "four_raw",
+      "four_trusted",
+      "reference_raw",
+      "reference_trusted"
+    ],
+    "constraint": "For both directions use the unchanged forecast-only radius=max(1,0.5*norm(sqrt(W)*r)) and shrink=min(1,radius/max(norm(sqrt(W)*Jdelta),1e-30)). Save raw/scaled direction, Jdelta, shrink and norm. Compute production predicted reduction=-g.dot(delta)-0.5*(sum(W*IRLS*(Jdelta)^2)+delta.dot(A*delta)), excluding damping. Also report the damped quadratic separately.",
+    "objectives": "At most four additional trial-residual evaluations per snapshot, one per listed direction; exact duplicate directions may reuse values. Save each trial residual and recompute exact radial Huber data loss, quadratic prior, combined loss, actual improvement, gain and would-accept decision under the original rule. Keep nonfinite/overflowed probes explicit; do not apply them, alter damping or advance a counterfactual trajectory.",
+    "gradients": "Save data/prior gradients and invariant directional products against each direction, plus separate exact data/prior loss changes. Report raw and M-preconditioned gradient norms/cosines only as conditioned-coordinate diagnostics, not physical or coordinate-invariant magnitudes. Compare retained objectives only; do not score a post-assimilation fitted forecast against its assimilated target as held-out improvement."
+  },
+  "evidence": {
+    "payloads": "Save authenticated copied pre-session/context/capture, the minimal original evaluation predictions/case/journal/input payloads needed for pairing, pinned source bytes and complete external authority manifests with copied-payload hash mapping. Save conditioned inputs/flat schema/theta/raw residual/weights/IRLS/priorA/gradient parts/damping. At every active PCG iteration retain search direction p, Jp, Hp, alpha/beta/rho/denominator and safeguard flags. Save deltas/recursive and true residuals at checkpoints, raw/trusted projections, trial residuals and summaries. No dense full Jacobian/Hessian is required.",
+    "verification": "Seal every payload and externally record manifest authority. A no-fit NumPy verification path checks copied authority/identity/cache pairing, g_prior=A*theta, all saved PCG recurrences and safeguards, true-residual/checkpoint identities where actions are saved, trust scaling, exact data/prior losses, gains, and summary reconstruction. Check Krylov-span identities P.T@g_data=(JP).T@(W*IRLS*r) and P.T@(HP-MP)=(JP).T@(W*IRLS*(JP)), plus symmetry; normalize directions in M norm for conditioning. This verifies recorded actions on the visited span, not unseen Jacobian components. Source binding, exact production reconstruction and independent analytic/finite-difference fixtures establish action provenance. Report verifier optimizer/model calls as zero while acknowledging arithmetic replay.",
+    "numerical_tolerances": {
+      "production_instrumented_absolute": 1e-09,
+      "production_instrumented_relative": 1e-08,
+      "array_arithmetic_absolute": 1e-10,
+      "array_arithmetic_relative": 1e-08,
+      "krylov_normwise_relative": 1e-08,
+      "krylov_normwise_scale": "max(1,norm(left),norm(right)) using Frobenius/L2 as appropriate; no tolerance changes after measurement."
+    }
+  },
+  "qualification": {
+    "complete": "All46 original update outcomes must reconstruct exactly and every declared snapshot must have complete diagnostics or an explicitly retained reference/probe numerical failure. Mathematical identities and analytic fixtures pass declared tolerances. Keep any infrastructure failure explicit and do not claim completion if an original transition or evidence binding cannot be verified.",
+    "fixtures": "Independent dense SPD nonzero-prior system: four steps visibly incomplete, reference matches numpy.linalg.solve; zero gradient; capped reference; invalid curvature; active trust shrink with predicted reduction excluding damping; nonlinear residual with explicit symbolic J for Jp/J.T actions (not exact objective Hessian); gradient/step covariance of directional products. Harness checks cache growth/eviction and multi-step indexing; accepted/rejected/invalid-conditioning rollback; damping thresholds/clipping; archive/source/version/tamper rejection; no session mutation/observe/init calls.",
+    "decision": "Diagnostic only: v6 remains the maintained learner. A lower retained objective for a longer solve motivates a separately frozen full-cohort candidate; it does not establish improved forecasts. Distinguish unfinished linear solve, restrictive trust shrink, and nonlinear objective rejection. Failure to converge within128 or a large prior alone does not prove optimizer failure or objective inadequacy. No new regularizer, solver or model is selected automatically."
+  },
+  "limits": [
+    "Known fixed-wing snapshots selected on old outcomes; no blind or quad-generalization claim.",
+    "Training objectives and local linear systems are not future prediction accuracy or physical identifiability.",
+    "A better raw solve can shrink more or perform worse after nonlinear rollout.",
+    "Floating-point Krylov identities do not certify a global nonlinear optimum.",
+    "No online latency qualification: this diagnostic deliberately spends more compute off-line."
+  ]
+}
