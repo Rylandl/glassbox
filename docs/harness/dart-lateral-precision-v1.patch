@@ -1,0 +1,64 @@
+--- a/src/crazydart/planning.py
++++ b/src/crazydart/planning.py
+@@ -17,7 +17,11 @@
+     )(states)
+     center, normal = jnp.asarray(target.center), jnp.asarray(target.normal)
+     # Aim 2 mm through the virtual plane so first-contact scoring has a bracket.
+-    position_error = (points[end] - (center - 0.002 * normal)) / 0.01
++    position_scale = min(0.01, 0.5 * target.radius_m)
++    displacement = points[end] - (center - 0.002 * normal)
++    depth_error = jnp.dot(displacement, normal)
++    lateral_error = displacement - depth_error * normal
++    position_error = lateral_error / position_scale + depth_error * normal / 0.01
+     axis_error = (axes[end] + normal) / 0.035
+     velocity_error = (velocities[end] + desired_speed * normal) / 0.12
+     rate_error = states[end, 10:13] / 0.5
+--- a/tests/test_planning.py
++++ b/tests/test_planning.py
+@@ -31,3 +31,46 @@
+         strike_cost(rotated, commands, Target()),
+         rtol=1e-6,
+     )
++
++
++def test_position_precision_tracks_target_radius_and_preserves_default():
++    from dataclasses import replace
++
++    states = jnp.zeros((4, 13)).at[:, 6].set(1).at[:, 2].set(1)
++    states = states.at[-1, 1].set(0.001)
++    commands = jnp.full((3, 4), 0.65)
++    target = Target()
++
++    def gradient(radius):
++        return jax.grad(
++            lambda x: strike_cost(x, commands, replace(target, radius_m=radius))
++        )(states)
++
++    default = gradient(0.02)
++    tighter = gradient(0.001)
++    wider = gradient(0.2)
++    np.testing.assert_allclose(default[-1, 1], 20.0, rtol=1e-6)
++    np.testing.assert_allclose(tighter[-1, 1], 400 * default[-1, 1], rtol=1e-6)
++    np.testing.assert_array_equal(wider, default)
++
++
++def test_radius_does_not_tighten_normal_depth_for_oblique_plane():
++    from dataclasses import replace
++
++    normal = np.array([2.0, -3.0, 4.0]) / np.sqrt(29.0)
++    target = Target(normal=tuple(normal))
++    states = jnp.zeros((4, 13)).at[:, 6].set(1).at[:, 2].set(1)
++    states = states.at[-1, :3].set(jnp.array([0.652, 0.003, 0.958]))
++    commands = jnp.full((3, 4), 0.65)
++
++    def gradient(radius):
++        return np.asarray(jax.grad(
++            lambda x: strike_cost(x, commands, replace(target, radius_m=radius))
++        )(states)[-1, :3])
++
++    default, tight = gradient(0.02), gradient(0.001)
++    np.testing.assert_allclose(tight @ normal, default @ normal, rtol=2e-4)
++    tangent = lambda g: g - (g @ normal) * normal
++    np.testing.assert_allclose(tangent(tight), 400 * tangent(default), rtol=2e-5)
++    point_delta = np.array([0.652, 0.003, 0.998]) - np.asarray(target.center) + 0.002 * normal
++    np.testing.assert_allclose(default, 2 * point_delta / 0.01**2, atol=0.001)
