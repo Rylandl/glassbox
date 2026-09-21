@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v3.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v4.json"
 
 COUNTERS = (
     "observations",
@@ -207,7 +207,7 @@ def comparison_aggregate(cases, ratio_key):
 
 def aggregate(cases, protocol=None):
     protocol = read(PROTOCOL) if protocol is None else protocol
-    paired = protocol["id"] == "online-fit-v3"
+    paired = protocol["id"] in ("online-fit-v3", "online-fit-v4")
     comparison = comparison_aggregate(cases, "reference_ratios" if paired else "ratios")
     total, families = comparison["aggregate_ratio"], comparison["families"]
     expected = {case["id"]: "quad" for case in protocol["streams"]["quad"]["cases"]}
@@ -251,7 +251,11 @@ def aggregate(cases, protocol=None):
 def counter_names(protocol):
     if protocol["id"] == "online-fit-v1":
         return COUNTERS[:5]
-    return COUNTERS if protocol["id"] == "online-fit-v3" else COUNTERS[:7]
+    return (
+        COUNTERS
+        if protocol["id"] in ("online-fit-v3", "online-fit-v4")
+        else COUNTERS[:7]
+    )
 
 
 def dynamic_normalizers(protocol):
@@ -260,7 +264,7 @@ def dynamic_normalizers(protocol):
         allowed
         == (
             ["feature_scale", "quadratic_scale", "output_scale"]
-            if protocol["id"] == "online-fit-v3"
+            if protocol["id"] in ("online-fit-v3", "online-fit-v4")
             else []
         ),
         "dynamic normalization contract differs",
@@ -627,11 +631,12 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v3",
+            p["id"] == "online-fit-v4",
             "unsupported candidate protocol for current learner",
         )
         require(
-            reference is not None, "v3 requires the authority-pinned reference pack"
+            reference is not None,
+            "current candidate requires the authority-pinned reference pack",
         )
         reference_contract(reference, p)
         shutil.copytree(reference, output / "reference")
@@ -756,7 +761,7 @@ def accounting(report, count, protocol):
         and report["optimizer_steps"] == report["gradient_calls"] == proposals * count,
         "proposal accounting differs",
     )
-    if protocol["id"] in ("online-fit-v2", "online-fit-v3"):
+    if protocol["id"] in ("online-fit-v2", "online-fit-v3", "online-fit-v4"):
         require(
             report["cg_iterations"] == report["curvature_calls"] == 4 * count
             and report["objective_calls"] == 2 * count
@@ -764,7 +769,7 @@ def accounting(report, count, protocol):
             "curvature accounting differs",
         )
 
-    if protocol["id"] == "online-fit-v3":
+    if protocol["id"] in ("online-fit-v3", "online-fit-v4"):
         require(
             report["conditioning_calls"] == count, "conditioning accounting differs"
         )
@@ -941,7 +946,7 @@ def verify(output, authority):
         "saved protocol differs",
     )
     reference = None
-    if protocol["id"] == "online-fit-v3":
+    if protocol["id"] in ("online-fit-v3", "online-fit-v4"):
         reference = output / "reference"
         reference_contract(reference, protocol)
         require(
@@ -999,7 +1004,7 @@ def verify(output, authority):
             for key in initial:
                 if key != "metadata":
                     exact(initial[key], frozen[key], "independent initialization")
-            if protocol["id"] == "online-fit-v3":
+            if protocol["id"] in ("online-fit-v3", "online-fit-v4"):
                 norm = arrays(case / "normalization.npz")
                 for key, value in norm.items():
                     exact(

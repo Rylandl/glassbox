@@ -165,7 +165,11 @@ actual-versus-predicted improvement check control the step. Before that proposal
 one causal cache pass can grow feature, quadratic and output scales. Compensating
 parameter changes preserve the recurrent prediction function before optimization;
 this changes the optimizer's coordinates without adding model equations. Raw
-body/input/state normalization, motion bounds and loss scales stay fixed. Changed
+body/input/state normalization and motion bounds stay fixed. The fixed loss
+scale is shared within each physical group: velocity, angular rate and rotation.
+Three equally weighted radial Huber terms prevent startup-axis variance from
+selecting which direction matters. Rotation uses chordal matrix distance, with
+small-angle radian units. Changed
 scales are committed only with an accepted proposal. Rejected proposals retain
 the full previous model and increase damping.
 There is no controller, actuator-telemetry input, simulator coefficient access,
@@ -173,7 +177,7 @@ platform dispatch or user-selected learning budget.
 
 This procedure has no development split or calibrated error envelope. Training
 loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v3.json) measures predictions before
+[online-fitting protocol](harness/online-fit-v4.json) measures predictions before
 assimilating their targets, against authenticated saved v2 online predictions,
 an identical session frozen after startup and a no-fit kinematic predictor.
 It separately measures update latency; a bounded proposal count alone does not

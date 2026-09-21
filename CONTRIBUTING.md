@@ -112,7 +112,7 @@ control change requires a new prospective measurement contract.
 
 ## Reproduce streaming fitting
 
-The active [v3 conditioning comparison](docs/harness/online-fit-v3.json) reuses the
+The active [v4 physical-vector comparison](docs/harness/online-fit-v4.json) reuses the
 exact sealed v1 collection and two known Cascade recordings. It intentionally
 refuses changed inputs. The old Throw controller collected issued commands and
 observations; it is not the candidate or a matched-input accuracy comparator.
@@ -124,9 +124,9 @@ Commit source and choose a new output directory. With the preserved v1 pack:
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
   scripts/evaluate_online.py run artifacts/online-fit-v1/collection \
   --collection-sha256 276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4 \
-  --protocol docs/harness/online-fit-v3.json \
+  --protocol docs/harness/online-fit-v4.json \
   --reference artifacts/online-fit-v2/evaluation \
-  --output artifacts/online-fit-v3-reproduction
+  --output artifacts/online-fit-v4-reproduction
 ```
 
 Verify errors and the causal journal without fitting, using the evaluation
@@ -135,12 +135,13 @@ is verified too; no old optimizer implementation is needed:
 
 ```bash
 PYTHONPATH=src:scripts python scripts/evaluate_online.py verify \
-  artifacts/online-fit-v3-reproduction \
+  artifacts/online-fit-v4-reproduction \
   --manifest-sha256 EVALUATION_MANIFEST_SHA256
 ```
 
 The v2 optimizer result is reproducible from source `a43d2dc`; its sealed pack
-supplies the v3 primary comparator. The original v1 procedure and native
+supplies the v4 primary comparator. The failed coordinate-only v3 run is
+reproducible from source `492a521` and retains its original verdict. The original v1 procedure and native
 collection are reproducible from source
 commit `ecf488e`, using the original Throw virtualenv for `collect_throw.py` and
 the current-runtime dependencies for fitting. Do not run the new optimizer under

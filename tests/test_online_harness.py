@@ -254,7 +254,7 @@ def test_collection_reuse_is_bound_to_original_manifest_and_protocol(tmp_path):
         evaluate.collection_contract(tmp_path, "sealed", {}, "v2")
 
 
-@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1), (3, 1)])
+@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1), (3, 1), (4, 1)])
 def test_generic_session_archive_verification_without_optimizer_loader(
     tmp_path, monkeypatch, version, proposals
 ):
@@ -278,7 +278,7 @@ def test_generic_session_archive_verification_without_optimizer_loader(
     )
     if version >= 2:
         counts.update(cg_iterations=4, curvature_calls=4)
-    if version == 3:
+    if version >= 3:
         counts["conditioning_calls"] = 1
     meta = dict(
         format=f"glassbox-online-fit-v{version}",
@@ -303,9 +303,10 @@ def test_generic_session_archive_verification_without_optimizer_loader(
             evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
 
 
-def test_old_protocol_cannot_run_new_candidate(tmp_path, monkeypatch):
+@pytest.mark.parametrize("version", [1, 2, 3])
+def test_old_protocol_cannot_run_new_candidate(tmp_path, monkeypatch, version):
     protocol = tmp_path / "protocol.json"
-    protocol.write_text(json.dumps(dict(id="online-fit-v1")))
+    protocol.write_text(json.dumps(dict(id=f"online-fit-v{version}")))
 
     def forbidden(*args):
         raise AssertionError("no source or learner work before protocol rejection")
@@ -317,24 +318,26 @@ def test_old_protocol_cannot_run_new_candidate(tmp_path, monkeypatch):
     assert (tmp_path / "out/manifest.json").exists()
 
 
-def test_v3_gate_uses_saved_online_not_weak_frozen_baseline():
+@pytest.mark.parametrize("version", [3, 4])
+def test_paired_gate_uses_saved_online_not_weak_frozen_baseline(version):
+    protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     cases = [
         aggregate_case(name, "quad", 0.1)
         for name in ("quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change")
     ] + [aggregate_case(f"fixedwing-{i}", "fixedwing", 0.1) for i in (80, 81)]
     for case in cases:
         case["reference_ratios"] = dict.fromkeys(case["ratios"], 1.1)
-    actual = evaluate.aggregate(cases)
+    actual = evaluate.aggregate(cases, protocol)
     assert actual["aggregate_ratio"] == pytest.approx(1.1)
     assert actual["frozen_comparison"]["aggregate_ratio"] == pytest.approx(0.1)
     assert not actual["accuracy_passed"]
     for case in cases:
         case["reference_ratios"] = dict.fromkeys(case["ratios"], 0.7)
-    assert evaluate.aggregate(cases)["accuracy_passed"]
+    assert evaluate.aggregate(cases, protocol)["accuracy_passed"]
     cases[0]["reference_ratios"] = dict.fromkeys(cases[0]["ratios"], 1.1)
-    assert evaluate.aggregate(cases)["accuracy_passed"]
+    assert evaluate.aggregate(cases, protocol)["accuracy_passed"]
     cases[0]["complete"] = False
-    assert not evaluate.aggregate(cases)["accuracy_passed"]
+    assert not evaluate.aggregate(cases, protocol)["accuracy_passed"]
 
 
 def test_reference_input_comparison_rejects_changed_commands_and_inventory():

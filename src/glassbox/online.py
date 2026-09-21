@@ -24,7 +24,7 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v3"
+_FORMAT = "glassbox-online-fit-v4"
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
@@ -35,6 +35,14 @@ _RECIPE = dict(
     proposals=1,
     cg_iterations=4,
     huber_delta=1.0,
+    loss=dict(
+        groups=[3, 3, 9],
+        weighting="equal velocity, body-rate and chordal rotation groups",
+        penalty="Huber of normalized group L2 norm",
+        scale="fixed bootstrap group hold-change RMS",
+        floor="0.01 times max(raw group origin spread, 1e-4)",
+        rotation_scale="sqrt(2) times chordal group scale",
+    ),
     initial_damping=1.0,
     damping_bounds=[1e-8, 1e8],
     minimum_gain_ratio=0.1,
@@ -61,9 +69,23 @@ def _residual(params, norms, data, scale, delay, dt_s):
     return (_rollout(params, norms, *data[:3], delay, dt_s) - data[3]) / scale
 
 
+def _group_squared(residual):
+    """Squared norms of velocity, body-rate and flattened rotation residuals."""
+    return jnp.stack(
+        [
+            jnp.sum(residual[..., a:b] ** 2, axis=-1)
+            for a, b in ((0, 3), (3, 6), (6, 15))
+        ],
+        axis=-1,
+    )
+
+
 def _huber(residual):
-    magnitude = jnp.abs(residual)
-    return jnp.where(magnitude <= 1, 0.5 * residual**2, magnitude - 0.5)
+    """Radial group-Huber values, with finite derivatives at zero residual."""
+    squared = _group_squared(residual)
+    return jnp.where(
+        squared <= 1, 0.5 * squared, jnp.sqrt(jnp.maximum(1.0, squared)) - 0.5
+    )
 
 
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
@@ -157,19 +179,20 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
 def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
     """Four matrix-free CG iterations; all parameters remain differentiable.
 
-    Raw normalized residuals set the Huber threshold. The Jacobian's residual
-    weights include the window role weight and 1/(horizon*15), so its L2 norm
-    is the role-balanced RMS. IRLS weights stay fixed throughout this proposal.
+    Each physical group's normalized norm sets its Huber threshold. Residual
+    weights include the role weight and 1/(horizon*3); each group's IRLS factor
+    is broadcast over its coordinates and stays fixed throughout the proposal.
     """
     flat, unpack = ravel_pytree(params)
     raw, push = jax.linearize(
         lambda value: _residual(unpack(value), norms, data, scale, delay, dt_s), flat
     )
     pull = jax.linear_transpose(push, jnp.zeros_like(flat))
-    weight = weights[:, None, None] / (raw.shape[1] * raw.shape[2])
+    weight = weights[:, None, None] / (raw.shape[1] * 3)
     root_weight = jnp.sqrt(weight)
-    irls = 1 / jnp.maximum(1.0, jnp.abs(raw))
-    gradient = pull(weight * jnp.clip(raw, -1.0, 1.0))[0]
+    factors = 1 / jnp.sqrt(jnp.maximum(1.0, _group_squared(raw)))
+    irls = jnp.repeat(factors, np.array([3, 3, 9]), axis=-1, total_repeat_length=15)
+    gradient = pull(weight * irls * raw)[0]
 
     def cg_step(_, carry):
         delta, residual, direction, squared, finite = carry
@@ -260,13 +283,22 @@ def _windows(states, inputs, origins, history, horizon):
     )
 
 
-def _scale(windows, norms):
-    return np.maximum(
-        np.sqrt(
-            np.mean((windows["past_states"][:, -1:] - windows["future_states"]) ** 2, 0)
-        ),
-        0.01 * norms["state_scale"],
-    )
+def _scale(windows):
+    """Fixed scalar per physical group, expressed in the 15 residual coordinates."""
+    origins = windows["past_states"][:, -1:]
+    targets = windows["future_states"]
+    scales = []
+    for a, b, factor in ((0, 3, 1.0), (3, 6, 1.0), (6, 15, 0.5)):
+        origin = origins[..., a:b]
+        change = np.sqrt(
+            factor * np.mean(np.sum((origin - targets[..., a:b]) ** 2, axis=-1), axis=0)
+        )
+        spread = np.sqrt(
+            factor * np.mean(np.sum((origin - origin.mean(axis=0)) ** 2, axis=-1))
+        )
+        group = np.maximum(change, 0.01 * max(float(spread), 1e-4))
+        scales.append(np.repeat((group / np.sqrt(factor))[:, None], b - a, axis=1))
+    return np.concatenate(scales, axis=1)
 
 
 class OnlineFit:
@@ -305,7 +337,7 @@ class OnlineFit:
             horizon,
         )
         self._recent = {k: v[:0].copy() for k, v in self._bootstrap.items()}
-        self._scale = _scale(self._bootstrap, self._model.norms)
+        self._scale = _scale(self._bootstrap)
         self._states = states[-history - horizon - 1 :].copy()
         self._inputs = inputs[-history - horizon :].copy()
         self._contract = contract
@@ -671,7 +703,7 @@ class OnlineFit:
             self._states.shape != (p + h + 1, 15)
             or self._inputs.shape != (p + h, m)
             or self._scale.shape != (h, 15)
-            or not np.array_equal(self._scale, _scale(self._bootstrap, model.norms))
+            or not np.array_equal(self._scale, _scale(self._bootstrap))
         ):
             raise ValueError("online tail or fixed loss scale differs")
         _validate_rotations(self._states)

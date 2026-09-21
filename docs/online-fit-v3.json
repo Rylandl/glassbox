@@ -5,757 +5,12 @@
   "manifest_sha256": "df78c68a5c4567f3a4681d60bf5ed152c107f92b4f70455eb988564905bb9591",
   "reference_manifest_sha256": "baeea488c90eeffa9864756ca94e5f5725fe55c82dec9260b09c905421378319",
   "decision": "Failed the prospective improvement gate; do not adopt coordinate conditioning alone. Preserve all cases, including fixedwing-81 rate regression. Test group loss as a separate successor against the adopted v2.",
+  "tests_passed": 154,
   "result": {
     "accuracy_passed": false,
     "aggregate_ratio": 1.0140645237436543,
     "all_cases_complete": true,
     "candidate_closed_loop_trials": 0,
-    "cases": [
-      {
-        "assimilated": 875,
-        "collection": {
-          "candidate_fields": [
-            "states",
-            "commands",
-            "time_s"
-          ],
-          "change_step": null,
-          "duration_s": 10.0,
-          "error": null,
-          "floor_contact_step": null,
-          "id": "quad-arm-115",
-          "intervals": 1000,
-          "ordered_commands": [
-            "command_0 [1]",
-            "command_1 [1]",
-            "command_2 [1]",
-            "command_3 [1]"
-          ],
-          "status": "complete",
-          "stop": "duration",
-          "truncated": false,
-          "wall_time_s": 21.43311816616915
-        },
-        "complete": true,
-        "expected": 875,
-        "family": "quad",
-        "id": "quad-arm-115",
-        "kinematic_ratios": {
-          "body_rate_rmse_rad_s": 2.4577570402202578,
-          "orientation_rmse_rad": 6.947627875796069,
-          "velocity_rmse_m_s": 0.6868889925632363
-        },
-        "latency": {
-          "frozen_predict": {
-            "count": 875,
-            "first_s": 0.0009710420854389668,
-            "warm_max_s": 0.0030794169288128614,
-            "warm_median_s": 0.000654478557407856,
-            "warm_p95_s": 0.0007495936006307597
-          },
-          "observe": {
-            "count": 875,
-            "first_s": 2.4725269170012325,
-            "warm_max_s": 0.15048183384351432,
-            "warm_median_s": 0.027674437500536442,
-            "warm_p95_s": 0.028273173281922935
-          },
-          "predict": {
-            "count": 875,
-            "first_s": 0.5347596250940114,
-            "warm_max_s": 0.004774458007887006,
-            "warm_median_s": 0.0008123955922201276,
-            "warm_p95_s": 0.0009754585567861792
-          }
-        },
-        "metrics": {
-          "candidate": {
-            "body_rate_rmse_rad_s": 0.2744217590043236,
-            "orientation_rmse_rad": 0.003108666808787961,
-            "velocity_rmse_m_s": 0.02724989166676698
-          },
-          "frozen": {
-            "body_rate_rmse_rad_s": 2.309220533573504,
-            "orientation_rmse_rad": 0.010736290465443166,
-            "velocity_rmse_m_s": 0.1347157166217019
-          },
-          "kinematic": {
-            "body_rate_rmse_rad_s": 0.11165536483611523,
-            "orientation_rmse_rad": 0.0004474429063217157,
-            "velocity_rmse_m_s": 0.03967146360153428
-          },
-          "reference": {
-            "body_rate_rmse_rad_s": 0.2741662265526682,
-            "orientation_rmse_rad": 0.0013194619260374298,
-            "velocity_rmse_m_s": 0.02995855670773178
-          }
-        },
-        "predicted": 875,
-        "prefix": {
-          "centered_command_rank": 4,
-          "command_span": [
-            1.0,
-            0.8538146018981934,
-            0.9637047052383423,
-            0.8882708549499512
-          ],
-          "dt_s": 0.01,
-          "initialization_centered_command_rank": 4,
-          "initialization_command_span": [
-            0.9250354245305061,
-            0.7538146018981934,
-            0.8637047052383423,
-            0.7949167490005493
-          ],
-          "next_command_row": 125,
-          "start_row": 50
-        },
-        "ratios": {
-          "body_rate_rmse_rad_s": 0.11883739773422926,
-          "orientation_rmse_rad": 0.2895475694136451,
-          "velocity_rmse_m_s": 0.2022770048671306
-        },
-        "reference_ratios": {
-          "body_rate_rmse_rad_s": 1.0009320347544934,
-          "orientation_rmse_rad": 2.3560109976979935,
-          "velocity_rmse_m_s": 0.9095862638714588
-        },
-        "startup_s": {
-          "candidate": 0.005817083176225424,
-          "frozen": 0.002153875073418021
-        },
-        "support": {
-          "maximum_abs_command_z": 1.8083043489192587,
-          "maximum_motion_ratio": 9.810666704739138,
-          "observed_rows": 875,
-          "outside_bootstrap_motion_support": 840
-        }
-      },
-      {
-        "assimilated": 875,
-        "collection": {
-          "candidate_fields": [
-            "states",
-            "commands",
-            "time_s"
-          ],
-          "change_step": null,
-          "duration_s": 10.0,
-          "error": null,
-          "floor_contact_step": null,
-          "id": "quad-arm-125",
-          "intervals": 1000,
-          "ordered_commands": [
-            "command_0 [1]",
-            "command_1 [1]",
-            "command_2 [1]",
-            "command_3 [1]"
-          ],
-          "status": "complete",
-          "stop": "duration",
-          "truncated": false,
-          "wall_time_s": 19.03923274995759
-        },
-        "complete": true,
-        "expected": 875,
-        "family": "quad",
-        "id": "quad-arm-125",
-        "kinematic_ratios": {
-          "body_rate_rmse_rad_s": 0.8964698723500493,
-          "orientation_rmse_rad": 1.0017126265586047,
-          "velocity_rmse_m_s": 0.489957385648497
-        },
-        "latency": {
-          "frozen_predict": {
-            "count": 875,
-            "first_s": 0.0007449591066688299,
-            "warm_max_s": 0.00440191593952477,
-            "warm_median_s": 0.0006489999359473586,
-            "warm_p95_s": 0.0007534040953032673
-          },
-          "observe": {
-            "count": 875,
-            "first_s": 0.02787066693417728,
-            "warm_max_s": 0.0476087920833379,
-            "warm_median_s": 0.027696521021425724,
-            "warm_p95_s": 0.028443749924190343
-          },
-          "predict": {
-            "count": 875,
-            "first_s": 0.0008905830327421427,
-            "warm_max_s": 0.0018428328912705183,
-            "warm_median_s": 0.0008137290133163333,
-            "warm_p95_s": 0.0009932641289196905
-          }
-        },
-        "metrics": {
-          "candidate": {
-            "body_rate_rmse_rad_s": 0.10809500971452958,
-            "orientation_rmse_rad": 0.0004871636850194783,
-            "velocity_rmse_m_s": 0.014414070369173386
-          },
-          "frozen": {
-            "body_rate_rmse_rad_s": 0.6803210393280901,
-            "orientation_rmse_rad": 0.003144297400383177,
-            "velocity_rmse_m_s": 0.03760597789486961
-          },
-          "kinematic": {
-            "body_rate_rmse_rad_s": 0.12057851919904918,
-            "orientation_rmse_rad": 0.00048633078200594794,
-            "velocity_rmse_m_s": 0.029419028657145834
-          },
-          "reference": {
-            "body_rate_rmse_rad_s": 0.13205685894700137,
-            "orientation_rmse_rad": 0.0006090004675840088,
-            "velocity_rmse_m_s": 0.020033228921904768
-          }
-        },
-        "predicted": 875,
-        "prefix": {
-          "centered_command_rank": 4,
-          "command_span": [
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ],
-          "dt_s": 0.01,
-          "initialization_centered_command_rank": 4,
-          "initialization_command_span": [
-            0.9238753020763397,
-            0.9,
-            0.9,
-            0.9062795117497444
-          ],
-          "next_command_row": 125,
-          "start_row": 50
-        },
-        "ratios": {
-          "body_rate_rmse_rad_s": 0.1588882357971586,
-          "orientation_rmse_rad": 0.15493562566954083,
-          "velocity_rmse_m_s": 0.3832919970720885
-        },
-        "reference_ratios": {
-          "body_rate_rmse_rad_s": 0.8185489990937279,
-          "orientation_rmse_rad": 0.7999397553045003,
-          "velocity_rmse_m_s": 0.7195080945444959
-        },
-        "startup_s": {
-          "candidate": 0.002477874979376793,
-          "frozen": 0.002043458865955472
-        },
-        "support": {
-          "maximum_abs_command_z": 1.4771725255796646,
-          "maximum_motion_ratio": 61.01000263388748,
-          "observed_rows": 875,
-          "outside_bootstrap_motion_support": 872
-        }
-      },
-      {
-        "assimilated": 62,
-        "collection": {
-          "candidate_fields": [
-            "states",
-            "commands",
-            "time_s"
-          ],
-          "change_step": null,
-          "duration_s": 1.87,
-          "error": null,
-          "floor_contact_step": 86,
-          "id": "quad-arm-135",
-          "intervals": 187,
-          "ordered_commands": [
-            "command_0 [1]",
-            "command_1 [1]",
-            "command_2 [1]",
-            "command_3 [1]"
-          ],
-          "status": "complete",
-          "stop": "floor_contact",
-          "truncated": true,
-          "wall_time_s": 4.212521584006026
-        },
-        "complete": true,
-        "expected": 62,
-        "family": "quad",
-        "id": "quad-arm-135",
-        "kinematic_ratios": {
-          "body_rate_rmse_rad_s": 1.1223902006523774,
-          "orientation_rmse_rad": 1.3640760470550488,
-          "velocity_rmse_m_s": 1.0298741766839463
-        },
-        "latency": {
-          "frozen_predict": {
-            "count": 62,
-            "first_s": 0.0007402910850942135,
-            "warm_max_s": 0.0009763750713318586,
-            "warm_median_s": 0.0006564587820321321,
-            "warm_p95_s": 0.0007167081348598003
-          },
-          "observe": {
-            "count": 62,
-            "first_s": 0.02812720788642764,
-            "warm_max_s": 0.029601957881823182,
-            "warm_median_s": 0.027713374933227897,
-            "warm_p95_s": 0.028736958047375083
-          },
-          "predict": {
-            "count": 62,
-            "first_s": 0.0008876658976078033,
-            "warm_max_s": 0.0011493749916553497,
-            "warm_median_s": 0.0008216660935431719,
-            "warm_p95_s": 0.001037708017975092
-          }
-        },
-        "metrics": {
-          "candidate": {
-            "body_rate_rmse_rad_s": 1.2580637005277349,
-            "orientation_rmse_rad": 0.0061240056361251075,
-            "velocity_rmse_m_s": 1.2089577675893695
-          },
-          "frozen": {
-            "body_rate_rmse_rad_s": 4.525367984737336,
-            "orientation_rmse_rad": 0.01966458484088863,
-            "velocity_rmse_m_s": 1.3364842312514198
-          },
-          "kinematic": {
-            "body_rate_rmse_rad_s": 1.120879084472137,
-            "orientation_rmse_rad": 0.004489489900028987,
-            "velocity_rmse_m_s": 1.1738888059918617
-          },
-          "reference": {
-            "body_rate_rmse_rad_s": 1.7133277407275986,
-            "orientation_rmse_rad": 0.007511907955393586,
-            "velocity_rmse_m_s": 1.273409567652261
-          }
-        },
-        "predicted": 62,
-        "prefix": {
-          "centered_command_rank": 4,
-          "command_span": [
-            0.9212662577629089,
-            0.9611897468566895,
-            0.7960771441459655,
-            0.9158992767333984
-          ],
-          "dt_s": 0.01,
-          "initialization_centered_command_rank": 4,
-          "initialization_command_span": [
-            0.8461010009050369,
-            0.8611897468566895,
-            0.7714989006519317,
-            0.8221787884831429
-          ],
-          "next_command_row": 125,
-          "start_row": 50
-        },
-        "ratios": {
-          "body_rate_rmse_rad_s": 0.27800251930247305,
-          "orientation_rmse_rad": 0.3114230829522241,
-          "velocity_rmse_m_s": 0.9045806447393392
-        },
-        "reference_ratios": {
-          "body_rate_rmse_rad_s": 0.7342808212475875,
-          "orientation_rmse_rad": 0.8152397064088148,
-          "velocity_rmse_m_s": 0.9493864333203347
-        },
-        "startup_s": {
-          "candidate": 0.003248458029702306,
-          "frozen": 0.0020369580015540123
-        },
-        "support": {
-          "maximum_abs_command_z": 2.8248331033321774,
-          "maximum_motion_ratio": 5.896822398580431,
-          "observed_rows": 62,
-          "outside_bootstrap_motion_support": 62
-        }
-      },
-      {
-        "adaptation": {
-          "after_first_second": {
-            "count": 500,
-            "metrics": {
-              "candidate": {
-                "body_rate_rmse_rad_s": 0.0014228927889359015,
-                "orientation_rmse_rad": 6.563421398024893e-06,
-                "velocity_rmse_m_s": 0.0002149732519336759
-              },
-              "frozen": {
-                "body_rate_rmse_rad_s": 0.5948785131028014,
-                "orientation_rmse_rad": 0.0027688303367972033,
-                "velocity_rmse_m_s": 0.02783389164647416
-              },
-              "kinematic": {
-                "body_rate_rmse_rad_s": 0.0004074994099565494,
-                "orientation_rmse_rad": 1.641756754171615e-06,
-                "velocity_rmse_m_s": 0.0007024632960017958
-              },
-              "reference": {
-                "body_rate_rmse_rad_s": 0.0015290491727213214,
-                "orientation_rmse_rad": 8.80378931678671e-06,
-                "velocity_rmse_m_s": 0.0008502764865506616
-              }
-            },
-            "ratios": {
-              "body_rate_rmse_rad_s": 0.0023919048303061006,
-              "orientation_rmse_rad": 0.0023704671647079025,
-              "velocity_rmse_m_s": 0.007723434964255439
-            },
-            "reference_ratios": {
-              "body_rate_rmse_rad_s": 0.930573597187533,
-              "orientation_rmse_rad": 0.7455223156590113,
-              "velocity_rmse_m_s": 0.2528274688692891
-            }
-          },
-          "first_second": {
-            "count": 100,
-            "metrics": {
-              "candidate": {
-                "body_rate_rmse_rad_s": 0.013585452755817183,
-                "orientation_rmse_rad": 5.935515615664051e-05,
-                "velocity_rmse_m_s": 0.0023980380656300304
-              },
-              "frozen": {
-                "body_rate_rmse_rad_s": 0.6066034631949813,
-                "orientation_rmse_rad": 0.002821924325712075,
-                "velocity_rmse_m_s": 0.030072024362273825
-              },
-              "kinematic": {
-                "body_rate_rmse_rad_s": 0.0036640333223428205,
-                "orientation_rmse_rad": 1.465558118645019e-05,
-                "velocity_rmse_m_s": 0.003477941945458164
-              },
-              "reference": {
-                "body_rate_rmse_rad_s": 0.013595732157847758,
-                "orientation_rmse_rad": 5.3574975045046275e-05,
-                "velocity_rmse_m_s": 0.008830687555402181
-              }
-            },
-            "ratios": {
-              "body_rate_rmse_rad_s": 0.02239593668697931,
-              "orientation_rmse_rad": 0.02103357471914596,
-              "velocity_rmse_m_s": 0.07974315386091647
-            },
-            "reference_ratios": {
-              "body_rate_rmse_rad_s": 0.9992439243498452,
-              "orientation_rmse_rad": 1.1078895717027253,
-              "velocity_rmse_m_s": 0.2715573448369859
-            }
-          }
-        },
-        "assimilated": 875,
-        "collection": {
-          "candidate_fields": [
-            "states",
-            "commands",
-            "time_s"
-          ],
-          "change_step": 300,
-          "duration_s": 10.0,
-          "error": null,
-          "floor_contact_step": null,
-          "id": "quad-change",
-          "intervals": 1000,
-          "ordered_commands": [
-            "command_0 [1]",
-            "command_1 [1]",
-            "command_2 [1]",
-            "command_3 [1]"
-          ],
-          "status": "complete",
-          "stop": "duration",
-          "truncated": false,
-          "wall_time_s": 18.7982960420195
-        },
-        "complete": true,
-        "expected": 875,
-        "family": "quad",
-        "id": "quad-change",
-        "kinematic_ratios": {
-          "body_rate_rmse_rad_s": 0.8964255631725337,
-          "orientation_rmse_rad": 1.0016426946366834,
-          "velocity_rmse_m_s": 0.4898741511249227
-        },
-        "latency": {
-          "frozen_predict": {
-            "count": 875,
-            "first_s": 0.0006816249806433916,
-            "warm_max_s": 0.006859624991193414,
-            "warm_median_s": 0.0006541251204907894,
-            "warm_p95_s": 0.0007823585416190324
-          },
-          "observe": {
-            "count": 875,
-            "first_s": 0.02788495784625411,
-            "warm_max_s": 0.055419249925762415,
-            "warm_median_s": 0.02771658299025148,
-            "warm_p95_s": 0.029155327228363604
-          },
-          "predict": {
-            "count": 875,
-            "first_s": 0.0009431249927729368,
-            "warm_max_s": 0.003422207897529006,
-            "warm_median_s": 0.0008168540662154555,
-            "warm_p95_s": 0.0009856017306447027
-          }
-        },
-        "metrics": {
-          "candidate": {
-            "body_rate_rmse_rad_s": 0.10809091102812585,
-            "orientation_rmse_rad": 0.0004871351955399976,
-            "velocity_rmse_m_s": 0.014411411242136112
-          },
-          "frozen": {
-            "body_rate_rmse_rad_s": 0.6803340285962546,
-            "orientation_rmse_rad": 0.0031443546281355677,
-            "velocity_rmse_m_s": 0.03760615698506135
-          },
-          "kinematic": {
-            "body_rate_rmse_rad_s": 0.1205799069870141,
-            "orientation_rmse_rad": 0.00048633629351900936,
-            "velocity_rmse_m_s": 0.02941859906068214
-          },
-          "reference": {
-            "body_rate_rmse_rad_s": 0.13207864163146518,
-            "orientation_rmse_rad": 0.0006090661167439254,
-            "velocity_rmse_m_s": 0.020064222864730794
-          }
-        },
-        "predicted": 875,
-        "prefix": {
-          "centered_command_rank": 4,
-          "command_span": [
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ],
-          "dt_s": 0.01,
-          "initialization_centered_command_rank": 4,
-          "initialization_command_span": [
-            0.9238753020763397,
-            0.9,
-            0.9,
-            0.9062795117497444
-          ],
-          "next_command_row": 125,
-          "start_row": 50
-        },
-        "ratios": {
-          "body_rate_rmse_rad_s": 0.15887917770503376,
-          "orientation_rmse_rad": 0.15492374529931519,
-          "velocity_rmse_m_s": 0.3832194618519753
-        },
-        "reference_ratios": {
-          "body_rate_rmse_rad_s": 0.8183829701226673,
-          "orientation_rmse_rad": 0.7998067568496965,
-          "velocity_rmse_m_s": 0.7182641131577898
-        },
-        "startup_s": {
-          "candidate": 0.0022859161254018545,
-          "frozen": 0.0021440410055220127
-        },
-        "support": {
-          "maximum_abs_command_z": 1.4771725255796646,
-          "maximum_motion_ratio": 61.01000263388748,
-          "observed_rows": 875,
-          "outside_bootstrap_motion_support": 872
-        }
-      },
-      {
-        "assimilated": 225,
-        "collection": null,
-        "complete": true,
-        "expected": 225,
-        "family": "fixedwing",
-        "id": "fixedwing-80",
-        "kinematic_ratios": {
-          "body_rate_rmse_rad_s": 6.713866691577087,
-          "orientation_rmse_rad": 5.918110206879018,
-          "velocity_rmse_m_s": 2.8479821737406774
-        },
-        "latency": {
-          "frozen_predict": {
-            "count": 225,
-            "first_s": 0.0008769170381128788,
-            "warm_max_s": 0.0007470001000910997,
-            "warm_median_s": 0.0005893129855394363,
-            "warm_p95_s": 0.0006442811107262969
-          },
-          "observe": {
-            "count": 225,
-            "first_s": 2.0917840839829296,
-            "warm_max_s": 0.004463333170861006,
-            "warm_median_s": 0.003656708518974483,
-            "warm_p95_s": 0.003955758095253259
-          },
-          "predict": {
-            "count": 225,
-            "first_s": 0.2922763330861926,
-            "warm_max_s": 0.0010106668341904879,
-            "warm_median_s": 0.0006533955456689,
-            "warm_p95_s": 0.0007990168989636004
-          }
-        },
-        "metrics": {
-          "candidate": {
-            "body_rate_rmse_rad_s": 2.525596199282282,
-            "orientation_rmse_rad": 0.05636791082511546,
-            "velocity_rmse_m_s": 0.48025620727366874
-          },
-          "frozen": {
-            "body_rate_rmse_rad_s": 2.856183243399267,
-            "orientation_rmse_rad": 0.06837837890672713,
-            "velocity_rmse_m_s": 1.302684177243834
-          },
-          "kinematic": {
-            "body_rate_rmse_rad_s": 0.3761761016867941,
-            "orientation_rmse_rad": 0.009524647033371436,
-            "velocity_rmse_m_s": 0.16863034175627478
-          },
-          "reference": {
-            "body_rate_rmse_rad_s": 2.9534610462840183,
-            "orientation_rmse_rad": 0.06781498510653382,
-            "velocity_rmse_m_s": 1.1625283519871212
-          }
-        },
-        "predicted": 225,
-        "prefix": {
-          "centered_command_rank": 3,
-          "command_span": [
-            0.03075030111349525,
-            0.02523502370005945,
-            0.558165904397022
-          ],
-          "dt_s": 0.05,
-          "initialization_centered_command_rank": 3,
-          "initialization_command_span": [
-            0.002368994534133806,
-            0.02523502370005945,
-            0.558165904397022
-          ],
-          "next_command_row": 15,
-          "start_row": 0
-        },
-        "ratios": {
-          "body_rate_rmse_rad_s": 0.8842556601082993,
-          "orientation_rmse_rad": 0.8243528396893588,
-          "velocity_rmse_m_s": 0.3686666466539689
-        },
-        "reference_ratios": {
-          "body_rate_rmse_rad_s": 0.8551310343029352,
-          "orientation_rmse_rad": 0.8312014038868313,
-          "velocity_rmse_m_s": 0.41311354381401716
-        },
-        "startup_s": {
-          "candidate": 0.0010528331622481346,
-          "frozen": 0.0006995419971644878
-        },
-        "support": {
-          "maximum_abs_command_z": 101.89701988516777,
-          "maximum_motion_ratio": 34.1038268139305,
-          "observed_rows": 225,
-          "outside_bootstrap_motion_support": 225
-        }
-      },
-      {
-        "assimilated": 225,
-        "collection": null,
-        "complete": true,
-        "expected": 225,
-        "family": "fixedwing",
-        "id": "fixedwing-81",
-        "kinematic_ratios": {
-          "body_rate_rmse_rad_s": 84.0477435449026,
-          "orientation_rmse_rad": 36.36299764971936,
-          "velocity_rmse_m_s": 22.46554282086423
-        },
-        "latency": {
-          "frozen_predict": {
-            "count": 225,
-            "first_s": 0.0006427920889109373,
-            "warm_max_s": 0.0007589578162878752,
-            "warm_median_s": 0.0005796670448035002,
-            "warm_p95_s": 0.0006307080504484475
-          },
-          "observe": {
-            "count": 225,
-            "first_s": 0.0039321251679211855,
-            "warm_max_s": 0.007538875099271536,
-            "warm_median_s": 0.0036480413982644677,
-            "warm_p95_s": 0.003978670632932335
-          },
-          "predict": {
-            "count": 225,
-            "first_s": 0.0008069169707596302,
-            "warm_max_s": 0.001173666911199689,
-            "warm_median_s": 0.0006448545027524233,
-            "warm_p95_s": 0.0007952831452712417
-          }
-        },
-        "metrics": {
-          "candidate": {
-            "body_rate_rmse_rad_s": 31.870513273822827,
-            "orientation_rmse_rad": 0.34851836575354134,
-            "velocity_rmse_m_s": 3.8243706807747233
-          },
-          "frozen": {
-            "body_rate_rmse_rad_s": 12.365551689155017,
-            "orientation_rmse_rad": 0.2879333853339188,
-            "velocity_rmse_m_s": 7.204759659359133
-          },
-          "kinematic": {
-            "body_rate_rmse_rad_s": 0.37919534694939155,
-            "orientation_rmse_rad": 0.009584423405099306,
-            "velocity_rmse_m_s": 0.17023272979733872
-          },
-          "reference": {
-            "body_rate_rmse_rad_s": 4.8978591765271595,
-            "orientation_rmse_rad": 0.13698230308811007,
-            "velocity_rmse_m_s": 3.6851700437400585
-          }
-        },
-        "predicted": 225,
-        "prefix": {
-          "centered_command_rank": 3,
-          "command_span": [
-            0.008389884095545475,
-            0.01636984275811846,
-            0.5685293790374014
-          ],
-          "dt_s": 0.05,
-          "initialization_centered_command_rank": 3,
-          "initialization_command_span": [
-            0.004140947666952777,
-            0.012662779823997976,
-            0.5641695876172059
-          ],
-          "next_command_row": 15,
-          "start_row": 0
-        },
-        "ratios": {
-          "body_rate_rmse_rad_s": 2.577362828200725,
-          "orientation_rmse_rad": 1.2104131841097954,
-          "velocity_rmse_m_s": 0.5308116941564853
-        },
-        "reference_ratios": {
-          "body_rate_rmse_rad_s": 6.5070293214148105,
-          "orientation_rmse_rad": 2.5442583304309503,
-          "velocity_rmse_m_s": 1.0377731923852802
-        },
-        "startup_s": {
-          "candidate": 0.00091020786203444,
-          "frozen": 0.0006985419895499945
-        },
-        "support": {
-          "maximum_abs_command_z": 75.86828231991927,
-          "maximum_motion_ratio": 87.95193189224436,
-          "observed_rows": 225,
-          "outside_bootstrap_motion_support": 225
-        }
-      }
-    ],
     "families": {
       "fixedwing": {
         "aggregate": 1.2427873621249153,
@@ -791,10 +46,238 @@
         }
       }
     },
-    "orientation_metric": "Rotation.from_matrix(R_true.T @ R_pred).magnitude; proper-rotation projection",
     "primary_comparison": "candidate / saved online-fit-v2",
-    "real_time_target_passed": false,
-    "timing": "synchronized calls; durable journal/checkpoint overhead excluded from per-call latency"
+    "real_time_target_passed": false
   },
-  "tests_passed": 154
+  "cases": [
+    {
+      "id": "quad-arm-115",
+      "expected": 875,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.2744217590043236,
+          "orientation_rmse_rad": 0.003108666808787961,
+          "velocity_rmse_m_s": 0.02724989166676698
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 2.309220533573504,
+          "orientation_rmse_rad": 0.010736290465443166,
+          "velocity_rmse_m_s": 0.1347157166217019
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.11165536483611523,
+          "orientation_rmse_rad": 0.0004474429063217157,
+          "velocity_rmse_m_s": 0.03967146360153428
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 0.2741662265526682,
+          "orientation_rmse_rad": 0.0013194619260374298,
+          "velocity_rmse_m_s": 0.02995855670773178
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 1.0009320347544934,
+        "orientation_rmse_rad": 2.3560109976979935,
+        "velocity_rmse_m_s": 0.9095862638714588
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 2.4577570402202578,
+        "orientation_rmse_rad": 6.947627875796069,
+        "velocity_rmse_m_s": 0.6868889925632363
+      }
+    },
+    {
+      "id": "quad-arm-125",
+      "expected": 875,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.10809500971452958,
+          "orientation_rmse_rad": 0.0004871636850194783,
+          "velocity_rmse_m_s": 0.014414070369173386
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 0.6803210393280901,
+          "orientation_rmse_rad": 0.003144297400383177,
+          "velocity_rmse_m_s": 0.03760597789486961
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.12057851919904918,
+          "orientation_rmse_rad": 0.00048633078200594794,
+          "velocity_rmse_m_s": 0.029419028657145834
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 0.13205685894700137,
+          "orientation_rmse_rad": 0.0006090004675840088,
+          "velocity_rmse_m_s": 0.020033228921904768
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 0.8185489990937279,
+        "orientation_rmse_rad": 0.7999397553045003,
+        "velocity_rmse_m_s": 0.7195080945444959
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 0.8964698723500493,
+        "orientation_rmse_rad": 1.0017126265586047,
+        "velocity_rmse_m_s": 0.489957385648497
+      }
+    },
+    {
+      "id": "quad-arm-135",
+      "expected": 62,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 1.2580637005277349,
+          "orientation_rmse_rad": 0.0061240056361251075,
+          "velocity_rmse_m_s": 1.2089577675893695
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 4.525367984737336,
+          "orientation_rmse_rad": 0.01966458484088863,
+          "velocity_rmse_m_s": 1.3364842312514198
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 1.120879084472137,
+          "orientation_rmse_rad": 0.004489489900028987,
+          "velocity_rmse_m_s": 1.1738888059918617
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 1.7133277407275986,
+          "orientation_rmse_rad": 0.007511907955393586,
+          "velocity_rmse_m_s": 1.273409567652261
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 0.7342808212475875,
+        "orientation_rmse_rad": 0.8152397064088148,
+        "velocity_rmse_m_s": 0.9493864333203347
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 1.1223902006523774,
+        "orientation_rmse_rad": 1.3640760470550488,
+        "velocity_rmse_m_s": 1.0298741766839463
+      }
+    },
+    {
+      "id": "quad-change",
+      "expected": 875,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 0.10809091102812585,
+          "orientation_rmse_rad": 0.0004871351955399976,
+          "velocity_rmse_m_s": 0.014411411242136112
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 0.6803340285962546,
+          "orientation_rmse_rad": 0.0031443546281355677,
+          "velocity_rmse_m_s": 0.03760615698506135
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.1205799069870141,
+          "orientation_rmse_rad": 0.00048633629351900936,
+          "velocity_rmse_m_s": 0.02941859906068214
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 0.13207864163146518,
+          "orientation_rmse_rad": 0.0006090661167439254,
+          "velocity_rmse_m_s": 0.020064222864730794
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 0.8183829701226673,
+        "orientation_rmse_rad": 0.7998067568496965,
+        "velocity_rmse_m_s": 0.7182641131577898
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 0.8964255631725337,
+        "orientation_rmse_rad": 1.0016426946366834,
+        "velocity_rmse_m_s": 0.4898741511249227
+      }
+    },
+    {
+      "id": "fixedwing-80",
+      "expected": 225,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 2.525596199282282,
+          "orientation_rmse_rad": 0.05636791082511546,
+          "velocity_rmse_m_s": 0.48025620727366874
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 2.856183243399267,
+          "orientation_rmse_rad": 0.06837837890672713,
+          "velocity_rmse_m_s": 1.302684177243834
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.3761761016867941,
+          "orientation_rmse_rad": 0.009524647033371436,
+          "velocity_rmse_m_s": 0.16863034175627478
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 2.9534610462840183,
+          "orientation_rmse_rad": 0.06781498510653382,
+          "velocity_rmse_m_s": 1.1625283519871212
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 0.8551310343029352,
+        "orientation_rmse_rad": 0.8312014038868313,
+        "velocity_rmse_m_s": 0.41311354381401716
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 6.713866691577087,
+        "orientation_rmse_rad": 5.918110206879018,
+        "velocity_rmse_m_s": 2.8479821737406774
+      }
+    },
+    {
+      "id": "fixedwing-81",
+      "expected": 225,
+      "complete": true,
+      "metrics": {
+        "candidate": {
+          "body_rate_rmse_rad_s": 31.870513273822827,
+          "orientation_rmse_rad": 0.34851836575354134,
+          "velocity_rmse_m_s": 3.8243706807747233
+        },
+        "frozen": {
+          "body_rate_rmse_rad_s": 12.365551689155017,
+          "orientation_rmse_rad": 0.2879333853339188,
+          "velocity_rmse_m_s": 7.204759659359133
+        },
+        "kinematic": {
+          "body_rate_rmse_rad_s": 0.37919534694939155,
+          "orientation_rmse_rad": 0.009584423405099306,
+          "velocity_rmse_m_s": 0.17023272979733872
+        },
+        "reference": {
+          "body_rate_rmse_rad_s": 4.8978591765271595,
+          "orientation_rmse_rad": 0.13698230308811007,
+          "velocity_rmse_m_s": 3.6851700437400585
+        }
+      },
+      "reference_ratios": {
+        "body_rate_rmse_rad_s": 6.5070293214148105,
+        "orientation_rmse_rad": 2.5442583304309503,
+        "velocity_rmse_m_s": 1.0377731923852802
+      },
+      "kinematic_ratios": {
+        "body_rate_rmse_rad_s": 84.0477435449026,
+        "orientation_rmse_rad": 36.36299764971936,
+        "velocity_rmse_m_s": 22.46554282086423
+      }
+    }
+  ],
+  "verification": {
+    "verified": true,
+    "fits": 0,
+    "model_calls": 0,
+    "observations": 3137,
+    "matched_input_and_comparator_bytes": true
+  }
 }

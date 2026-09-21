@@ -227,10 +227,8 @@ def retained_loss(model, session):
                     windows["future_inputs"],
                 )
             )
-            residual = np.abs((prediction - windows["future_states"]) / session._scale)
-            values.append(
-                np.where(residual <= 1, 0.5 * residual**2, residual - 0.5).mean()
-            )
+            residual = (prediction - windows["future_states"]) / session._scale
+            values.append(numpy_group_huber(residual).mean())
     return float(np.mean(values))
 
 
@@ -482,12 +480,22 @@ def test_10ms_stream_uses_only_completed_50ms_training_targets(tmp_path):
     assert OnlineFit.load(path).fingerprint() == session.fingerprint()
 
 
+def numpy_group_huber(residual):
+    magnitudes = np.stack(
+        [
+            np.linalg.norm(residual[..., part], axis=-1)
+            for part in (slice(0, 3), slice(3, 6), slice(6, 15))
+        ],
+        axis=-1,
+    )
+    return np.where(magnitudes <= 1, 0.5 * magnitudes**2, magnitudes - 0.5)
+
+
 def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
     monkeypatch,
 ):
-    """Check CG/IRLS/trust arithmetic against an independent two-parameter problem."""
-    matrix = np.zeros((15, 2))
-    matrix[:3] = [[1.0, 0.2], [-0.3, 0.7], [0.2, -0.1]]
+    """Compare every group-IRLS proposal to a dense two-parameter solve."""
+    matrix = np.random.default_rng(581).normal(0, 0.3, (15, 2))
     start = np.array([0.1, -0.05])
     weights = np.zeros(64)
     weights[:5] = 0.1
@@ -497,11 +505,11 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
     scale = np.ones((1, 15))
 
     def linear_rollout(params, norms, past, past_inputs, future, delay, dt_s):
-        values = jnp.asarray(matrix) @ params["coefficients"]
-        return jnp.broadcast_to(values, (64, 1, 15))
+        return jnp.broadcast_to(
+            jnp.asarray(matrix) @ params["coefficients"], (64, 1, 15)
+        )
 
     monkeypatch.setattr(online, "_rollout", linear_rollout)
-    # Bypass the JIT cache so this deliberately independent residual map is traced.
     solve = online._proposal.__wrapped__
     with jax.enable_x64(True):
         for target, damping in (
@@ -523,25 +531,146 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
             assert bool(finite) and np.isfinite([current, trial, predicted]).all()
             delta = np.asarray(proposal["coefficients"]) - start
             residual = matrix @ (start - target)
-            radius = max(1.0, 0.5 * np.linalg.norm(residual) / np.sqrt(15))
-            prediction_change = np.linalg.norm(matrix @ delta) / np.sqrt(15)
-            assert prediction_change <= radius * (1 + 1e-10)
+            irls = np.concatenate(
+                [
+                    np.full(
+                        part.stop - part.start,
+                        1 / max(1, np.linalg.norm(residual[part])),
+                    )
+                    for part in (slice(0, 3), slice(3, 6), slice(6, 15))
+                ]
+            )
+            curvature = matrix.T @ (irls[:, None] * matrix) / 3
+            gradient = matrix.T @ (irls * residual) / 3
+            expected = np.linalg.solve(curvature + damping * np.eye(2), -gradient)
+            radius = max(1.0, 0.5 * np.linalg.norm(residual) / np.sqrt(3))
+            step_size = np.linalg.norm(matrix @ expected) / np.sqrt(3)
+            if step_size > radius:
+                expected *= radius / step_size
+            np.testing.assert_allclose(delta, expected, atol=1e-12, rtol=1e-10)
+            expected_reduction = -gradient @ delta - 0.5 * delta @ curvature @ delta
+            assert float(predicted) == pytest.approx(
+                expected_reduction, abs=1e-12, rel=1e-10
+            )
+            assert float(current) == pytest.approx(
+                numpy_group_huber(residual).mean(), abs=1e-12
+            )
+            assert float(trial) == pytest.approx(
+                numpy_group_huber(residual + matrix @ delta).mean(), abs=1e-12
+            )
+            assert np.linalg.norm(matrix @ delta) / np.sqrt(3) <= radius * (1 + 1e-10)
             if np.array_equal(target, start):
                 np.testing.assert_array_equal(delta, np.zeros(2))
                 assert current == trial == predicted == 0
-            elif np.max(np.abs(residual)) < 1:
-                curvature = matrix.T @ matrix / 15
-                gradient = matrix.T @ residual / 15
-                expected = np.linalg.solve(curvature + damping * np.eye(2), -gradient)
-                np.testing.assert_allclose(delta, expected, atol=1e-12, rtol=1e-10)
-                expected_reduction = -gradient @ delta - 0.5 * delta @ curvature @ delta
-                assert float(predicted) == pytest.approx(expected_reduction, rel=1e-10)
-                assert float(current - trial) == pytest.approx(
-                    float(predicted), rel=1e-10
-                )
             else:
                 assert float(predicted) > 0 and float(trial) < float(current)
-                assert prediction_change == pytest.approx(radius, rel=1e-10)
+
+
+def numpy_group_scale(windows):
+    origins = windows["past_states"][:, -1]
+    targets = windows["future_states"]
+    result = np.empty(targets.shape[1:])
+    for part, factor in ((slice(0, 3), 1.0), (slice(3, 6), 1.0), (slice(6, 15), 0.5)):
+        samples = origins[:, part]
+        center = sum(samples) / len(samples)
+        spread = np.sqrt(
+            sum(factor * np.dot(row - center, row - center) for row in samples)
+            / len(samples)
+        )
+        floor = 0.01 * max(spread, 1e-4)
+        for horizon in range(targets.shape[1]):
+            energy = sum(
+                factor * np.dot(origin - target, origin - target)
+                for origin, target in zip(samples, targets[:, horizon, part])
+            ) / len(samples)
+            result[horizon, part] = max(np.sqrt(energy), floor) / np.sqrt(factor)
+    return result
+
+
+def test_group_scale_matches_raw_vector_spread_and_floors():
+    _, bootstrap, _ = conditioning_fixture()
+    np.testing.assert_allclose(
+        online._scale(bootstrap), numpy_group_scale(bootstrap), rtol=2e-15, atol=1e-16
+    )
+    unchanged = dict(
+        bootstrap, future_states=np.repeat(bootstrap["past_states"][:, -1:], 3, axis=1)
+    )
+    np.testing.assert_allclose(
+        online._scale(unchanged), numpy_group_scale(unchanged), rtol=2e-15, atol=1e-16
+    )
+    constant = {
+        name: np.repeat(value[:1], len(value), axis=0)
+        for name, value in unchanged.items()
+    }
+    expected_floor = np.tile(
+        np.r_[np.full(6, 1e-6), np.full(9, np.sqrt(2) * 1e-6)], (3, 1)
+    )
+    np.testing.assert_allclose(
+        online._scale(constant), expected_floor, rtol=2e-15, atol=1e-16
+    )
+
+
+def test_group_scale_and_objective_are_invariant_under_common_frame_rotations():
+    from scipy.spatial.transform import Rotation
+
+    _, bootstrap, _ = conditioning_fixture()
+    world = Rotation.from_rotvec([0.43, -0.28, 0.71]).as_matrix()
+    body = Rotation.from_rotvec([-0.21, 0.65, 0.38]).as_matrix()
+
+    def rotate(states):
+        result = states.copy()
+        result[..., :3] = states[..., :3] @ world.T
+        result[..., 3:6] = states[..., 3:6] @ body.T
+        result[..., 6:] = (
+            world @ states[..., 6:].reshape(*states.shape[:-1], 3, 3) @ body.T
+        ).reshape(*states.shape[:-1], 9)
+        return result
+
+    transformed = {
+        name: rotate(value) if name.endswith("states") else value
+        for name, value in bootstrap.items()
+    }
+    original_scale, transformed_scale = (
+        online._scale(bootstrap),
+        online._scale(transformed),
+    )
+    np.testing.assert_allclose(
+        original_scale, transformed_scale, rtol=2e-13, atol=2e-15
+    )
+    rng = np.random.default_rng(64)
+    predicted = bootstrap["future_states"] + rng.normal(
+        0, 0.3, bootstrap["future_states"].shape
+    )
+    original = (predicted - bootstrap["future_states"]) / original_scale
+    rotated = (rotate(predicted) - transformed["future_states"]) / transformed_scale
+    with jax.enable_x64(True):
+        np.testing.assert_allclose(
+            online._huber(original), online._huber(rotated), rtol=2e-12, atol=2e-12
+        )
+
+
+def test_radial_huber_gradient_is_finite_at_zero_and_handles_group_outliers():
+    examples = np.array(
+        [
+            np.zeros(15),
+            [0.2, -0.1, 0.3, 0, 0, 0, *([0.05] * 9)],
+            [3.0, 4.0, 0.0, 0.1, 0.2, 0.0, *([2.0] * 9)],
+        ]
+    )
+    with jax.enable_x64(True):
+        for residual in examples:
+            value = online._huber(jnp.asarray(residual))
+            gradient = jax.grad(lambda r: jnp.sum(online._huber(r)))(
+                jnp.asarray(residual)
+            )
+            expected = residual.copy()
+            for part in (slice(0, 3), slice(3, 6), slice(6, 15)):
+                expected[part] /= max(1, np.linalg.norm(residual[part]))
+            assert np.isfinite(gradient).all()
+            np.testing.assert_allclose(
+                value, numpy_group_huber(residual), rtol=2e-14, atol=1e-15
+            )
+            np.testing.assert_allclose(gradient, expected, rtol=2e-14, atol=1e-15)
 
 
 def conditioning_fixture():
