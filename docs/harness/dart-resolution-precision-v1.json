@@ -1,0 +1,36 @@
+{
+  "acceptance": {
+    "all_native_finite": true,
+    "axis_deg_max": 5.0,
+    "both_scorers_and_grids_required": true,
+    "contact_point_difference_m_max": 2e-05,
+    "contact_time_difference_s_max": 2e-05,
+    "deadline_s_max": 1.2,
+    "miss_m_strict": 0.001,
+    "normal_speed_m_s": [
+      0.2,
+      2.5
+    ],
+    "tangent_speed_m_s_max": 0.2
+  },
+  "failure_policy": "No threshold relaxation or automatic retry. Any failure remains explicit.",
+  "format": "glassbox-dart-resolution-precision-v1",
+  "interpretation": "A pass establishes numerical convergence of the same recorded command tape under higher-precision evaluation of the same plant coefficients. It does not erase the original float32 convergence failure or qualify a new closed-loop policy, hardware precision, neighborhood reliability or improved learned dynamics.",
+  "method": [
+    "Authenticate the same model, trial, source, native initial state and issued tape. No model, optimizer or fitting calls.",
+    "Construct the native plant in the original ambient float32 runtime. Save the actual plant parameter arrays; promote their exact values to float64 without reloading higher-precision coefficients. Round the Python thrust_max constant to its original float32 arithmetic value before promotion.",
+    "Promote the original float32 native initial state exactly. Round saved float64 optimizer commands to the actually issued float32 native command values before promoting to float64. Verify against the saved native input journal.",
+    "Only native replay and scoring run in a scoped JAX float64 context. Perform one replay at each frozen 1 ms and 0.5 ms interval, five RK4 substeps per interval and 10 ms command holds.",
+    "Record all actual native calls, finite flags, dtypes, full trajectories and both contact scorers. Restore ambient float32 configuration on exit."
+  ],
+  "named_gap": "Separate float32 accumulation from time discretization in numerical qualification of the fixed successful command tape.",
+  "original_float32_audit_manifest_sha256": "b0ed838aa65ad8b2b9cd3759484912c0826a0eb05d61cbdd67287343ab5c352e",
+  "original_result": "Both float32 fine grids meet all contact gates, but their 97.05 micrometer point difference and 136.43 microsecond time difference fail the frozen 20 micrometer / 20 microsecond convergence criteria. Preserve this failure.",
+  "tests": [
+    "Exact float32 command and parameter values survive promotion; hidden extra optimizer precision is discarded.",
+    "Scoped precision is restored after normal return and exceptions.",
+    "All original contact and convergence boundaries remain strict."
+  ],
+  "trial_manifest_sha256": "e44c9794c859cbefa1290a4dbdfac45176be8004ffc5b429ff01ffcda61eaa91",
+  "trial_protocol_sha256": "9ac4aca604357f4c6531bbc58a775f00ee5353ce53ea64d9e84927c7ed5e35e9"
+}
