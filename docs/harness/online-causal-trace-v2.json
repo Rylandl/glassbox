@@ -1,0 +1,105 @@
+{
+  "id": "online-causal-trace-v2",
+  "gap": "Residual fixed-wing angular response and forecast outliers under adopted online v6 after explicit quadratic curvature suppression.",
+  "scope": "Diagnostic replay only. No new learning recipe, dynamics, optimizer, public option, fresh data, or controller trial. Selection deliberately uses known saved errors and is not a held-out performance test.",
+  "reference": {
+    "protocol_id": "online-fit-v6",
+    "manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
+    "source_commit": "2e465a46075b00c7ff1ea8ecaa3824dd5fd550a1"
+  },
+  "cases": [
+    {
+      "id": "fixedwing-80",
+      "anchors": {
+        "velocity": 36,
+        "rate": 31,
+        "orientation": 31
+      },
+      "controls": {
+        "velocity": 28,
+        "rate": 21,
+        "orientation": 21
+      },
+      "captures": [
+        20,
+        21,
+        27,
+        28,
+        30,
+        31,
+        32,
+        35,
+        36,
+        37
+      ]
+    },
+    {
+      "id": "fixedwing-81",
+      "anchors": {
+        "velocity": 150,
+        "rate": 64,
+        "orientation": 157
+      },
+      "controls": {
+        "velocity": 147,
+        "rate": 72,
+        "orientation": 147
+      },
+      "captures": [
+        63,
+        64,
+        65,
+        71,
+        72,
+        146,
+        147,
+        149,
+        150,
+        151,
+        156,
+        157,
+        158
+      ]
+    }
+  ],
+  "selection": "On each full225-row v6 tape, compute velocity/rate Euclidean errors and SO3 geodesic orientation errors with the same proper-rotation projection as evaluation. For each of the three metrics anchor=max error, ties smallest source row. Give each metric ascending average ranks and sum ranks S; M=median(S). For each anchor, controls are inclusive +/-10 scored origins excluding +/-1 around ANY anchor. Select min(abs(S-M), distance to anchor, origin). Capture each anchor +/-1 and each control with its immediate predecessor, deduplicating all origins. Assert these rules reproduce the declared10+13 rows. This is deliberate selection on known outcomes, not held-out evaluation.",
+  "replay": {
+    "source": "Require every maintained src file hash identical to authenticated v6 binding. Bind committed current diagnostic source and unchanged runtime, ambientfloat32. Copy complete authenticated reference into the output.",
+    "initial": "Load the saved v6 initial-online.npz without initialization or fitting. Use real rolling history from the saved input tape.",
+    "causality": "For every origin first require cursor and full before counters/core fingerprint; save selected full session before prediction or revealing target. Predict once with current command and observed history. Require dtypefloat32 and exact bytes equal saved candidate; require full session fingerprint unchanged by save/predict. Then reveal next observed state and assimilate once. Require exact after counters/core fingerprint. Do not use target in prediction.",
+    "coverage": "Replay all225 scored origins for each of both fixed-wing tapes,450 observations/updates total, including after final capture. Exact saved final session fingerprint must match. Keep explicit partial attempt on any mismatch; stop and do not claim causal equivalence.",
+    "capture": "Full checksummed OnlineFit archive, exact real history and past commands, current issued command, original saved prediction, just-revealed truth and origin. Full session cursor/counts and tail ending at current observation bind the pre-assimilation stage even for rejected optimizer updates."
+  },
+  "diagnostics": {
+    "precision": "Exact float32 public prediction from each saved pre-prediction session; separately reconstruct unchanged native stages in float64 and check against unchanged core rollout within1e-10 absolute+relative. Report nativefloat64 versus recordedfloat32 discrepancy.",
+    "refinement_factors": [
+      1,
+      2,
+      4,
+      16,
+      64
+    ],
+    "integration": "For factorf use f*ceil(dt/MAX_SUBSTEP_S) explicit midpoint stages with unchanged head, gravity, SO3 exponential and exact first-order command filter. Reconstruct observation-grid history/memory once; hold both fixed throughout interval; carry state/filtered commands. Native instrumentation must reproduce unchanged physical_step. No altered inference or learner.",
+    "stage_outputs": "Save each stage start, midpoint, end, filtered commands, body/world/angular accelerations and head contributions. Split head into current linear, delayed-difference linear, hidden linear, quadratic, bias and nonlinear; save group-pair quadratic contributions. Record physical motion support ratios and compression derivatives at every stage.",
+    "numerical": "Report each resolution physical velocity/rate/SO3 errors to revealed truth, disagreement to native and16-to64 convergence. Save vector decomposition native error=(native-refined64)+refined64 error with squared norms and cross term. Refined64 is not plant truth and is not a numerical reference unless convergence evidence supports it.",
+    "local_derivatives": "At native starts/midpoints, compute9D velocity/rate/right-attitude-tangent dynamics Jacobian including delta_theta_dot=delta_omega-omega cross delta_theta. Save eigenvalues and explicit midpoint amplification at native h. Local frozen-history/filter/memory diagnostic only, not recurrent or full-path stability.",
+    "cache": "Use only bootstrap/recent windows in each captured session, role-balanced as training. Report command span/rank/singular values and query command distance in original normalization; raw normalized motion versus compressed feature nearest distances/support coverage; retained forecast physical errors. No new fits.",
+    "update_attribution": "At each declared anchor/control, evaluate immediate preceding origin model and actual origin model on identical current real history/command. Report both predictions, truth errors, their difference and the original previous update acceptance. This is a fixed-input causal parameter-change comparison; no model trained on the current target is used.",
+    "angular_increment_attribution": "For every factor f and each of the six existing head parts, save I_k(f)=dt_s/n_f * sum_substeps alpha_k(midpoint), in rad/s. Sum over heads must reconstruct omega_endpoint-omega_origin within1e-10 absolute+relative. Save each I_k(native)-I_k(64); their sum must reconstruct native-minus-refined rate difference with the same tolerance. Keep signed vectors and cancellations. This is trajectory accounting, not causal head error: removing a head changes the integrated path.",
+    "angular_head_local_derivatives": "At every native start/midpoint, save J_k=d alpha_k(v+dv,omega+dw,R Exp(dtheta);issued,filtered,history,hidden)/d(dv,dw,dtheta) at zero, shape heads6 x angularoutputs3 x localcoordinates9. Freeze issued/filter/history/hidden exactly as in existing full local Jacobian. Sum over heads must match its rows3:6 within1e-10 absolute+relative. Report Frobenius norms separately for velocity, rate and right-attitude blocks; do not combine unlike physical units. Hidden-linear derivative is zero under frozen hidden state, not proof memory is unimportant. The nonlinear head may mix all contexts and is not synonymous with recurrence. No new solver, model ablation, fitting or stability claim."
+  },
+  "verification": {
+    "integrity": "Seal every payload with hashes and externally record manifest authority. Copy frozen protocol and binding. Reference, selected sessions and captures must authenticate.",
+    "no_fit": "A verification path loads snapshots without observe/initialization and recomputes selection, origin/cursor/history/tail/counter identities, exact original predictions and all float64 diagnostics and update attribution. Report read-only model calls separately from zero optimizer steps. Recompute new angular increments and local per-head Jacobians without initialization/observe. Independently audit saved integration/angular accounting with NumPy; verify new derivative code on analytic and finite-difference fixtures.",
+    "decision": "Diagnostic completion requires all450 paired predictions/model transitions exact, all23 pre-prediction captures valid, native reconstruction and new angular accounting/derivative checks within declared tolerances. Any divergence stays explicit. No accuracy adoption gate; v6 remains maintained regardless of diagnosis."
+  },
+  "limits": [
+    "Known tapes and chosen failures are not blind generalization.",
+    "Observed secants constrain interval change, not instantaneous ground-truth accelerations.",
+    "Support saturation, command novelty and local stiffness correlations alone do not prove mechanism.",
+    "Unchanged-command refinement does not recover unavailable within-sample input changes.",
+    "No controller, real-time or broad-airframe qualification.",
+    "Small per-head local derivative or increment does not establish a head is unnecessary; effects can cancel and hidden state reconstruction is frozen in local derivative probes.",
+    "Causal replay is exactly the adopted v6 recipe, not a new attempt to improve its saved outcome."
+  ]
+}
