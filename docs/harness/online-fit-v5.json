@@ -1,0 +1,149 @@
+{
+  "id": "online-fit-v5",
+  "gap": "Forecast outliers and rotation/rate disagreement accompany learned fast internal dynamics that are unresolved by the deployed midpoint grid.",
+  "scope": "Learning-only solver-refinement consistency comparison on six known tapes, against working v4. Same inference, initialization, data, optimizer budget, motion support and generic dynamics; no controller or native trial.",
+  "candidate": {
+    "engine": "Unchanged VehicleSequenceModel shared rigid-body formulation; arbitrary ordered command dimension.",
+    "interface": "OnlineFit(prefix), predict(past_states,past_inputs,future_inputs), observe(index,issued_command,next_observation), save/load. index is the absolute source row of the issued command, equal to the current cursor; no gaps/replay.",
+    "prefix": "One contiguous segment; retain 0.5 s observed context and the last 0.25 s completed transitions. Initialize using each of those transitions as a one-step ridge window; at least three windows. No padded history.",
+    "bootstrap": "Unchanged initialization and fixed group loss scale, exactly matching v4 initial arrays. Same two ridge solves and no reinitialization.",
+    "training_horizon_s": 0.05,
+    "bootstrap_windows_max": 32,
+    "recent_windows_max": 32,
+    "batch_size": 64,
+    "batch_allocation": "Entire bounded bootstrap and recent caches, equal weight to each role and equal weight to each actual window within each role. Fixed32 slots per role duplicate real windows under zero masks when unfilled; no synthetic observations or targets.",
+    "proposals_per_observation": 1,
+    "optimizer": "Same one damped matrix-free proposal and four CG iterations, now on the combined forecast/consistency residual. For each three physical-group norm, freeze IRLS=1/max(1,norm) and broadcast over its coordinates. Base weight is role_weight * time_weight /3, with forecast time weights0.5/H and defect time weight0.5. Gradient and curvature include derivatives through both coarse and refined predictions. Damping/gain updates unchanged.",
+    "objective": "Half the v4 role-balanced recursive physical-vector Huber loss plus half a first-observation-interval refinement-defect loss at every retained window origin. The defect is the coarse first prediction minus its refined prediction, divided by the unchanged first-step bootstrap scale; use the same three radial Huber groups. Weight each of H forecast slices by 0.5/H and the one defect slice by 0.5, then each physical group by1/3. Differentiate through both predictions; no stopped-gradient teacher.",
+    "parameters": "Same shared dynamics and all existing learned parameters; no new model head, platform branch, consumer option, inference integrator or persistent stream-sized array.",
+    "precision": "float64 initialization and optimizer; float32 ambient prediction matching maintained default inference. Record actual runtime.",
+    "trust_rule": "Use role_weight*time_weight/3 in the existing normalized linearized prediction-change norm and residual norm. Limit step norm to max(1,0.5*current residual norm). Predicted reduction is -g.delta-0.5*(Jdelta).T W (Jdelta), excluding damping. Accept only finite strict full combined objective decrease with gain>=0.1. Damping starts1, multiplies4 on rejection or accepted gain<.25, halves on gain>.75, clips[1e-8,1e8].",
+    "dynamic_normalizers": [
+      "feature_scale",
+      "quadratic_scale",
+      "output_scale"
+    ],
+    "conditioning": {
+      "timing": "One bounded pass after revealing each valid target and constructing the new full replay cache, before the unchanged Gauss-Newton proposal. No conditioning before the current prediction.",
+      "measured_sequence": "For each cache window concatenate past_states with future_states excluding the final target, and past_inputs with future_inputs. Filter this issued sequence using current learned tau and the existing initial-filter convention. Compute current_features on these observed states, without predicted states or simulator data.",
+      "feature_rms": "For every time t >= delay, concatenate current features and the delay ordered past-minus-current feature differences. Compute uncentered RMS with equal bootstrap/recent role weight, equal actual-window weight within each role, and equal eligible-time weight. The final 8 hidden feature scales remain unchanged at 1 because tanh memory has known bounds; no hidden-state traversal is added. Quadratic RMS uses current upper-triangle products at the same eligible times.",
+      "output_rms": "Compute each completed future one-step secant: R_t.T @ ((v_next-v_t)/dt - gravity) and (omega_next-omega_t)/dt. Use uncentered RMS, equal role/window weights and equal horizon-step weights. Use observed R_t, never simulator derivatives.",
+      "scale_rule": "For each of the three allowed normalizer arrays, new_scale = max(old_scale, causal_RMS) elementwise; no shrinking, new center, empirical floor, user knob or vehicle branch.",
+      "compensation": "Let sf=new_feature/old_feature, sq=new_quadratic/old_quadratic and so=old_output/new_output. Set linear=sf[:,None]*linear*so[None,:], quadratic=sq[:,None]*quadratic*so[None,:], bias=bias*so, w2=w2*so[None,:], w1=sf[:,None]*w1, memory=sf[:,None]*memory. Leave b1, memory_bias and raw_tau unchanged. This algebra preserves the full recurrent prediction function and command derivatives before optimization.",
+      "acceptance": "Use reconditioned parameters and normalizers for the existing four-CG proposal and trust/Huber acceptance, keeping damping unchanged until that trust decision. Commit reconditioned normalizers only with an accepted finite proposal. On invalid conditioning or rejected proposal retain the original full model and increase damping under the existing rule; consume valid data once. No standalone coordinate drift on rejection.",
+      "accounting": "Exactly one conditioning pass per valid observation, alongside the unchanged one proposal, four CG iterations and two objective evaluations. Persist its attempted-call count. Normalizer updates add no retained stream-sized array."
+    },
+    "loss_scale": {
+      "data": "Fixed bootstrap windows only, unchanged throughout the stream. No development or future stream observations.",
+      "motion_groups": "For velocity and body-rate separately, s_g[h]=max(sqrt(mean_windows(sum_axes((origin_g-target_g[h])^2))), 0.01*max(sqrt(mean_windows(sum_axes((origin_g-mean_origin_g)^2))),1e-4)). Use raw bootstrap origins, not componentwise-clipped state_scale.",
+      "rotation_group": "Same formula on the 3x3 rotation entries, multiplying squared Frobenius sums by 1/2 before square roots. This measures chordal rotation distance with small-angle radian units. The spread uses the raw mean rotation matrix as a Euclidean center, with the same factor1/2.",
+      "stored_array": "Retain (horizon,15) scale shape: repeat s_velocity three times, s_rate three times and sqrt(2)*s_rotation nine times. Loader recomputes it from bootstrap windows exactly.",
+      "scope_limit": "The objective and scales are invariant under common orthogonal frame rotations. The axis-normalized supported model itself is not claimed to be rotationally equivariant. Entirely unexcited groups may still have small scales."
+    },
+    "solver_consistency": {
+      "origin": "The actual observed origin of each existing cache window; its coarse first prediction is already the first slice of the unchanged recursive rollout.",
+      "state": "Reconstruct the same initial filter, delayed features and hidden memory from that window\u2019s real history at the observation dt. Start both paths from the same observed state.",
+      "refinement": "Set n=ceil(dt_s/MAX_SUBSTEP_S), with current MAX_SUBSTEP_S=0.025 s. Use 2*n calls to the existing physical_step at dt_s/(2*n). Carry only state and filtered commands between these calls. Keep the original delayed feature history and hidden memory fixed throughout the observation interval; discard their per-substep updates. Hold the issued command constant as in deployed integration.",
+      "examples": "10 ms observations: two5 ms substeps. 50 ms observations: four12.5 ms substeps. Merely calling dt/2 twice would fail to refine the fixed-wing grid and is prohibited.",
+      "storage": "No new persistent arrays. One additional 15-coordinate defect per retained window, with first-step scale. Existing cache sizes, real-data masks and role weights stay fixed.",
+      "failure": "Nonfinite coarse/refined residuals or derivatives reject the whole proposal under existing safeguards. Do not drop or clip the consistency penalty.",
+      "limits": "Agreement at two resolutions is a regularizer, not proof of integration convergence or correct physics. Genuine fast dynamics may require finer inference in a future iteration; current inference remains unchanged."
+    }
+  },
+  "streams": {
+    "quad": {
+      "source": "New Crazyflow Throw recordings using the pinned original pass6 behavior policy, not the candidate.",
+      "source_repository": "/Users/ryland/projects/glassbox-throw",
+      "source_commit": "9bd74c1",
+      "behavior_glassbox_commit": "d10bb24e4d30f3be212d0101d1f433c0004ecedb",
+      "runtime": "existing glassbox-throw .venv, Crazyflow0.3.2, default32 inference",
+      "cases": [
+        {
+          "id": "quad-arm-115",
+          "arm_ratio": 1.15
+        },
+        {
+          "id": "quad-arm-125",
+          "arm_ratio": 1.25
+        },
+        {
+          "id": "quad-arm-135",
+          "arm_ratio": 1.35
+        },
+        {
+          "id": "quad-change",
+          "arm_ratio": 1.25,
+          "change_at_s": 4.0,
+          "changed_arm_ratio": 1.0
+        }
+      ],
+      "release": "Canonical release for all cases; only arm ratio varies. Change affects mixing and inertia, not mass/motors.",
+      "plant": "CrazyflowPlantConfig(control_frequency_hz=100), default cf21B_500, rng_seed0. Ten-second limit, original first-second no actuation, first-floor termination; retain failures/truncation.",
+      "candidate_prefix_start_s": 0.5,
+      "candidate_first_prediction_s": 1.25
+    },
+    "fixedwing": {
+      "source": "Known reserved Cascade Skywalker-X8 recordings; cold prefix-only fitting. Not a blind benchmark.",
+      "recordings": [
+        {
+          "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/recording-80.npz",
+          "sha256": "f3fd3ea993cb31c2eed6695a2531360d73e0b75e54716e0ae18815f1aba33bdc"
+        },
+        {
+          "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/recording-81.npz",
+          "sha256": "6cbb9750a454714f654f27dc5e18459c5152feb3b08a702f12326e55d863e4a6"
+        }
+      ],
+      "dt_s": 0.05,
+      "candidate_prefix_start_s": 0.0,
+      "candidate_first_prediction_s": 0.75,
+      "ordered_commands": [
+        "throttle [1]",
+        "aileron [rad]",
+        "elevator [rad]"
+      ]
+    }
+  },
+  "learner_visibility": "Canonical15 motion from observed NWU/FLU rigid-body states, timestamps, ordered issued commands and their units, opaque configuration identity. Exclude actuator telemetry, plant coefficients, layout, wind and simulator hidden state. Old collection controller may use applied motor telemetry; this is a behavior-policy limitation, not candidate input.",
+  "comparison": {
+    "baseline": "Primary: authenticated saved v4 online predictions on bitwise-identical inputs, origins, times and truth. Initial core arrays, frozen predictions and kinematic predictions must match exactly. Keep frozen-prefix and kinematic diagnostics.",
+    "order": "For command at row k, save candidate and frozen predictions and candidate model fingerprint before revealing state[k+1]. Score target, then assimilate it exactly once. No fitting on full-stream arrays.",
+    "primary": "One-step velocity vector RMSE (m/s) and body-rate vector RMSE (rad/s), over every scored transition in each stream. Save all component residuals.",
+    "secondary": "SO(3) geodesic RMSE (rad); post-change windows0-1s and1s-end separately; prefix command span/rank and fixed-scale support excursions.",
+    "aggregation": "Geometric mean candidate/v4 velocity and rate RMSE ratios, denominator floor1e-9; equal cases within family and equal family weights. No individual-case veto. Preserve all scored rows including the floor-truncated tape.",
+    "long_horizon": "Not a primary claim in this iteration; no use of unknown future behavior-policy commands as online forecasts.",
+    "kinematic_diagnostic": "Also score a no-fit baseline holding current world velocity and body-rate while integrating orientation with that body-rate over the sample interval. Report its physical errors and candidate/kinematic ratios. This is a declared absolute-accuracy sanity check, not a change to the frozen primary acceptance gate.",
+    "incumbent_limit": "The old Throw identifier uses measured applied rotor telemetry and is not a matched-input baseline. This experiment does not establish superiority over that identifier or a controller recovery result.",
+    "previous_candidate": "V4 is the working incumbent and primary comparator. Do not use weaker v2 or frozen startup as the adoption baseline.",
+    "reference": {
+      "protocol_id": "online-fit-v4",
+      "manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349"
+    },
+    "tail_diagnostics": "For every case and candidate/reference/frozen/kinematic arm, save/recompute velocity norm, rate norm and SO(3) angle median,p95,p99,max, largest-five squared-error share, and RMS of the largest ceil(0.1*N) errors selected independently per arm. No sample is removed from primary scoring.",
+    "rotation_rate_diagnostic": "For origin R0,w0 and a next state R1,w1, define d=Log(R0.T@R1)/dt-0.5*(w0+w1) using the principal SO(3) rotation vector with proper-rotation projection for rounded predictions. Report RMS norm of d_prediction-d_truth and each raw defect. This is a descriptive sampled-data surrogate; actual nonlinear angular motion is not assumed trapezoidal or zero-defect, and angle aliasing remains a limitation."
+  },
+  "acceptance": {
+    "accuracy": "Keep the existing primary gate prospectively against v4: equal-family velocity/rate aggregate<=0.8, each family aggregate<1, all cases finite/complete. Report every regression; no individual case veto.",
+    "causality": "All previous causal ingestion, compensation, fixed group-scale, rollback and save/resume tests remain. Add analytic constant-motion zero-defect checks, true grid refinement for dt=.01/.05, fixed history/memory across refined substeps, differentiation through both paths and independent dense group-IRLS solve for mixed time weights. No extra fit or change to deployed inference.",
+    "preservation": "Existing suite and saved baseline inference must pass; no change to existing model archive contract.",
+    "runtime": "Record complete synchronized cold startup and first update, then warmed median/p95/max predict and observe latency. p95 observe<=sample interval is a separate real-time target, not inferred from four proposals or accuracy success.",
+    "recovery": "Out of scope: replay success is not successful candidate-controlled recovery.",
+    "gap_qualification": "Separate robustness flag, not a rewrite of the primary adoption gate: equal-family upper-decile velocity/rate ratio<1, equal-family orientation RMSE ratio<=1, and equal-family truth-relative rotation/rate-defect RMSE ratio<1. Report each independently, all family/case values, quantiles and maxima. Concentration and maximum errors are descriptive."
+  },
+  "evidence": "Commit protocol before implementation and scientific source before fitting. Copy/authenticate complete v4 reference pack (including its v2 reference) into new exclusive v5 evidence. Historical v1-v4 verdicts unchanged. New diagnostics are v5-only, recomputed from saved predictions/observed states without model calls. Keep failures; no data exclusions or hyperparameter sweep.",
+  "predecessor": {
+    "protocol": "online-fit-v4",
+    "source_commit": "8053938",
+    "evaluation_manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349",
+    "accuracy_passed": true
+  },
+  "collection_protocol_sha256": "dd65f57ceb01638642663b8cc1aa156e89e39f97e0183680b9c6b3a0a78d4be3",
+  "collection_manifest_sha256": "276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4",
+  "rationale": {
+    "primary_references": [
+      "https://arxiv.org/abs/2206.07335",
+      "https://arxiv.org/abs/2007.04504"
+    ],
+    "relationship": "Research motivates treating discretization error as part of learning and regularizing hard-to-integrate learned dynamics. This particular bounded two-grid penalty is our testable design, not a claimed reproduction or proof of performance. Saved final-model diagnostics show grid-sensitive forecasts and large stage cancellation; they do not recreate transient weights at the earlier spike."
+  }
+}

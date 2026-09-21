@@ -76,12 +76,14 @@ spike and persistent later error; no sample is excluded. Quad update p95 is
 No current-learner closed-loop trial has run. See [the report](online-fitting.md)
 and [evidence identities](online-fitting.json).
 
-## Next scientific gap
+## Active scientific gap
 
-**Forecast spikes and rotation/rate consistency.** Inspect intermediate integration
-states and derivatives behind the fixed-wing outlier and the quad orientation
-regression. In the latter, rotation-implied intermediate rate disagrees strongly
-with the endpoint-average rate over a broad transient. Heavy startup-support
-compression accompanies fixed-wing errors but is not yet proven causal. Freeze
-a correction and physical-error comparison against v4 before fitting. Fit
-latency and controller integration remain separate. No next protocol has run.
+**Forecast spikes and rotation/rate consistency.** Saved final-model diagnostics
+show large internal acceleration cancellation and forecasts sensitive to numerical
+step size. They cannot reconstruct the exact weights at the earlier spike.
+The frozen [v5 protocol](harness/online-fit-v5.json) tests a learning-only penalty
+for coarse/refined first-step disagreement, preserving deployed inference and
+the single shared model. Primary comparison is working v4. Tail and truth-relative
+rotation/rate metrics are measured prospectively for every case, separately from
+the unchanged accuracy gate. No v5 fit has started. Latency and live control
+remain separate qualifications.
