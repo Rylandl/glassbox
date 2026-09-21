@@ -1,0 +1,58 @@
+--- a/src/crazydart/planning.py
++++ b/src/crazydart/planning.py
+@@ -17,10 +17,10 @@
+     )(states)
+     center, normal = jnp.asarray(target.center), jnp.asarray(target.normal)
+     # Aim 2 mm through the virtual plane so first-contact scoring has a bracket.
+-    position_error = (points[end] - (center - 0.002 * normal)) / 0.01
++    position_scale = min(0.01, 0.5 * target.radius_m)
++    position_error = (points[end] - (center - 0.002 * normal)) / position_scale
+     axis_error = (axes[end] + normal) / 0.035
+     velocity_error = (velocities[end] + desired_speed * normal) / 0.12
+-    rate_error = states[end, 10:13] / 0.5
+     distances = (points - center) @ normal
+     stage = jnp.arange(len(states))
+     early_crossing = jnp.where(stage < end, jnp.minimum(distances, 0.0) / 0.005, 0)
+@@ -35,7 +35,6 @@
+         jnp.sum(position_error**2)
+         + jnp.sum(axis_error**2)
+         + jnp.sum(velocity_error**2)
+-        + 0.1 * jnp.sum(rate_error**2)
+         + jnp.sum(early_crossing**2)
+         + jnp.sum(floor**2)
+         + 0.02 * jnp.sum(smoothness)
+--- a/tests/test_planning.py
++++ b/tests/test_planning.py
+@@ -31,3 +31,32 @@
+         strike_cost(rotated, commands, Target()),
+         rtol=1e-6,
+     )
++
++
++def test_position_precision_tracks_target_radius_and_preserves_default():
++    from dataclasses import replace
++
++    states = jnp.zeros((4, 13)).at[:, 6].set(1).at[:, 2].set(1)
++    states = states.at[-1, 1].set(0.001)
++    commands = jnp.full((3, 4), 0.65)
++    target = Target()
++
++    def gradient(radius):
++        return jax.grad(
++            lambda x: strike_cost(x, commands, replace(target, radius_m=radius))
++        )(states)
++
++    default = gradient(0.02)
++    tighter = gradient(0.001)
++    wider = gradient(0.2)
++    np.testing.assert_allclose(default[-1, 1], 20.0, rtol=1e-6)
++    np.testing.assert_allclose(tighter[-1, 1], 400 * default[-1, 1], rtol=1e-6)
++    np.testing.assert_array_equal(wider, default)
++
++
++def test_terminal_spin_only_pays_existing_stage_regularization():
++    states = jnp.zeros((4, 13)).at[:, 6].set(1).at[:, 2].set(1)
++    states = states.at[-1, 12].set(2.0)
++    commands = jnp.full((3, 4), 0.65)
++    gradient = jax.grad(lambda x: strike_cost(x, commands, Target()))(states)
++    np.testing.assert_allclose(gradient[-1, 12], 0.0002 * 4 / (3 * 4), rtol=1e-6)
