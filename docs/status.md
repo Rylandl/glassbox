@@ -69,11 +69,12 @@ against 50 ms. One quad tape is floor-truncated, and the in-flight geometry chan
 occurs in weakly excited hover. No current-learner closed-loop trial has run.
 See [the complete result](online-fitting.md) and [evidence identities](online-fitting.json).
 
-## Following scientific gap
+## Active scientific gap
 
-**Cold-start conditioning and motion support.** Address tiny startup scales and
-information compressed outside initially observed motion without a platform
-branch or user tuning. Freeze the coordinate/conditioning change and its physical
-accuracy comparison before fitting; preserve prediction meaning if parameters
-are re-expressed. The kinematic baseline remains essential. Fit latency and
-future controller integration are separate gaps. No next protocol has run.
+**Cold-start conditioning and motion support.** The frozen
+[v3 protocol](harness/online-fit-v3.json) isolates prediction-preserving adaptive
+feature, quadratic and output scaling. It changes the optimization coordinates
+from the causal replay cache while keeping initialization, dynamics, support and
+loss weighting fixed. Acceptance requires improvement against the saved v2
+online model, not merely the frozen startup model. No v3 fit has started.
+Motion-support expansion, fit latency and controller integration remain separate.
