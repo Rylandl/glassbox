@@ -442,7 +442,7 @@
     "quad": 0.9128868469380593,
     "fixedwing": 0.37225606142934226
   },
-  "next_gap": "Causal fixed-wing forecast failures",
+  "next_gap": "Constrain unsupported nonlinear response during short online fits",
   "rejected_v5": {
     "result": "online-fit-v5.json",
     "source_commit": "5db9059",
@@ -451,5 +451,6 @@
     "accuracy_passed": false,
     "robustness_passed": true,
     "decision": "Retain v4; v5 provides modest average improvement with worse fixed-wing angular errors and greater fitting cost."
-  }
+  },
+  "causal_diagnosis": "online-causal-trace.json"
 }

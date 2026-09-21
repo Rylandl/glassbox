@@ -155,6 +155,34 @@ the old candidate protocol. A fresh collection requires its own frozen input
 contract. These replays establish neither candidate-controlled recovery nor
 blind generalization across platforms.
 
+## Reproduce the causal fixed-wing diagnosis
+
+The [frozen causal trace](docs/harness/online-causal-trace-v1.json) diagnoses the
+working v4 fitter on its authenticated saved fixed-wing inputs. It replays all
+450 updates to recover the exact contemporaneous model state at 20 declared
+origins; this is a diagnostic replay, not a new candidate or blind evaluation.
+Commit source first and choose an output directory that does not exist:
+
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/trace_online.py run artifacts/online-fit-v4/evaluation \
+  --output artifacts/online-causal-trace-reproduction
+```
+
+Use the same pinned runtime as the original online evaluation. Verification
+loads the captured sessions, checks their causal caches and original predictions,
+and recomputes every integration diagnostic **without optimizer updates**:
+
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/trace_online.py verify artifacts/online-causal-trace-reproduction \
+  --manifest-sha256 TRACE_MANIFEST_SHA256
+```
+
+The scientific source is `5648d13`. The learner source inventory must match the
+authenticated v4 binding exactly; future changes require the recorded source
+checkout for replay. See [the findings](docs/online-causal-trace.md).
+
 ## Package boundaries
 
 - `learner.py` owns fit, predict, update and saved model revisions.

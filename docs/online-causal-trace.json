@@ -1,0 +1,292 @@
+{
+  "id": "online-causal-trace-v1",
+  "source_commit": "5648d13",
+  "protocol_commit": "665f68e",
+  "protocol": "harness/online-causal-trace-v1.json",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-causal-trace-v1/diagnosis",
+  "trace_manifest_sha256": "cfd4884d7aa9ff5004ed496dcded614401c7587295ca893c12e447659e03fd68",
+  "reference_manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349",
+  "complete": true,
+  "paired_transitions": 450,
+  "causal_snapshots": 20,
+  "replay_optimizer_updates": 450,
+  "validation": {
+    "source_commit": "5648d13",
+    "tests_passed": 187,
+    "elapsed_s": 90.07,
+    "ruff": "passed",
+    "learner_source": "Identical to authenticated online v4 source for every src file; enforced before replay."
+  },
+  "read_only_verification": {
+    "verified": true,
+    "transitions": 450,
+    "captures": 20,
+    "optimizer_steps": 0,
+    "model_calls": "read-only snapshot and diagnostic replays"
+  },
+  "independent_audit": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-causal-trace-v1/checks/independent-causal-audit.json",
+    "sha256": "8fb3b605b44937bf6d796457a397de1db84cd68b17ce9477a120c6171a69d84c",
+    "stage_states": 10440
+  },
+  "anchors": [
+    {
+      "case": "fixedwing-80",
+      "metric": "velocity",
+      "origin": 173,
+      "time_s": 8.65,
+      "native": {
+        "body_rate_rmse_rad_s": 0.224155854748267,
+        "orientation_rmse_rad": 0.005483505914507674,
+        "velocity_rmse_m_s": 1.0875101052464786
+      },
+      "refined64": {
+        "body_rate_rmse_rad_s": 0.1757824426065065,
+        "orientation_rmse_rad": 0.0031924688679430165,
+        "velocity_rmse_m_s": 1.0529058557495656
+      },
+      "convergence_16_to_64": {
+        "body_rate_rmse_rad_s": 0.00024452322947354674,
+        "orientation_rmse_rad": 7.752196280837922e-06,
+        "velocity_rmse_m_s": 6.14570707997885e-05
+      },
+      "update": {
+        "actual_model_error": {
+          "body_rate_rmse_rad_s": 0.2241428414235377,
+          "orientation_rmse_rad": 0.005483822414575252,
+          "velocity_rmse_m_s": 1.087513355057786
+        },
+        "origin": 173,
+        "parameter_update_prediction_change": {
+          "rate_rad_s": 0.512221678810247,
+          "velocity_m_s": 0.1581921775182951
+        },
+        "previous_model_error": {
+          "body_rate_rmse_rad_s": 0.7220702472613723,
+          "orientation_rmse_rad": 0.009337411677319307,
+          "velocity_rmse_m_s": 1.2456956656207177
+        },
+        "previous_update_accepted": true
+      },
+      "error_decomposition": {
+        "body_rate": {
+          "cross_term": 0.016964883235767846,
+          "native_error_squared": 0.05024584721792617,
+          "numerical_difference_squared": 0.002381496853448578,
+          "reconstruction_max_abs": 0.0,
+          "refined_error_squared": 0.030899467128709755
+        },
+        "velocity": {
+          "cross_term": 0.07286913001066585,
+          "native_error_squared": 1.182678229013207,
+          "numerical_difference_squared": 0.0011983579308153913,
+          "reconstruction_max_abs": 2.220446049250313e-16,
+          "refined_error_squared": 1.1086107410717252
+        }
+      },
+      "local_derivatives": {
+        "maximum_midpoint_amplification": 1.3618745781714123,
+        "maximum_real_eigenvalue": 12.516651170352807,
+        "minimum_real_eigenvalue": -25.81725057440692,
+        "scope": "Frozen history/filter/memory local field; moving right-attitude tangent. Midpoint amplification is the scalar stability polynomial of local eigenvalues, not the full Lie-group step derivative or recurrent/path stability."
+      }
+    },
+    {
+      "case": "fixedwing-80",
+      "metric": "rate",
+      "origin": 187,
+      "time_s": 9.35,
+      "native": {
+        "body_rate_rmse_rad_s": 8.271672075239652,
+        "orientation_rmse_rad": 0.11205382239973459,
+        "velocity_rmse_m_s": 0.31845536320171264
+      },
+      "refined64": {
+        "body_rate_rmse_rad_s": 11.197607691192651,
+        "orientation_rmse_rad": 0.16717412179411964,
+        "velocity_rmse_m_s": 1.0540907418656789
+      },
+      "convergence_16_to_64": {
+        "body_rate_rmse_rad_s": 0.03211746742560167,
+        "orientation_rmse_rad": 0.0005664379379963112,
+        "velocity_rmse_m_s": 0.010131308920185376
+      },
+      "update": {
+        "actual_model_error": {
+          "body_rate_rmse_rad_s": 8.271644740905437,
+          "orientation_rmse_rad": 0.11205375798663364,
+          "velocity_rmse_m_s": 0.31844042176629017
+        },
+        "origin": 187,
+        "parameter_update_prediction_change": {
+          "rate_rad_s": 4.41684152532825,
+          "velocity_m_s": 0.07662850489998264
+        },
+        "previous_model_error": {
+          "body_rate_rmse_rad_s": 12.684653722827154,
+          "orientation_rmse_rad": 0.1632431218366882,
+          "velocity_rmse_m_s": 0.39293252364105835
+        },
+        "previous_update_accepted": true
+      },
+      "error_decomposition": {
+        "body_rate": {
+          "cross_term": -65.54048042378396,
+          "native_error_squared": 68.42055892029946,
+          "numerical_difference_squared": 8.574621338226613,
+          "reconstruction_max_abs": 0.0,
+          "refined_error_squared": 125.38641800585681
+        },
+        "velocity": {
+          "cross_term": -1.5509196322976244,
+          "native_error_squared": 0.10141381835193472,
+          "numerical_difference_squared": 0.541226158562622,
+          "reconstruction_max_abs": 2.220446049250313e-16,
+          "refined_error_squared": 1.1111072920869371
+        }
+      },
+      "local_derivatives": {
+        "maximum_midpoint_amplification": 3.7743093354406945,
+        "maximum_real_eigenvalue": 62.36107596840813,
+        "minimum_real_eigenvalue": -39.64241939645243,
+        "scope": "Frozen history/filter/memory local field; moving right-attitude tangent. Midpoint amplification is the scalar stability polynomial of local eigenvalues, not the full Lie-group step derivative or recurrent/path stability."
+      }
+    },
+    {
+      "case": "fixedwing-81",
+      "metric": "velocity",
+      "origin": 158,
+      "time_s": 7.9,
+      "native": {
+        "body_rate_rmse_rad_s": 15.915992876401875,
+        "orientation_rmse_rad": 0.22461425497515142,
+        "velocity_rmse_m_s": 31.13935318539153
+      },
+      "refined64": {
+        "body_rate_rmse_rad_s": 4.024385771053532,
+        "orientation_rmse_rad": 0.181414420119098,
+        "velocity_rmse_m_s": 7.645749878214525
+      },
+      "convergence_16_to_64": {
+        "body_rate_rmse_rad_s": 0.006273790085366317,
+        "orientation_rmse_rad": 0.00010592389567798287,
+        "velocity_rmse_m_s": 0.005974170368757799
+      },
+      "update": {
+        "actual_model_error": {
+          "body_rate_rmse_rad_s": 15.915731269885825,
+          "orientation_rmse_rad": 0.2246151092571005,
+          "velocity_rmse_m_s": 31.13900550383249
+        },
+        "origin": 158,
+        "parameter_update_prediction_change": {
+          "rate_rad_s": 4.704674361995598,
+          "velocity_m_s": 12.379564661389333
+        },
+        "previous_model_error": {
+          "body_rate_rmse_rad_s": 20.620138241158582,
+          "orientation_rmse_rad": 0.24249810138364744,
+          "velocity_rmse_m_s": 43.51610810169709
+        },
+        "previous_update_accepted": true
+      },
+      "error_decomposition": {
+        "body_rate": {
+          "cross_term": -157.44780205133983,
+          "native_error_squared": 253.31882924167522,
+          "numerical_difference_squared": 394.5709504587569,
+          "reconstruction_max_abs": 2.220446049250313e-15,
+          "refined_error_squared": 16.19568083425813
+        },
+        "velocity": {
+          "cross_term": -570.9981422077661,
+          "native_error_squared": 969.6593168045537,
+          "numerical_difference_squared": 1482.1999678121024,
+          "reconstruction_max_abs": 8.881784197001252e-16,
+          "refined_error_squared": 58.45749120021742
+        }
+      },
+      "local_derivatives": {
+        "maximum_midpoint_amplification": 5.626633983043738,
+        "maximum_real_eigenvalue": 55.079982280397914,
+        "minimum_real_eigenvalue": -40.050295653482365,
+        "scope": "Frozen history/filter/memory local field; moving right-attitude tangent. Midpoint amplification is the scalar stability polynomial of local eigenvalues, not the full Lie-group step derivative or recurrent/path stability."
+      }
+    },
+    {
+      "case": "fixedwing-81",
+      "metric": "rate",
+      "origin": 64,
+      "time_s": 3.2,
+      "native": {
+        "body_rate_rmse_rad_s": 17.193550855184363,
+        "orientation_rmse_rad": 0.4809033890997128,
+        "velocity_rmse_m_s": 11.11683542530386
+      },
+      "refined64": {
+        "body_rate_rmse_rad_s": 8.735372953383788,
+        "orientation_rmse_rad": 0.4171363561927685,
+        "velocity_rmse_m_s": 5.7003240505118455
+      },
+      "convergence_16_to_64": {
+        "body_rate_rmse_rad_s": 0.01957464498957609,
+        "orientation_rmse_rad": 0.0008123806761836605,
+        "velocity_rmse_m_s": 0.004764059167843192
+      },
+      "update": {
+        "actual_model_error": {
+          "body_rate_rmse_rad_s": 17.193545599368335,
+          "orientation_rmse_rad": 0.48090348348874645,
+          "velocity_rmse_m_s": 11.11684507553078
+        },
+        "origin": 64,
+        "parameter_update_prediction_change": {
+          "rate_rad_s": 12.439018216273393,
+          "velocity_m_s": 10.825466071135848
+        },
+        "previous_model_error": {
+          "body_rate_rmse_rad_s": 29.62253201572287,
+          "orientation_rmse_rad": 0.5672703322628346,
+          "velocity_rmse_m_s": 21.856780182829027
+        },
+        "previous_update_accepted": true
+      },
+      "error_decomposition": {
+        "body_rate": {
+          "cross_term": 146.95244708414353,
+          "native_error_squared": 295.6181910098109,
+          "numerical_difference_squared": 72.35900329095843,
+          "reconstruction_max_abs": 1.7763568394002505e-15,
+          "refined_error_squared": 76.30674063470899
+        },
+        "velocity": {
+          "cross_term": 61.43635921336506,
+          "native_error_squared": 123.58402987329086,
+          "numerical_difference_squared": 29.65397637908204,
+          "reconstruction_max_abs": 0.0,
+          "refined_error_squared": 32.49369428084377
+        }
+      },
+      "local_derivatives": {
+        "maximum_midpoint_amplification": 2.116665088685016,
+        "maximum_real_eigenvalue": 29.513924559722575,
+        "minimum_real_eigenvalue": -29.015524573091746,
+        "scope": "Frozen history/filter/memory local field; moving right-attitude tangent. Midpoint amplification is the scalar stability polynomial of local eigenvalues, not the full Lie-group step derivative or recurrent/path stability."
+      }
+    }
+  ],
+  "decision": "Keep online v4 unchanged. Diagnose incorrect nonlinear response plus numerical amplification; no replacement evaluated.",
+  "next_gap": "Constrain unsupported nonlinear response during short online fits",
+  "limits": [
+    "Known tapes and chosen failures are not blind generalization.",
+    "Observed secants constrain interval change, not instantaneous ground-truth accelerations.",
+    "Support saturation, command novelty and local stiffness correlations alone do not prove mechanism.",
+    "Unchanged-command refinement does not recover unavailable within-sample input changes.",
+    "No controller, real-time or broad-airframe qualification."
+  ],
+  "stage_mechanism": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-causal-trace-v1/checks/stage-mechanism.json",
+    "sha256": "93a42983fc106ea2e692d4b5d29ec042961a32489e049a72d77b014d54258781"
+  },
+  "precision": "Anchor native/refined64 fields use float64 diagnostic integration. Update comparison previous_model_error/actual_model_error use unchanged deployed float32 inference. Both are independently replayed; native reconstruction and precision differences are saved separately."
+}

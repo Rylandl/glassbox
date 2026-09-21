@@ -138,13 +138,19 @@ even though its local stiff mode is milder. These are final-model diagnoses,
 not the parameters that generated the earlier online errors. They do not
 establish what caused those causal forecast spikes.
 
-## Remaining work
+## Causal follow-up and remaining work
 
-**Causal fixed-wing forecast failures** is the next named gap. Freeze a replay that
-captures the actual pre-prediction model at the declared v4 spikes and nearby
-ordinary origins. Compare complete integration stages, support compression and
-command excitation before choosing a new correction. Simply increasing this
-penalty would not address the unresolved mechanism. Latency remains separate.
+The [completed causal trace](online-causal-trace.md) reproduces all 450 fixed-wing
+forecasts and captures the actual pre-prediction sessions at 20 declared origins.
+At all four selected failures, the preceding accepted update improves the
+forecast on identical current inputs. Finer integration helps the two hardest
+FW81 errors, but leaves large residual model errors; it worsens FW80's largest
+rate error. Large quadratic command/rate/attitude contributions occur before and
+during integration. Ordinary controls also exhibit support saturation, so novelty
+alone is not a sufficient diagnosis.
 
-These recordings do not qualify unseen control authority, a reliability
-percentage, or current-model closed-loop recovery.
+The next gap is **constraining unsupported nonlinear response during short online
+fits**, including the effect of narrow startup scales on known gravity-direction
+geometry. One correction needs a frozen comparison against working v4. Latency
+remains separate, and these known tapes do not qualify unseen control authority,
+a reliability percentage or current-model closed-loop recovery.
