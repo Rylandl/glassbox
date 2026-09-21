@@ -911,20 +911,39 @@ def test_invalid_conditioning_retains_original_full_model_and_consumes_once(
 def numpy_curvature_factors(model, roles, scale):
     """Literal physical Hessian weighting, without production feature helpers."""
     norms = model.norms
-    observed_commands = []
+    role_energy = []
     for windows in roles:
-        for past, future in zip(windows["past_inputs"], windows["future_inputs"]):
-            observed_commands.extend(np.concatenate((past, future)))
-    issued = np.maximum(
-        1,
-        np.max(
-            np.abs((observed_commands - norms["input_mean"]) / norms["input_scale"]),
-            axis=0,
-        ),
-    )
-    domain = np.r_[
-        norms["motion_bound_scale"], 1 / norms["body_scale"][6:9], issued, issued
-    ]
+        if not len(windows["past_states"]):
+            continue
+        samples = []
+        for past, inputs, future, targets in zip(
+            *(windows[key] for key in online._FIELDS)
+        ):
+            observed = np.concatenate((past, targets[:-1]))
+            issued = np.concatenate((inputs, future))
+            energy = []
+            for state, command in zip(
+                observed[model.delay_steps :], issued[model.delay_steps :]
+            ):
+                rotation = state[6:].reshape(3, 3)
+                motion = (
+                    np.r_[rotation.T @ state[:3], state[3:6]] - norms["body_mean"][:6]
+                ) / norms["body_scale"][:6]
+                support = norms["motion_bound_scale"] / 4
+                for axis in range(6):
+                    excess = abs(motion[axis]) - support[axis]
+                    if excess > 0:
+                        motion[axis] = (
+                            np.sign(motion[axis])
+                            * support[axis]
+                            * (1 + 3 * np.tanh(excess / (3 * support[axis])))
+                        )
+                commands = (command - norms["input_mean"]) / norms["input_scale"]
+                energy.append(np.r_[motion, commands] ** 2)
+            samples.append(np.mean(energy, axis=0))
+        role_energy.append(np.mean(samples, axis=0))
+    rms = np.maximum(1, np.sqrt(np.mean(role_energy, axis=0)))
+    domain = np.r_[rms[:6], 1 / norms["body_scale"][6:9], rms[6:], rms[6:]]
     factors = []
     for index, (left, right) in enumerate(zip(*np.triu_indices(len(domain)))):
         hessian = 2 if left == right else np.sqrt(2)
@@ -944,7 +963,7 @@ def numpy_curvature_prior(model, roles, scale):
     return 0.01 / 4 * np.sum((factors * model.params["quadratic"]) ** 2)
 
 
-def test_curvature_domain_uses_supported_motion_and_all_observed_issued_commands():
+def test_curvature_domain_uses_measured_physical_scales_and_issued_commands():
     from jax.flatten_util import ravel_pytree
 
     model, bootstrap, recent = conditioning_fixture()
@@ -954,24 +973,10 @@ def test_curvature_domain_uses_supported_motion_and_all_observed_issued_commands
     norms["input_scale"] = np.array([0.3, 1.5, 0.7])
     norms["input_mean"] = np.array([0.1, -0.2, 0.3])
     model = replace(model, norms=norms)
-    for windows in (bootstrap, recent):
-        for name in ("past_inputs", "future_inputs"):
-            windows[name][..., 2] = norms["input_mean"][2]
-    # Extremes at t<delay and the last completed command must both be included.
-    bootstrap["past_inputs"][0, 0, 0] = (
-        norms["input_mean"][0] - 200 * norms["input_scale"][0]
-    )
-    recent["future_inputs"][-1, -1, 1] = (
-        norms["input_mean"][1] + 300 * norms["input_scale"][1]
-    )
     data, weights = online._full_cache(bootstrap, recent)
-    # Fixed-shape duplicate slots are not actual observations.
-    data[1][weights == 0] = 1e12
-    data[2][weights == 0] = -1e12
     scale = online._scale(bootstrap)
     domain, factors = numpy_curvature_factors(model, (bootstrap, recent), scale)
-    np.testing.assert_array_equal(domain[:6], norms["motion_bound_scale"])
-    np.testing.assert_array_equal(domain[9:12], [200, 300, 1])
+    assert not np.allclose(domain[:6], 1)
     np.testing.assert_array_equal(domain[6:9], [10, 1 / 0.3, 500])
     np.testing.assert_array_equal(domain[9:12], domain[12:])
     _, pooled = numpy_curvature_factors(
@@ -979,13 +984,7 @@ def test_curvature_domain_uses_supported_motion_and_all_observed_issued_commands
         ({k: np.concatenate((bootstrap[k], recent[k])) for k in bootstrap},),
         scale,
     )
-    np.testing.assert_array_equal(factors, pooled)  # Maxima do not depend on role size.
-    _, repeated = numpy_curvature_factors(
-        model,
-        ({k: np.repeat(v, 3, axis=0) for k, v in bootstrap.items()}, recent),
-        scale,
-    )
-    np.testing.assert_array_equal(factors, repeated)
+    assert not np.allclose(factors, pooled)  # Distinguishes role from pooled weighting.
     with jax.enable_x64(True):
         flat, unpack = ravel_pytree(model.params)
         actual = online._curvature_diagonal(
@@ -1009,17 +1008,16 @@ def test_curvature_domain_uses_supported_motion_and_all_observed_issued_commands
         assert float(0.5 * jnp.dot(actual, flat**2)) == pytest.approx(
             numpy_curvature_prior(model, (bootstrap, recent), scale), rel=2e-13
         )
-        # States, lag and positive weight magnitudes cannot weaken the domain.
+        # Neither learned lag nor arbitrary target beyond the current features sets D.
         changed = dict(model.params, raw_tau=np.full(3, 10.0))
         last_target = [v.copy() for v in data]
-        last_target[0] *= 1000
-        last_target[3] += 1000
+        last_target[3][:, -1, :6] += 1000
         unchanged = online._curvature_diagonal(
             changed,
             model.norms,
             tuple(last_target),
             scale,
-            np.where(weights > 0, np.arange(len(weights)) + 1.0, 0.0),
+            weights,
             delay=model.delay_steps,
             dt_s=model.dt_s,
         )
@@ -1027,32 +1025,6 @@ def test_curvature_domain_uses_supported_motion_and_all_observed_issued_commands
         zero = dict(model.params, quadratic=np.zeros_like(model.params["quadratic"]))
         affine, _ = ravel_pytree(zero)
         assert float(jnp.dot(actual, affine**2)) == 0
-
-
-def test_curvature_command_envelope_covers_reconstructed_filters_for_every_lag():
-    model, bootstrap, recent = conditioning_fixture()
-    bootstrap["past_inputs"][0, 0] = [-25, 40, -17]
-    domain, _ = numpy_curvature_factors(
-        model, (bootstrap, recent), online._scale(bootstrap)
-    )
-    command_bound = domain[9:12]
-    for windows in (bootstrap, recent):
-        for past, future in zip(windows["past_inputs"], windows["future_inputs"]):
-            commands = np.concatenate((past, future))
-            for tau in (np.full(3, 0.001), np.array([0.1, 1, 100])):
-                filtered = commands[0].copy()
-                for command in commands:
-                    for fraction in (0.0, 0.5, 1.0):
-                        value = command + (filtered - command) * np.exp(
-                            -fraction * model.dt_s / tau
-                        )
-                        z = (value - model.norms["input_mean"]) / model.norms[
-                            "input_scale"
-                        ]
-                        assert np.all(np.abs(z) <= command_bound + 1e-13)
-                    filtered = command + (filtered - command) * np.exp(
-                        -model.dt_s / tau
-                    )
 
 
 def test_curvature_prior_and_directional_derivative_survive_reconditioning():

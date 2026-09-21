@@ -122,13 +122,20 @@ See [replay instructions](../CONTRIBUTING.md#reproduce-streaming-fitting).
 
 ## Next gap
 
-**Residual fixed-wing angular response and forecast outliers.** Capture v6's
-actual pre-assimilation state at its remaining angular extremes, distinguish
-incorrect learned acceleration from integration error, and test whether
-unconstrained delayed-linear/recurrent response now limits accuracy. Preserve
-velocity/rate, orientation, tails, kinematic comparisons and timing. No stronger
-prior, extra head or finer solver is justified by the aggregate alone.
+**Causal optimizer effectiveness under the physical curvature prior.** The
+[exact v6 trace](online-angular-response.md) and the prospectively frozen
+[v7 domain experiment](online-fit-v7.md) are complete. V7 improved aggregate
+velocity/rate error 13.30% but worsened quad and angular measures; both gates
+failed. It did not reliably reduce physical curvature at actual failure states,
+despite stronger regularization. V6 remains maintained.
+
+Freeze a read-only audit of the retained objective, four-PCG residual, forecast
+trust shrink and exact loss gain before choosing another correction. Large
+prior values and accepted proposals alone prove neither optimization failure
+nor convergence. Preserve all six tapes, physical errors, tails, kinematic and
+timing comparisons; use adopted v6 as the next candidate's reference.
 
 Historical verdicts remain unchanged: [v4](online-fit-v4.json) was adopted;
-[v3](online-fit-v3.json) and [v5](online-fit-v5.json) were not. Their source and
-sealed evidence remain reproducible. Only v6 is maintained as the online fitter.
+[v3](online-fit-v3.json), [v5](online-fit-v5.json) and [v7](online-fit-v7.json)
+were not. Their committed source and sealed evidence remain reproducible.
+Only v6 is maintained as the online fitter.

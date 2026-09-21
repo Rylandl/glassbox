@@ -307,7 +307,7 @@ def test_generic_session_archive_verification_without_optimizer_loader(
             evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 6])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 7])
 def test_other_protocol_cannot_run_maintained_candidate(tmp_path, monkeypatch, version):
     protocol = tmp_path / "protocol.json"
     protocol.write_text(json.dumps(dict(id=f"online-fit-v{version}")))
@@ -598,10 +598,10 @@ def test_prospective_run_rejects_weaker_v2_reference(tmp_path, monkeypatch, vers
         evaluate.reference_contract(tmp_path, protocol)
 
 
-def test_current_candidate_runner_uses_v7_against_working_v6():
+def test_current_candidate_runner_uses_v6_against_working_v4():
     protocol = evaluate.read(evaluate.PROTOCOL)
-    assert protocol["id"] == "online-fit-v7"
-    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v6"
+    assert protocol["id"] == "online-fit-v6"
+    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v4"
     assert evaluate.run.__defaults__[0] == evaluate.PROTOCOL
 
 
@@ -886,7 +886,7 @@ class CaptureOnline(FakeOnline):
 
 
 def capture_fixture(tmp_path, monkeypatch):
-    protocol = evaluate.read(evaluate.PROTOCOL)
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v7.json")
     protocol["causal_captures"]["origins"] = dict(fixture=[16, 18])
     events = []
     monkeypatch.setattr(CaptureOnline, "events", events)
@@ -956,7 +956,7 @@ def test_v7_capture_before_prediction_after_reveal_and_outside_all_call_timers(
         16,
         18,
     ]
-    real = evaluate.read(evaluate.PROTOCOL)
+    real = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v7.json")
     assert sum(len(rows) for rows in real["causal_captures"]["origins"].values()) == 23
 
 
@@ -1006,7 +1006,7 @@ def test_v7_capture_save_mutation_stops_before_prediction(tmp_path, monkeypatch)
             self.count += 1
 
     monkeypatch.setattr(CaptureOnline, "save", mutate)
-    protocol = evaluate.read(evaluate.PROTOCOL)
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v7.json")
     protocol["causal_captures"]["origins"] = dict(fixture=[16])
     events = []
     monkeypatch.setattr(CaptureOnline, "events", events)

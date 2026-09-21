@@ -145,6 +145,14 @@ as `--reference`. Current verification still audits its sealed pack and nested
 v4/v2 references with zero fits; current runs use the maintained v6 fitter.
 See [the failed primary result](docs/online-fit-v5.json).
 
+The rejected [v7 domain experiment](docs/online-fit-v7.md) is reproducible from
+source `3ca9498`, with protocol `online-fit-v7.json` and the adopted v6 evaluation
+as `--reference`. Current saved-array verification preserves its v7 domain
+arithmetic and 23 causal captures without loading or maintaining a v7 learner.
+The separate diagnostic driver in its checks directory invokes the unchanged
+snapshot diagnostics from that committed source after authenticating the v7
+pack; its sealed result authority is in [the index](docs/online-fit-v7.json).
+
 The preceding v4 result is reproducible from source `8053938`; its sealed pack
 is the v6 primary comparator. V6 scientific source is `2e465a4`.
 
@@ -159,6 +167,14 @@ contract. These replays establish neither candidate-controlled recovery nor
 blind generalization across platforms.
 
 ## Reproduce the causal fixed-wing diagnosis
+
+The current [v2 trace](docs/harness/online-causal-trace-v2.json) uses adopted v6
+and recovers 23 snapshots across all 450 fixed-wing updates. Source `7dee1b4`
+reproduces it with the commands below, replacing the input with
+`artifacts/online-fit-v6/evaluation` and explicitly passing
+`--protocol docs/harness/online-causal-trace-v2.json` to `run`. Its read-only
+verification also checks angular head increments and physical Jacobian blocks.
+See [the result](docs/online-angular-response.md).
 
 The [frozen causal trace](docs/harness/online-causal-trace-v1.json) diagnoses the
 working v4 fitter on its authenticated saved fixed-wing inputs. It replays all

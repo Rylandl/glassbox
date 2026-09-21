@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v7.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v6.json"
 
 COUNTERS = (
     "observations",
@@ -1166,16 +1166,12 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v7",
+            p["id"] == "online-fit-v6",
             "unsupported candidate protocol for current learner",
         )
         require(
             reference is not None,
             "current candidate requires the authority-pinned reference pack",
-        )
-        require(
-            sum(len(rows) for rows in p["causal_captures"]["origins"].values()) == 23,
-            "causal capture contract differs",
         )
         reference_contract(reference, p)
         shutil.copytree(reference, output / "reference")
