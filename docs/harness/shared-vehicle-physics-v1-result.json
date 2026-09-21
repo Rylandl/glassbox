@@ -1,0 +1,1211 @@
+{
+  "actual_fitting_work": {
+    "bookkeeping_or_replay_refits": 0,
+    "failed_pre_fit_launch_initializations": 0,
+    "failed_pre_fit_worker_launches": 2,
+    "fits": {
+      "dart/candidate": {
+        "elapsed_s": 679.8975554578938,
+        "outcome": {
+          "calibration_calls": 1,
+          "calibration_wall_s": 2.040736333001405,
+          "fingerprint": "31715f57b91685ccad5969cc5b3ce66e5f6a925e292d86e1624ce7d5a4ee17da",
+          "fit_and_calibration_wall_s": 670.8627527919598,
+          "fits": 1,
+          "public_promotion": false,
+          "status": "complete",
+          "work": {
+            "acceptance_objective_calls_returned": 1728,
+            "checkpoints": 11,
+            "completed": true,
+            "completed_attempts": 1000,
+            "fits_replayed": 0,
+            "gradient_attempts_started": 1000,
+            "gradient_calls_returned": 1000,
+            "gradient_window_visits": 1536000,
+            "incomplete_work_unknown": false,
+            "initializer_returns": 1,
+            "ridge_solve_returns": 2
+          }
+        },
+        "run_sha256": "3c9f5d8d9c6a946efd55e665e53f9e93c6c90ab61e409d0e30b98aa838b148ec",
+        "selected_step": 400,
+        "status": "complete",
+        "weighted_development_loss": 0.009253558210834026
+      },
+      "dart/v4": {
+        "elapsed_s": 775.1940854999702,
+        "outcome": {
+          "calibration_calls": 1,
+          "calibration_wall_s": 0.5564457080326974,
+          "fingerprint": "32d91e9269a0190c91cf19896d37334763b8d57b07abe4e1495c6c222e64f581",
+          "fit_and_calibration_wall_s": 769.8985756249167,
+          "fits": 1,
+          "public_promotion": false,
+          "status": "complete",
+          "work": {
+            "acceptance_objective_calls_returned": 8001,
+            "checkpoints": 11,
+            "completed": true,
+            "completed_attempts": 1000,
+            "fits_replayed": 0,
+            "gradient_attempts_started": 1000,
+            "gradient_calls_returned": 1000,
+            "gradient_window_visits": 1536000,
+            "incomplete_work_unknown": false,
+            "initializer_returns": 1,
+            "ridge_solve_returns": 2
+          }
+        },
+        "run_sha256": "81ca88004280b70367e2127fb8c1da6a651c796b7db7da6d66c0257a51c2694e",
+        "selected_step": 0,
+        "status": "complete",
+        "weighted_development_loss": 0.10027120642856052
+      },
+      "physical/cascade/candidate": {
+        "elapsed_s": 167.8459711249452,
+        "outcome": {
+          "model_fingerprint": "0cef5c1c0c97d837b437cbe725d803b98d5d9159ca15d501d52c4ce29b82020e",
+          "operation": "research_prepared_cache_fit",
+          "selected_step": 1000,
+          "simulator": "cascade",
+          "status": "complete",
+          "work": {
+            "acceptance_objective_calls_returned": 1302,
+            "checkpoints": 11,
+            "completed": true,
+            "completed_attempts": 1000,
+            "fits_replayed": 0,
+            "gradient_attempts_started": 1000,
+            "gradient_calls_returned": 1000,
+            "gradient_window_visits": 1536000,
+            "incomplete_work_unknown": false,
+            "initializer_returns": 1,
+            "ridge_solve_returns": 2
+          }
+        },
+        "run_sha256": "61819ef61cfd23e85b4405c6a7472b60de7c19bf0e4e2fb988948738b4000631",
+        "selected_step": 1000,
+        "status": "complete",
+        "weighted_development_loss": 0.0022122330613971613
+      },
+      "physical/crazyflow/candidate": {
+        "elapsed_s": 717.3880018340424,
+        "outcome": {
+          "model_fingerprint": "85c21e3b3a12c9c80e97dcc3dd0d9992ccb943fc4e799713fcdb5aef8fe621e6",
+          "operation": "research_prepared_cache_fit",
+          "selected_step": 1000,
+          "simulator": "crazyflow",
+          "status": "complete",
+          "work": {
+            "acceptance_objective_calls_returned": 2316,
+            "checkpoints": 11,
+            "completed": true,
+            "completed_attempts": 1000,
+            "fits_replayed": 0,
+            "gradient_attempts_started": 1000,
+            "gradient_calls_returned": 1000,
+            "gradient_window_visits": 1536000,
+            "incomplete_work_unknown": false,
+            "initializer_returns": 1,
+            "ridge_solve_returns": 2
+          }
+        },
+        "run_sha256": "0025dca060147a1eb076491746682987bf196b88247faf536cf9c11785e70d1d",
+        "selected_step": 1000,
+        "status": "complete",
+        "weighted_development_loss": 0.00018850598213563413
+      }
+    },
+    "full_cache_gradient_attempts": 4000,
+    "gradient_window_visits": 6144000,
+    "initializers": 4,
+    "note": "Counts are scientific experiment work; bounded analytic test fixtures are reported separately. Fits use matched caches, objective weights and attempt budgets, not equal wall time or accepted optimization steps.",
+    "physical_control_refits": 0,
+    "ridge_solves": 8,
+    "scientific_fits": 4,
+    "summary": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/fit-summary.json",
+      "sha256": "c090fb10ad3b5d97c0a5b3e083819bd99a636cc8cd587ab4632221cf488893a3"
+    }
+  },
+  "contract": {
+    "api": "glassbox.experimental.shared_vehicle: fit, predict, update, save/load, envelope",
+    "fitted_and_envelope_horizon_s": 0.25,
+    "history_s": 0.5,
+    "learned": [
+      "six effective body acceleration channels",
+      "command filters",
+      "causal hidden dynamics"
+    ],
+    "maximum_research_mean_horizon_s": 1.2,
+    "one_formulation_and_fitting_procedure": true,
+    "separate_fit_per_configuration": true,
+    "shared_physics": [
+      "gravity",
+      "body/world transforms",
+      "rigid-body kinematics",
+      "SO(3) integration"
+    ],
+    "telemetry_semantics_required": "Known timing, units, frames and recording boundaries; adapters supply data interpretation, never hidden vehicle equations.",
+    "vehicle_family_or_layout_or_physical_parameters_required": false
+  },
+  "dart_control": {
+    "arms": {
+      "shared_vehicle": {
+        "completed_solves_with_positive_iterations": 1,
+        "contact": {
+          "contact": false,
+          "hit": false,
+          "minimum_plane_distance_m": 0.3458510935306549,
+          "reason": "no_plane_crossing"
+        },
+        "converged_solves": 1,
+        "error": {
+          "message": "nonfinite initial objective or gradient",
+          "type": "RuntimeError"
+        },
+        "executed_intervals": 81,
+        "hit": false,
+        "ideal_physical_state_observation": true,
+        "imported_gradient_calls": 3,
+        "imported_optimizer_solves": 1,
+        "max_selected_command_change_from_seed": 0.07687808914113103,
+        "new_completed_solves": 26,
+        "new_gradient_calls": 181,
+        "new_optimizer_attempts": 27,
+        "nonfinite_gradient_evaluations": 27,
+        "real_time_claim": false,
+        "recorded_gradient_calls": 184,
+        "simulator_actuator_information_supplied": false,
+        "solves": 27,
+        "status": "failed"
+      },
+      "structured_causal_history": {
+        "completed_solves_with_positive_iterations": 40,
+        "contact": {
+          "axis_error_deg": 0.7268544919824526,
+          "checks": {
+            "axis_alignment": true,
+            "bullseye": true,
+            "normal_speed": true,
+            "tangent_speed": true
+          },
+          "contact": true,
+          "contact_position_m": [
+            0.6499999165534973,
+            0.0006055608973838389,
+            0.9918497204780579
+          ],
+          "contact_state": [
+            0.6100031137466431,
+            0.0005919330869801342,
+            0.9913424253463745,
+            1.404067039489746,
+            -0.0006396948592737317,
+            0.0972178727388382,
+            0.7115752696990967,
+            0.0010301874717697501,
+            0.7026079893112183,
+            0.001285785692743957,
+            3.651715815067291e-05,
+            1.1150197982788086,
+            0.003401427995413542
+          ],
+          "fraction": 0.5736993234604597,
+          "hit": true,
+          "interval": 119,
+          "miss_distance_m": 0.008172744966425276,
+          "normal_speed_m_s": 1.404632568359375,
+          "tangent_speed_m_s": 0.05262322686768199,
+          "time_s": 1.1957369932346045
+        },
+        "converged_solves": 38,
+        "error": null,
+        "executed_intervals": 120,
+        "hit": true,
+        "ideal_physical_state_observation": true,
+        "imported_gradient_calls": 0,
+        "imported_optimizer_solves": 0,
+        "max_selected_command_change_from_seed": 0.42667279118923185,
+        "new_completed_solves": 40,
+        "new_gradient_calls": 3114,
+        "new_optimizer_attempts": 40,
+        "nonfinite_gradient_evaluations": 0,
+        "real_time_claim": false,
+        "recorded_gradient_calls": 3114,
+        "simulator_actuator_information_supplied": false,
+        "solves": 40,
+        "status": "complete"
+      },
+      "v4_research_extrapolation": {
+        "completed_solves_with_positive_iterations": 0,
+        "contact": {
+          "contact": false,
+          "hit": false,
+          "reason": "no_executed_interval"
+        },
+        "converged_solves": 0,
+        "error": {
+          "message": "nonfinite initial objective or gradient",
+          "type": "RuntimeError"
+        },
+        "executed_intervals": 0,
+        "hit": false,
+        "ideal_physical_state_observation": true,
+        "imported_gradient_calls": 0,
+        "imported_optimizer_solves": 0,
+        "max_selected_command_change_from_seed": null,
+        "new_completed_solves": 0,
+        "new_gradient_calls": 1,
+        "new_optimizer_attempts": 1,
+        "nonfinite_gradient_evaluations": 1,
+        "real_time_claim": false,
+        "recorded_gradient_calls": 1,
+        "simulator_actuator_information_supplied": false,
+        "solves": 0,
+        "status": "failed"
+      }
+    },
+    "control_status": "complete",
+    "execution_dt_s": 0.01,
+    "initial_seed_is_strong_context": true,
+    "interpretation": "Control stage complete means all arms were evaluated. Shared and v4 scientific trial failures remain failures. No control success rate or real-time qualification is inferred from one seed with ideal motion observations.",
+    "no_real_time_claim": true,
+    "nominal_trials_per_arm": 1,
+    "planner_horizon_s": 1.2,
+    "prelude_steps": 50,
+    "public_promotion": false,
+    "root": "/private/tmp/glassbox-shared-vehicle-dart-resume/artifacts/2026-09-20/shared-vehicle-dart-resume-correction-v1/control",
+    "run": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/control/run.json",
+      "sha256": "13db75eea963e308609f2e6d9888f38c6aeb358eb85c8fc18fa32d1245772dc4"
+    },
+    "run_sha256": "13db75eea963e308609f2e6d9888f38c6aeb358eb85c8fc18fa32d1245772dc4",
+    "scope": "One nominal trial per arm under the unchanged controller, common observed prelude and original command seed; shared solve0 resumed from authenticated evidence without repeated optimization.",
+    "shared_total_optimizer_attempts_including_imported": 28,
+    "summary": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/control-summary.json",
+      "sha256": "e3685e90ede3ea4cbe01488d8cf6a60b0bc8a41f18d65ba6e588fc515c4b6163"
+    }
+  },
+  "dart_forecasts": {
+    "development_parents": 2,
+    "interpretation": "Overlapping windows do not constitute independent experiments. V4 accepts no optimizer proposals; this is an optimizer failure, not proof that its representation has exhausted capacity. Computationally finite command JVPs do not qualify physical response derivatives.",
+    "rows": [
+      {
+        "arm": "v4_research_extrapolation",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 20,
+        "horizon_s": 0.05,
+        "planned_queries": 20,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 0.07082814484301846,
+          "rotation_entries": 0.020825837852623735,
+          "velocity_m_s": 0.02658710845916171
+        }
+      },
+      {
+        "arm": "v4_research_extrapolation",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 20,
+        "horizon_s": 0.15,
+        "planned_queries": 20,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 0.433012151064131,
+          "rotation_entries": 0.1450671264997637,
+          "velocity_m_s": 0.19947955039068868
+        }
+      },
+      {
+        "arm": "v4_research_extrapolation",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 20,
+        "horizon_s": 0.25,
+        "planned_queries": 20,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 1.0218024193984518,
+          "rotation_entries": 0.3657637373982752,
+          "velocity_m_s": 0.647902669076012
+        }
+      },
+      {
+        "arm": "v4_research_extrapolation",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 12,
+        "horizon_s": 1.2,
+        "planned_queries": 12,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 19.697276702470653,
+          "rotation_entries": 10.150682772926558,
+          "velocity_m_s": 31.577279371898157
+        }
+      },
+      {
+        "arm": "shared_vehicle",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 20,
+        "horizon_s": 0.05,
+        "planned_queries": 20,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 0.0512007436033229,
+          "rotation_entries": 0.0008292197315737543,
+          "velocity_m_s": 0.010746956958666301
+        }
+      },
+      {
+        "arm": "shared_vehicle",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 20,
+        "horizon_s": 0.15,
+        "planned_queries": 20,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 0.3346124876787594,
+          "rotation_entries": 0.0147172204844387,
+          "velocity_m_s": 0.03419888772791621
+        }
+      },
+      {
+        "arm": "shared_vehicle",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 20,
+        "horizon_s": 0.25,
+        "planned_queries": 20,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 0.8352833965532452,
+          "rotation_entries": 0.06030643295569692,
+          "velocity_m_s": 0.08771771560128891
+        }
+      },
+      {
+        "arm": "shared_vehicle",
+        "failures": [],
+        "finite_forecast_and_jvp_queries": 12,
+        "horizon_s": 1.2,
+        "planned_queries": 12,
+        "pooled_endpoint_component_rmse": {
+          "body_rate_rad_s": 10.291753452336195,
+          "rotation_entries": 0.8089965986983898,
+          "velocity_m_s": 4.36472097615515
+        }
+      }
+    ],
+    "run": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/forecast/run.json",
+      "sha256": "16c4c82bf77f61e3e61cd8f9edc05ed8ce853c1003ee564a8d65885d78c317c0"
+    },
+    "scope": "Descriptive equal-query pooled endpoint component RMSE across original test10/11 recordings. Finite forecast+JVP support shown explicitly; no new acceptance threshold or physical derivative qualification.",
+    "source_root": "/private/tmp/glassbox-shared-vehicle-physics-runtime/artifacts/2026-09-20/shared-vehicle-physics-v1/dart/forecast",
+    "source_run_sha256": "16c4c82bf77f61e3e61cd8f9edc05ed8ce853c1003ee564a8d65885d78c317c0",
+    "summary": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart-forecast-summary.json",
+      "sha256": "b3a3ede2a1cfe9a517ae1fc2433dbd87f0e53c21ba3b966bfdbb10cb85d8cde4"
+    },
+    "training_nominal_duration_s": 24,
+    "training_parents": 8,
+    "untouched_test_parents": 2
+  },
+  "decision": {
+    "dart_shared_vehicle_hit": false,
+    "dart_structured_causal_history_hit": true,
+    "dart_v4_hit": false,
+    "evidence_integrity_complete": true,
+    "frozen_physical_residual_criteria_pass": false,
+    "implementation_built": true,
+    "interpretation": "Shared mechanics substantially improve aggregate prediction and response errors. The frozen wind/tail checks and learned-model Dart contact task fail. Retain the evaluated research implementation without claiming a qualified public replacement or arbitrary-system readiness.",
+    "project_complete": false,
+    "public_promotion": false,
+    "public_recipe": "generic-memory-v4-prototype",
+    "research_recipe": "shared-vehicle-physics-v1-research",
+    "retain_as_research_implementation": true
+  },
+  "durable_evidence": {
+    "byte_identical_distinct_inode_copies": true,
+    "inventory_anchors": [
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/original-copy-inventory.json",
+        "sha256": "abf78ed270f133ac864e25f4bc1adcf419e5412782c6ae81a0810b9c0211ae73"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/import-correction-copy-inventory.json",
+        "sha256": "bc90706f8927c361ea4bb717405924d49de21b833598a083c2e8934f66356b3b"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/resume-correction-copy-inventory.json",
+        "sha256": "32b7209b720f51a9d16a73601941ae2987a1a1d35eafb618533afbb5693bbd7a"
+      }
+    ],
+    "original_source_paths_retained_in_seals": true,
+    "root": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence"
+  },
+  "experiment_date": "2026-09-20",
+  "format": "glassbox-shared-vehicle-physics-v1-result",
+  "harness_correction_protocols": [
+    {
+      "path": "docs/harness/shared-vehicle-dart-runtime-correction-v1.json",
+      "sha256": "f875931e9b684ec89a1ff7fc31e9ed0d36a652e8c9d90ca82b819c63f719a970"
+    },
+    {
+      "path": "docs/harness/shared-vehicle-dart-resume-correction-v1.json",
+      "sha256": "5b8dd96076639ef8b741963cf333975a682b689d0eca3c02d5db014f94330da6"
+    }
+  ],
+  "named_gap": "vehicle mechanics and recursive planning horizon",
+  "next_iteration": {
+    "causal_limit": "Saved command-support excursions and long-horizon errors ground the next gap, but the failing optimizer proposal commands were not saved, so the precise nonfinite trigger remains unproven.",
+    "dart_fit_diagnosis": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart-fit-diagnosis.json",
+      "sha256": "f82cbdba1abebc4824c2eb06322724216e6d38ac0ae8a5e2588f0a7daec2982b"
+    },
+    "diagnosis": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/glassbox-dart-task-horizon-diagnosis-2026-09-20.json",
+      "sha256": "1f4cf44564bf758a43425e73921f8aa9a0f31809ca62faaf05491c8742adcf4a"
+    },
+    "direction": "Freeze one targeted change addressing accurate and numerically well-conditioned learned acceleration responses over the task command range and 1.2 s horizon; measure long-horizon command responses directly and retain wind/tail regression obligations.",
+    "named_gap": "Dart task-horizon command-response fidelity",
+    "physical_diagnosis": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical-gap-diagnosis.json",
+      "sha256": "3134caef36e56beb99fcfbdb7ceb33dc0cfb394cc5743a9f195f00ae28bdf196"
+    },
+    "protocol_frozen": false,
+    "started": false
+  },
+  "physical": {
+    "availability": {
+      "cascade": {
+        "parent_status": {
+          "complete": 84
+        },
+        "planned_parents": 84,
+        "planned_queries": 1848,
+        "saved_truth_arrays": 23940
+      },
+      "crazyflow": {
+        "parent_status": {
+          "altitude_below_0.5m": 18,
+          "complete": 66
+        },
+        "planned_parents": 84,
+        "planned_queries": 2184,
+        "saved_truth_arrays": 29904
+      }
+    },
+    "checks": {
+      "all_input_eligible_predictions_finite": true,
+      "all_models_available": true,
+      "angular_retention": true,
+      "broad_residual_progress": false
+    },
+    "comparison_checks": {
+      "factual_regression": true,
+      "finite_eligible_predictions": true,
+      "joint_progress": true,
+      "matching_planned_queries_and_truth": true,
+      "primary_parent_tail_regressions": false,
+      "primary_simulator_regressions": true,
+      "response_regression": true,
+      "scope_regressions": false
+    },
+    "decision": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/decision.json",
+      "sha256": "0f5f40549312ed86f8e01208236d9c95cb40a3e3be1bc62bcb87cd91a9cd51ce"
+    },
+    "endpoint_cells": 180,
+    "endpoint_improved": 135,
+    "endpoint_regressed": 45,
+    "failed_tails": [
+      {
+        "baseline_p95": 0.0024523122363653577,
+        "candidate_p95": 0.003751768558034617,
+        "group": "rotation_entries",
+        "kind": "response",
+        "pass": false,
+        "ratio": 1.5298902408916824,
+        "simulator": "cascade"
+      }
+    ],
+    "integrity_complete": true,
+    "joint_ratio": 0.6607088330186867,
+    "overall_ratios": {
+      "factual": 0.560524993025747,
+      "response": 0.7787987466401219
+    },
+    "per_simulator_ratios": {
+      "cascade": {
+        "factual": 0.980733352736146,
+        "response": 1.118269403569775
+      },
+      "crazyflow": {
+        "factual": 0.32036054135403935,
+        "response": 0.5423804727483813
+      }
+    },
+    "primary_250ms": [
+      {
+        "absolute_change": -0.01735549305099527,
+        "baseline_rmse": 0.06458732607028528,
+        "candidate_rmse": 0.04723183301929001,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.7312863977042701,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": -0.01472571151893206,
+        "baseline_rmse": 0.04937924237691288,
+        "candidate_rmse": 0.03465353085798082,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.7017833646265699,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": -0.001138905979491173,
+        "baseline_rmse": 0.005637087217970308,
+        "candidate_rmse": 0.004498181238479135,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.7979619730096623,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 480
+      },
+      {
+        "absolute_change": -0.003128676015087463,
+        "baseline_rmse": 0.021056600389975113,
+        "candidate_rmse": 0.01792792437488765,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 0.8514159001385142,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.0018644419955631333,
+        "baseline_rmse": 0.019499340739605967,
+        "candidate_rmse": 0.0213637827351691,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.09561564262407,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": 0.0004208658928549654,
+        "baseline_rmse": 0.0017649713322152175,
+        "candidate_rmse": 0.002185837225070183,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 576,
+        "ratio": 1.238454803867401,
+        "scope": "primary",
+        "simulator": "cascade",
+        "truth_eligible": 576
+      },
+      {
+        "absolute_change": -0.026582542630459442,
+        "baseline_rmse": 0.03574459787604937,
+        "candidate_rmse": 0.009162055245589924,
+        "conditional_on_incomplete_truth": true,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.25631999770597363,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 444
+      },
+      {
+        "absolute_change": -0.05377307803693153,
+        "baseline_rmse": 0.12267189836012368,
+        "candidate_rmse": 0.06889882032319215,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.56165121143661,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 444
+      },
+      {
+        "absolute_change": -0.017060443646289603,
+        "baseline_rmse": 0.022409640730641885,
+        "candidate_rmse": 0.005349197084352283,
+        "conditional_on_incomplete_truth": true,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 480,
+        "ratio": 0.2387007069255708,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 444
+      },
+      {
+        "absolute_change": -0.0067646847987860755,
+        "baseline_rmse": 0.01893629912371949,
+        "candidate_rmse": 0.012171614324933414,
+        "conditional_on_incomplete_truth": true,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.6427662683933486,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 712
+      },
+      {
+        "absolute_change": -0.030334038439868594,
+        "baseline_rmse": 0.12872267591664477,
+        "candidate_rmse": 0.09838863747677618,
+        "conditional_on_incomplete_truth": true,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.7643458060216864,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 712
+      },
+      {
+        "absolute_change": -0.007265514018736832,
+        "baseline_rmse": 0.017312942074162403,
+        "candidate_rmse": 0.010047428055425571,
+        "conditional_on_incomplete_truth": true,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 768,
+        "ratio": 0.5803420361707451,
+        "scope": "primary",
+        "simulator": "crazyflow",
+        "truth_eligible": 712
+      }
+    ],
+    "primary_parent_tail_limit": 1.5,
+    "ratio_definition": "Candidate / retained v4; prospectively weighted geometric aggregates. Lower is better; these are not accuracy percentages.",
+    "residual_criteria_pass": false,
+    "run": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical/run.json",
+      "sha256": "e01b652ac370a200e4276cb40f130a934410435436364abfdedbd9e0044a6665"
+    },
+    "same_available_truth_for_both_arms": true,
+    "scope_improved": 15,
+    "scope_limit": 1.5,
+    "scope_regressions": [
+      {
+        "kind": "factual",
+        "ratio": 3.7382326136747612,
+        "scope": "wind_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 1.0075061522754811,
+        "scope": "heading_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 1.0780919324253797,
+        "scope": "primary",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 1.2605019381677052,
+        "scope": "speed_shift",
+        "simulator": "cascade"
+      },
+      {
+        "kind": "response",
+        "ratio": 1.6434697073897973,
+        "scope": "wind_shift",
+        "simulator": "cascade"
+      }
+    ],
+    "scope_total": 20,
+    "summary": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical-summary.json",
+      "sha256": "6d0694c91247dd9316760e0628fb771d1cd04a50b323e5c8dde953c6d6ba54e6"
+    },
+    "wind_250ms": [
+      {
+        "absolute_change": 0.35176285016390324,
+        "baseline_rmse": 0.09546595797366221,
+        "candidate_rmse": 0.44722880813756544,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 4.684694079757205,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 0.13786440646959736,
+        "baseline_rmse": 0.08407142116570199,
+        "candidate_rmse": 0.22193582763529934,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 2.6398486496127047,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 0.026721868631510035,
+        "baseline_rmse": 0.00916686485992188,
+        "candidate_rmse": 0.035888733491431915,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 3.9150499150849005,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": 0.016583303184157242,
+        "baseline_rmse": 0.0205673928837931,
+        "candidate_rmse": 0.037150696067950344,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.8062909712404394,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.016542411276560566,
+        "baseline_rmse": 0.018835450958968852,
+        "candidate_rmse": 0.03537786223552942,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.8782593691330542,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.0017364537086228466,
+        "baseline_rmse": 0.0017809501336738308,
+        "candidate_rmse": 0.0035174038422966774,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 96,
+        "ratio": 1.9750153447816112,
+        "scope": "wind_shift",
+        "simulator": "cascade",
+        "truth_eligible": 96
+      },
+      {
+        "absolute_change": 0.03402566783926793,
+        "baseline_rmse": 0.06751025954237694,
+        "candidate_rmse": 0.10153592738164487,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 1.5040073622870556,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": -0.03136460723082899,
+        "baseline_rmse": 0.07179671108565423,
+        "candidate_rmse": 0.04043210385482524,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 0.563147019458723,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": -0.009467791762911796,
+        "baseline_rmse": 0.012723434299689222,
+        "candidate_rmse": 0.0032556425367774268,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "factual",
+        "planned": 80,
+        "ratio": 0.25587765536361107,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 80
+      },
+      {
+        "absolute_change": -0.00521509626460736,
+        "baseline_rmse": 0.012256877207057596,
+        "candidate_rmse": 0.007041780942450236,
+        "conditional_on_incomplete_truth": false,
+        "group": "velocity_m_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 128,
+        "ratio": 0.5745167242432296,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 128
+      },
+      {
+        "absolute_change": -0.01761484031068862,
+        "baseline_rmse": 0.08724645294047763,
+        "candidate_rmse": 0.06963161262978901,
+        "conditional_on_incomplete_truth": false,
+        "group": "body_rate_rad_s",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 128,
+        "ratio": 0.798102504835285,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 128
+      },
+      {
+        "absolute_change": -0.004350728052318225,
+        "baseline_rmse": 0.011441054896082083,
+        "candidate_rmse": 0.0070903268437638575,
+        "conditional_on_incomplete_truth": false,
+        "group": "rotation_entries",
+        "horizon_s": 0.25,
+        "kind": "response",
+        "planned": 128,
+        "ratio": 0.6197266692769646,
+        "scope": "wind_shift",
+        "simulator": "crazyflow",
+        "truth_eligible": 128
+      }
+    ]
+  },
+  "preserved_failures": [
+    {
+      "anchor": {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/failed-fit-launches/launch-failure-audit.json",
+        "sha256": "5afcae11bd1f144beb8293f06efd9183db99fdae2ff8a210d60eff1118515def"
+      },
+      "scope": "Two worker launches used a resolved Python executable outside the required venv; zero scientific fits or initializations"
+    },
+    {
+      "anchor": {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/control-launch-failure-audit.json",
+        "sha256": "1ce0ed71a543750cb1335d6e0335eabb54e1662791fa732bd4eeda71e28604b5"
+      },
+      "run": {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart/control/run.json",
+        "sha256": "341dbf3879fc45f8b6523d9f564eeea42c77603dcc389ba54e44adb8c12d919f"
+      },
+      "scope": "Obsolete structured-belief import stopped Dart control before plant/prelude/optimizer work"
+    },
+    {
+      "anchor": {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-import-correction/serialization-failure-audit.json",
+        "sha256": "2c379a14d1ea8d22384cf11930c0f8bd9ab20590bfe1c7d8677dcd29a920e77e"
+      },
+      "run": {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-import-correction/control/run.json",
+        "sha256": "e0b237b6150ab8613e04a42a487459c4ebdb2e6f5c0dc02895a4994bbedc9716"
+      },
+      "scope": "First shared optimizer solve completed, then nonfinite diagnostic serialization failed. Saved plan resumed once without repeating prelude or solve; zero commands had executed at failure. Raw partial JSON and unavailable solve duration preserved."
+    }
+  ],
+  "protocol": {
+    "commit": "d782c9609711bceb78f720f35a6fe5758ff86c6d",
+    "path": "docs/harness/shared-vehicle-physics-v1.json",
+    "sha256": "90f0c418379c62a6fc1b9a4f1ae094f74de8868a6e77f7370138cc6533dd0053"
+  },
+  "qualification_limits": [
+    "Rigid-body vehicle hypothesis; articulated, flexible and arbitrary systems unqualified.",
+    "Calibration uses development recordings also used for checkpoint selection; held-out envelope coverage unqualified.",
+    "Envelopes stop at 250 ms; 1.2 s outputs are recursive research means.",
+    "Physical command-derivative fidelity remains unqualified.",
+    "One nominal Dart trial per arm with original strong seed and ideal motion observations; no general controller reliability or real-time claim.",
+    "Candidate live-update improvement and safe controller swapping unqualified.",
+    "Crazyflow missing truth and altitude failures remain visible; both arms score identical available truth.",
+    "Legacy structured comparator and research harnesses remain; lean completion criterion unmet."
+  ],
+  "source": {
+    "files": [
+      {
+        "path": "src/glassbox/experimental/shared_vehicle_core.py",
+        "sha256": "5e9c2cc55ab1d09287a884b3ed3a0bd37ff665f14fa07038dd3d6e1f5d0b44ef"
+      },
+      {
+        "path": "src/glassbox/experimental/shared_vehicle.py",
+        "sha256": "f2476185bee61b9537503d312bc28ebdf9a133294b998e9773ebfbc40ed2f014"
+      },
+      {
+        "path": "src/glassbox/experimental/shared_vehicle_data.py",
+        "sha256": "3512f91d911af03b6e603a225ff4258c932a82e95474be88dec8a188e2e9df60"
+      },
+      {
+        "path": "src/glassbox/experimental/shared_vehicle_experiment.py",
+        "sha256": "b4673b6acc128bfd87915e5c424768ae0d68b7cdbc24e90b14a65e628905e353"
+      },
+      {
+        "path": "src/glassbox/experimental/shared_vehicle_dart.py",
+        "sha256": "4f1b3ee93f3a83b96bbeccdf5a7b5e4e9dad954f75d5addb18dbdec7d4d4b41a"
+      },
+      {
+        "path": "src/glassbox/learner.py",
+        "sha256": "6f3ea76b240f58b57b9e8514c09fe65141672caf2380f649a4b81a7c8940f2b9"
+      },
+      {
+        "path": "src/glassbox/_sequence_model.py",
+        "sha256": "a76ce39b2481808bf340e55b343336d1f56568c9f97e4756791096838916ade3"
+      }
+    ],
+    "immutable_workers": [
+      {
+        "binding": {
+          "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/implementation-binding.json",
+          "sha256": "22d0594a2d98f05c12d5cfa2765ec13c931a85073660d397cd8d4a387526bbd9"
+        },
+        "commit": "431d6a9412546a9066de9511344d5bf188ca9e84",
+        "context": {
+          "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/context.json",
+          "sha256": "e268310305db122ca8a108926211574a063807a5ec86c4ed8b93529f94d3b856"
+        },
+        "role": "All four scientific fits, physical trials and audits, Dart forecasts and fit/forecast replays"
+      },
+      {
+        "binding": {
+          "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-import-correction/implementation-binding.json",
+          "sha256": "f96f1d6bfaea2aba159e633eec67a1df9fc6093e835d94fe8f3f9bb5a5299238"
+        },
+        "commit": "634ee9f919a17c66993b1b7bc2497ec278d7f836",
+        "context": {
+          "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-import-correction/context.json",
+          "sha256": "8f135b53613470386ba4486c73fa2a1fa0d6e01c43a9708e5d458ccaf52e6980"
+        },
+        "role": "Harness import correction; first shared controller solve preserved after diagnostic serialization failure"
+      },
+      {
+        "binding": {
+          "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/implementation-binding.json",
+          "sha256": "2872d67b150552877a609e4b6159b3e76e64f0700cab5ebcbbe2a788c71edbff"
+        },
+        "commit": "8cbfd49cd31ae7c5a8170cb9d0fb4aabc2e644cd",
+        "context": {
+          "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/context.json",
+          "sha256": "0e2720e4e2ec1900034b513eef51b780fca19eb452a85687fc149f8967238147"
+        },
+        "role": "Harness diagnostic correction; authenticated continuation of saved first solve, remaining control trials and optimizer-free replay"
+      }
+    ],
+    "integrated_implementation_commit": "8cbfd49cd31ae7c5a8170cb9d0fb4aabc2e644cd",
+    "public_numerical_source_unchanged": true
+  },
+  "status": "iteration_complete",
+  "verification": {
+    "control_replay_outcome": {
+      "arms": {
+        "shared_vehicle": {
+          "available": true,
+          "contact": {
+            "contact": false,
+            "hit": false,
+            "minimum_plane_distance_m": 0.3458510935306549,
+            "reason": "no_plane_crossing"
+          },
+          "imported_gradient_calls": 3,
+          "original_trial_status": "failed",
+          "physical_states": 82,
+          "recorded_new_gradient_calls": 181,
+          "replayed_planned_means": 27
+        },
+        "structured_causal_history": {
+          "available": true,
+          "contact": {
+            "axis_error_deg": 0.7268544919824526,
+            "checks": {
+              "axis_alignment": true,
+              "bullseye": true,
+              "normal_speed": true,
+              "tangent_speed": true
+            },
+            "contact": true,
+            "contact_position_m": [
+              0.6499999165534973,
+              0.0006055608973838389,
+              0.9918497204780579
+            ],
+            "contact_state": [
+              0.6100031137466431,
+              0.0005919330869801342,
+              0.9913424253463745,
+              1.404067039489746,
+              -0.0006396948592737317,
+              0.0972178727388382,
+              0.7115752696990967,
+              0.0010301874717697501,
+              0.7026079893112183,
+              0.001285785692743957,
+              3.651715815067291e-05,
+              1.1150197982788086,
+              0.003401427995413542
+            ],
+            "fraction": 0.5736993234604597,
+            "hit": true,
+            "interval": 119,
+            "miss_distance_m": 0.008172744966425276,
+            "normal_speed_m_s": 1.404632568359375,
+            "tangent_speed_m_s": 0.05262322686768199,
+            "time_s": 1.1957369932346045
+          },
+          "imported_gradient_calls": 0,
+          "original_trial_status": "complete",
+          "physical_states": 121,
+          "recorded_new_gradient_calls": 3114,
+          "replayed_planned_means": 40
+        },
+        "v4_research_extrapolation": {
+          "available": true,
+          "contact": {
+            "contact": false,
+            "hit": false,
+            "reason": "no_executed_interval"
+          },
+          "imported_gradient_calls": 0,
+          "original_trial_status": "failed",
+          "physical_states": 1,
+          "recorded_new_gradient_calls": 1,
+          "replayed_planned_means": 0
+        }
+      },
+      "authenticated_inherited_control_prefix": {
+        "path": "/private/tmp/glassbox-shared-vehicle-dart-runtime/artifacts/2026-09-20/shared-vehicle-dart-runtime-correction-v1/control",
+        "sha256": "e0b237b6150ab8613e04a42a487459c4ebdb2e6f5c0dc02895a4994bbedc9716"
+      },
+      "exact": true,
+      "fits": 0,
+      "initializers": 0,
+      "optimizer_calls": 0,
+      "scope": "Actual prelude, recorded commands, reconstructed causal optimizer inputs, saved selected means and first-contact score. Optimizer is not rerun; original failures and nonconvergence remain unchanged.",
+      "status": "complete"
+    },
+    "control_replay_outcome_anchor": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/control-replay/outcome.json",
+      "sha256": "0e2f4a3f756069f5a6536947441087003b4fbb729f94335da1bd8cfaa0442502"
+    },
+    "extra_eager_outer_jit_exact_assertion": {
+      "cascade_max_absolute_difference": 3.5762786865234375e-07,
+      "note": "Same-path frozen replays and API/core checks are exact. The extra bitwise assertion across eager and outer-JIT float32 execution failed and remains recorded.",
+      "passed": false,
+      "scientific_gate_changed": false
+    },
+    "independent_raw_error_rows": 257040,
+    "integration_smoke": {
+      "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/integration-check.json",
+      "sha256": "68197904ec1f50e91ac3bd696446c82fbe8e317de11bed6f1e0c0df2938e83a9"
+    },
+    "physical_artifact_alterations_rejected": 4,
+    "run_anchors": [
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical-replay/crazyflow/run.json",
+        "sha256": "b397be45880d670ee8828570a60799a3f6c1433de6f48a337da78f114526f5fe"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical-replay/cascade/run.json",
+        "sha256": "8bc2fbc3167fad85b86a9393103daf5bc9293e19359d013d1795d248cc8f304b"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical-independent/run.json",
+        "sha256": "4195308296ae2dc6627d105324f50edee86f70ac77b7b5bb175ad1a603edc353"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/physical-alterations/run.json",
+        "sha256": "0f0aa8304edbe0b83de9e75be3a92a6d0c9be74ed231bd8e60a75eff47242bc7"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart-replay/v4/run.json",
+        "sha256": "66652899311449efbccc9f6f23056d3797f7a859b6cb01b3d2c004c05566b387"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart-replay/candidate/run.json",
+        "sha256": "8154ac55113c11c15ddb6490da0fe61e28ed6f364bf7a82f3e70034d77aabad6"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/dart-replay/forecast/run.json",
+        "sha256": "88dc4bd549b7e895da83d8e4aa70a68663fc7790ecaed420190b65c0a8664190"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/control-replay/run.json",
+        "sha256": "22e82bd16768fbe45bcb60c77d4d76be66d794efe4c2aee43c439a059742f879"
+      }
+    ],
+    "test_counts_note": "Validation suites overlap across source-bound harness corrections; do not add their reported counts into a distinct-test total.",
+    "validation_records": [
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/failed-fit-launches/implementation-validation.json",
+        "sha256": "8b191e4226cf3423109b1a36430d18574b8db6d8a5e2975051f596fc4d00f6a0"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/implementation-validation.json",
+        "sha256": "56c6d210c49b08b54005c9b540ce3cb3bb5944e8da5846826b20dad32eb76438"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/experiment/final-implementation-review.json",
+        "sha256": "3d48c5d3106900f389c39e43931414a95581384df6c0632cceac38eeb1bd2185"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-import-correction/validation.json",
+        "sha256": "25cfb628ae00f4aa847847e95ac87f277b3e5ad6f6280f03084f1c73a0ca98a4"
+      },
+      {
+        "path": "artifacts/2026-09-20/shared-vehicle-physics-v1-evidence/dart-resume-correction/validation.json",
+        "sha256": "28ecbd2b9c3983a70da54177c73f66432cc61df8461817139123ef161a0911de"
+      }
+    ]
+  }
+}
