@@ -6,7 +6,12 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from glassbox import LearnedDynamics, SequenceCollection, SequenceSegment
+from glassbox import (
+    STATE_CHANNELS,
+    LearnedDynamics,
+    SequenceCollection,
+    SequenceSegment,
+)
 from glassbox.learner import _recording_content
 from glassbox.workflows.forecast import evaluate
 
@@ -17,19 +22,25 @@ class LinearForecast(LearnedDynamics):
     def __init__(self):
         self._seen = {}
         self.batch_sizes = []
+        self.calibrated = True
+        self.absent_calibration = None
 
     @property
     def contract(self):
         return dict(
             configuration_id="score-test",
-            state_channels=["x [m]", "y [rad]"],
+            state_channels=list(STATE_CHANNELS),
             input_channels=["u [command]"],
             dt_s=0.1,
         )
 
     @property
     def report(self):
-        return {"envelope": {"nominal_coverage": 0.9}}
+        return {
+            "envelope": {"nominal_coverage": 0.9}
+            if self.calibrated
+            else self.absent_calibration
+        }
 
     @property
     def history_steps(self):
@@ -40,14 +51,17 @@ class LinearForecast(LearnedDynamics):
         return 2
 
     def envelope(self):
-        return np.full((2, 2), 0.5)
+        assert self.calibrated, "uncalibrated model must not be asked for an envelope"
+        return np.full((2, 15), 0.5)
 
     def predict(self, past_states, past_inputs, future_inputs):
         self.batch_sizes.append(len(past_states))
-        assert past_states.shape[1:] == (3, 2)
+        assert past_states.shape[1:] == (3, 15)
         assert past_inputs.shape[1:] == (2, 1)
         assert future_inputs.shape[1:] == (2, 1)
-        return past_states[:, -1:, :] + np.arange(1, 3)[None, :, None] * [1, 2]
+        increment = np.zeros((2, 15))
+        increment[:, :2] = np.arange(1, 3)[:, None] * [1, 2]
+        return past_states[:, -1:, :] + increment
 
     def fingerprint(self):
         return "analytic-fixture"
@@ -58,15 +72,14 @@ class LinearForecast(LearnedDynamics):
 
 def recording(name, rows=8, start=0, segment_id="whole"):
     t = np.arange(rows, dtype=float) + start
-    return SequenceSegment(
-        name, segment_id, np.column_stack((t, t**2)), t[:-1, None], 0.1, start
-    )
+    states = np.zeros((rows, 15))
+    states[:, :2] = np.column_stack((t, t**2))
+    states[:, 6:] = np.eye(3).ravel()
+    return SequenceSegment(name, segment_id, states, t[:-1, None], 0.1, start)
 
 
 def collection(*segments):
-    return SequenceCollection(
-        segments, "score-test", ("x [m]", "y [rad]"), ("u [command]",)
-    )
+    return SequenceCollection(segments, "score-test", STATE_CHANNELS, ("u [command]",))
 
 
 def expected(origins):
@@ -74,6 +87,8 @@ def expected(origins):
     t = np.array(origins)[:, None]
     errors = np.stack((np.zeros((len(t), 2)), 2 * h - 2 * t * h - h**2), axis=-1)
     hold = np.stack((np.broadcast_to(-h, (len(t), 2)), -2 * t * h - h**2), axis=-1)
+    errors = np.pad(errors, ((0, 0), (0, 0), (0, 13)))
+    hold = np.pad(hold, ((0, 0), (0, 0), (0, 13)))
     return dict(
         windows=len(t),
         rmse=np.sqrt(np.mean(errors**2, axis=0)),
@@ -129,7 +144,35 @@ def test_contract_mismatch_and_empty_recordings_are_rejected():
     with pytest.raises(ValueError, match="channels or sample"):
         evaluate(
             model,
-            replace(collection(recording("a")), state_channels=("x [cm]", "y [rad]")),
+            replace(collection(recording("a")), input_channels=("other command",)),
         )
     with pytest.raises(ValueError, match="no complete"):
         evaluate(model, collection(recording("too-short", 4)))
+
+
+@pytest.mark.parametrize(
+    "metadata", [None, {"available": False, "reason": "no calibration"}]
+)
+def test_uncalibrated_revision_has_no_invented_coverage(metadata):
+    model = LinearForecast()
+    model.calibrated = False
+    model.absent_calibration = metadata
+    report = evaluate(model, collection(recording("a")))
+    assert report["aggregate"]["coverage"] is None
+    assert report["per_recording"]["a"]["coverage"] is None
+    assert report["nominal_coverage"] is None
+    assert report["calibration_provenance"] is None
+    assert report["known_recording_count"] == 0
+    np.testing.assert_array_equal(
+        report["aggregate"]["rmse"], expected(range(2, 6))["rmse"]
+    )
+
+
+@pytest.mark.parametrize("invalid", ["nonfinite", "shape"])
+def test_unusable_predictions_are_rejected(invalid):
+    model = LinearForecast()
+    model.predict = lambda *args: np.full(
+        (4, 2, 15 if invalid == "nonfinite" else 14), np.nan
+    )
+    with pytest.raises(ValueError, match="nonfinite or misaligned"):
+        evaluate(model, collection(recording("a")))

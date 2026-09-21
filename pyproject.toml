@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "glassbox"
 version = "0.3.0rc1"
-description = "Generic differentiable dynamics learning from observed signals and commands"
+description = "Differentiable rigid-body dynamics learned from recordings"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Ryland Lillibridge" }]
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "jax>=0.11.1",
     "numpy>=1.26",
@@ -20,52 +20,21 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/Rylandl/glassbox"
 
-[project.optional-dependencies]
-px4 = [
-    "pymavlink>=2.4.49",
-    "pyulog>=1.2.2",
-]
-ros = [
-    "rosbags>=0.11.5",
-]
-
 [project.scripts]
 glassbox = "glassbox.cli:main"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["/docs/results", "/docs/history", "/tasks"]
-
-[tool.uv.sources]
-cascade-flight = { git = "https://github.com/Rylandl/cascade", branch = "main" }
+include = ["/src", "/tests", "/examples", "/scripts", "/docs", "/README.md", "/CONTRIBUTING.md", "/CHANGELOG.md", "/LICENSE", "/NOTICE", "/pyproject.toml", "/uv.lock"]
 
 [dependency-groups]
-cascade = ["cascade-flight"]
-dev = [
-    "pytest>=8.3",
-    "ruff>=0.16.5,<0.17",
-    # The telemetry extras are exercised by the default test suite.
-    "pymavlink>=2.4.49",
-    "pyulog>=1.2.2",
-    "rosbags>=0.11.5",
-]
+dev = ["pytest>=8.3", "ruff>=0.16.5,<0.17"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = [
-    "cascade: opt-in contracts against the local Cascade fixed-wing simulator",
-    "px4_sitl: opt-in contract tests against a disposable PX4 SIH container",
-    "slow: benchmark-scale tests that take over a minute",
-]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["B", "E4", "E7", "E9", "F", "I", "RUF", "UP"]
-ignore = [
-    # Existing call sites mix exact and truncating semantics; audit those
-    # invariants before enforcing strict zip project-wide.
-    "B905",
-    # Tuple concatenation is clearer for the NumPy shape expressions in use.
-    "RUF005",
-]
+ignore = ["B905", "RUF005"]

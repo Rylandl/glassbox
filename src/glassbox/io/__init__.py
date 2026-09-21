@@ -1,1 +1,1 @@
-"""Telemetry ingestion, SITL recording, and reference-corpus adapters."""
+"""Canonical motion recording archives."""

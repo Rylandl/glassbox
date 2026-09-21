@@ -1,162 +1,65 @@
-# Charter: one generic dynamics learner
+# Glassbox: one learned dynamics model
 
-Glassbox aims to learn accurate, differentiable dynamics across vehicle types and
-configurations from recordings, and produce improved revisions as new recordings
-arrive. The immediate product milestone is running Dart's precise pose/contact
-task with that general learner. One learning procedure fits each configuration;
-one set of fitted weights need not describe every vehicle. System coverage and
-revision improvements must be demonstrated by evaluation. The user supplies
-recordings, without a vehicle description or physical parameter guesses.
-Telemetry adapters interpret available signal meanings, units, coordinate frames,
-timing and recording boundaries. One recipe, one module, three calls: `fit`,
-`predict`, `update`. No vehicle-family selector, model catalog, consumer tuning
-options or branches selecting a vehicle's equations. Shared physical structure
-is allowed; learning known mechanics from scratch is not a product requirement.
+Glassbox learns differentiable system dynamics from recordings. The maintained
+implementation shares gravity, rigid-body kinematics and coordinate transforms;
+it learns configuration-dependent command response, effective accelerations and
+hidden dynamics. One fixed procedure fits each configuration separately. Input
+count comes from the data and is not assumed to equal actuator count.
 
-The product is an accurate learned dynamics model that other applications can
-inspect, save, differentiate and use through a clear signal and timing contract.
-Applications choose their own controller, planner, estimator or analysis tool.
-A Glassbox controller is an optional reference consumer and a useful demonstration
-of model quality. Using it is not a condition of using the learner.
+The user supplies observations, issued commands, timestamps/segment boundaries
+and interpretable signal units/frames. No vehicle family, mass, inertia, mixer,
+actuator layout, control-surface assignment, aerodynamic coefficients or tuning
+choices are required. Configuration and command names establish data identity;
+they do not select equations. The present formulation covers rigid-body motion,
+not arbitrary articulated or deformable systems.
 
-The goal is to make hand-written system dynamics unnecessary where the learned
-model meets the consumer's accuracy and evidence requirements. Generality takes
-priority over winning every benchmark case.
-The generic learner is the adopted development baseline; documented losses
-on individual systems are improvement work, not an automatic veto on that
-choice. [`status.md`](status.md) holds the current gap against the
-definition of done below and is the only page a new session needs to read
-after this one. Git holds the history; it is not carried forward as narrative.
+The model is the product. Its public workflow is `fit(recordings)`,
+`model.predict(...)` and `model.update(recordings)`, with fingerprinted save/load
+and immutable revisions. Other projects own controllers, planners and simulators.
+Glassbox retains a small generic motion adapter and a saved-evidence verifier;
+it does not maintain a competing controller framework or model catalog.
+
+## Adoption
+
+On 2026-09-21 the user adopted the supported shared-physics learner as the sole
+implementation and requested removal of superseded models, experiments,
+interfaces, tooling and their artifacts. This replaces public v4. It is an
+explicit policy decision on known evidence, including the successful Dart task,
+not a retrospective change to a frozen experiment's acceptance flags.
+
+Generality has priority over winning every benchmark cell. Known wind errors,
+response-tail losses, long-horizon errors and calibration limits remain measured
+improvement work. One nominal control success does not establish a reliability
+percentage, real-time operation or arbitrary-system readiness.
 
 ## Definition of done
 
-Adopting the approach and completing the project are separate decisions.
-Completion requires the following, measured on held-out evidence under
-protocols frozen and committed before each implementation change.
-
-| Criterion | Done means |
+| Criterion | Required evidence |
 | --- | --- |
-| One recipe | A single versioned recipe in a single module. `fit(recordings)`, `model.predict(...)`, `model.update(recordings)`. The consumer contract has no options. |
-| Accuracy | Low held-out prediction and command-response residuals across systems from one platform-independent recipe. Report errors across supported horizons in physical units, per-system gains and losses, and conditions tested. Improvement is measured against the adopted generic baseline; structured and simple models provide context, not an accuracy ceiling or a completion criterion. Application adequacy requires separately declared tolerances. Superiority on every corpus is not required. Derivatives existing computationally does not establish that they match physical responses. |
-| Model usability | A self-contained saved revision with a documented signal, units, frames, timing, history and horizon contract; reproducible batched predictions and usable derivatives; measured error evidence and explicit limitations. Consumers use public interfaces without importing Glassbox controller internals. A third-party controller or analysis integration demonstrates that boundary. |
-| Capability | The synthetic suite, including delayed inputs and hidden state, passes its absolute caps. It is a fast regression guard, not a place to win. |
-| Reference control | The general learner powers Dart's pose/contact task through Dart's controller under a separately declared evaluation. Each controller is qualified for its own task; one universal controller is not a requirement for the model product. Control success does not replace direct model-accuracy evidence. |
-| Live improvement | The learner produces immutable revisions within a bounded update budget, with improvement and regression criteria frozen before evaluation on untouched recordings and response queries. Applications decide when to adopt revisions. Any claim of safe live controller swapping additionally requires its own downstream no-regression trial. |
-| Evidence | Predictions expose measured error envelopes and their calibration provenance; coverage on held-out recordings and declared shifts lands in a predeclared band. Any downstream use of that evidence is evaluated separately. |
-| Lean | The structured models, the belief format, and obsolete research scripts are deleted. What remains is the learner, model artifacts and interfaces, the harness, telemetry adapters, and optional downstream consumers. |
+| One recipe | One maintained learner and fit/predict/update contract, with no consumer tuning menu or vehicle-family dispatch. |
+| Accuracy | Low held-out forecast and command-response residuals across configurations and conditions, in physical units and across supported horizons. Aggregate weights and regression limits are declared before measurement. |
+| Usability | Self-contained revisions; clear signals, timing and history contract; reproducible predictions and usable derivatives; independent consumers use public interfaces. |
+| Capability | Analytic mechanics, delayed/hidden response, causality, variable input dimension and numerical derivatives have meaningful regression tests. Broader system classes require their own evidence. |
+| Consumer performance | Dart meets separately declared task limits. Controller outcomes supplement direct prediction/response evidence. |
+| Updates | Immutable revisions preserve recording roles and fit budget. Improvement and regressions are measured on fresh recordings; live controller adoption requires separate evidence. |
+| Error evidence | Error envelopes identify calibration data and horizon. Held-out coverage is measured; absent evidence stays absent. |
+| Lean | Only the learner, necessary recording interfaces, small evaluation tools, active tests and evidence needed for current work remain. |
 
-## Product priority, 2026-09-18
+## Iteration rules
 
-The user's priority is accurate, usable learned system dynamics. A general
-controller remains desirable as an optional consumer. JSBSim is a proposed
-benchmark for model breadth, with flying demonstrations as additional evidence.
-This is a prospective change in product priorities, not a newly passed experiment.
-All frozen protocols, historical control/update failures and qualification flags
-retain their original meaning.
-
-## Evaluation priority, 2026-09-18
-
-The user has redirected the next evaluation work to Crazyflow and Cascade.
-Develop controlled flight-condition environments for these two simulators,
-measure the generic learner against structured and simple references, and retain
-the concrete prediction failures reported by the Dart consumer. This provides a
-more focused setting for improving the learner than expanding JSBSim setup work.
-JSBSim results remain valid diagnostic evidence; further breadth work is deferred.
-This changes evaluation priority, not the one generic learner or its consumer
-contract, and does not qualify any new model or controller.
-
-The user's subsequent clarification makes reducing held-out residuals the
-primary objective of this benchmark. Track forecast and command-response
-errors in physical units across horizons and conditions, including large-error
-cases. Beating a structured reference does not finish the work, and reducing
-residuals remains useful even while that reference is better. Use matched
-comparisons with the adopted generic learner to establish progress; freeze
-aggregate weights and regression limits before each experiment. Keep missing
-truth and failed conditions visible so a smaller or easier evaluated subset
-cannot masquerade as lower error. No absolute adequacy threshold is inferred
-from comparator performance or introduced retrospectively.
-
-## Vehicle generality and Dart milestone, 2026-09-20
-
-The user clarifies that the broad goal is running Dart with the general model
-across vehicle types and configurations. Shared physical knowledge is welcome;
-a catalog of vehicle-specific models is not. This supersedes interpreting
-generality as an obligation to learn arbitrary signal dynamics without mechanical
-structure. The present v4 recipe remains the adopted baseline until a successor
-is evaluated; this policy change does not qualify a new model or controller.
-
-Dart's structured-model success establishes a useful task/data reference.
-The next work measures current v4 in that setting and accounts explicitly for
-its history, state representation and shorter supported horizon. Shared mechanics
-with learned configuration-dependent dynamics is the leading architecture
-hypothesis. Ordinary-recording evidence and the Dart task take priority over
-collecting privileged simulator response pairs. Crazyflow and Cascade retain
-their role as cross-vehicle forecast and response benchmarks. Historical protocols,
-results and qualification boundaries keep their original meaning.
-
-The user explicitly expects a separate fit per platform or configuration but
-no system-specific setup: no vehicle type, mass, inertia, propeller count or
-placement, control-surface assignment, mixer, geometry, aerodynamic coefficients,
-actuator constants, dynamics code or tuning choices. The single learning
-procedure derives its observed input/output dimensions from the recordings and
-learns the effective command-to-motion behavior. It need not recover a physical
-layout or uniquely identify every physical parameter to predict accurately.
-Input-channel count is not assumed to equal propeller or actuator count.
-
-Reading a telemetry format is data interpretation, not a model catalog. Adapters
-must not hide vehicle equations or physical parameters behind that boundary.
-Recordings still need interpretable timing and signal semantics for known
-physics to apply; use available metadata automatically rather than a manual
-airframe-configuration workflow, and do not silently invent missing semantics.
-The rigid-body vehicle formulation is the first shared-physics hypothesis for
-the current applications, not a claim of proven accuracy on every system.
-
-## Rules
-
-- Each iteration's measurements and promotion criteria are frozen and
-  committed before fitting or new trials. Historical protocols and results
-  stay immutable. An explicit change in product priorities is recorded as a
-  policy decision on known evidence, never as a newly passed experiment.
-- One change per iteration, addressing one named gap in the status table.
-  Menus of context lengths, widths, optimizers, or seeds fail review. A new
-  mechanism needs a named failure it addresses.
-- Nothing is deprecated; it is deleted. Nothing is preserved for its own sake.
-  Old results are not evidence for new code.
-- Use shared structure: causality, memory, smoothness, observation noise,
-  coordinate transformations, gravity and rigid-body kinematics. Learn the
-  configuration-dependent command response, forces or effective accelerations,
-  and hidden dynamics from recordings. Do not select hand-written multirotor,
-  fixed-wing or other vehicle-family dynamics, assume a fixed mixer/actuator
-  layout, or import simulator parameters into the learner. More general
-  mechanical configurations require demonstrated coverage, not an assertion
-  that a rigid-body approximation already represents all vehicles.
-- Synthetic results never count as platform readiness. Fit quality, error
-  calibration, and control adequacy are separate claims with separate
-  evidence.
-- Primary model qualification does not require every application to use the
-  reference controller. Evaluate forecast accuracy, command-response fidelity,
-  uncertainty and interface usability directly. Task objectives, scheduling and
-  revision adoption belong to the consumer; task tolerances belong to its
-  separately declared evaluation.
-- Generality and broad empirical advantage can justify adoption despite
-  localized losses. The earlier v3 adoption explicitly accepted its measured
-  ARP deficit. Future improvements are judged against the generic baseline;
-  the structured models are benchmarks, not an incumbent entitled to win.
-  Report gain and loss magnitudes, breadth across systems, and task adequacy
-  separately. A win count alone is not a permanent promotion rule. Choose
-  any aggregate weights and unacceptable-regression limits before fitting,
-  rather than requiring every metric to improve on every case.
-- Every accepted iteration replays from saved artifacts without refitting, and
-  an altered artifact is rejected by that replay.
-
-## Process
-
-Each iteration runs in its own worktree: measure the largest gap in
-[`status.md`](status.md), change one thing, run the harness, keep the change
-according to the iteration's predeclared promotion criteria, and write one
-paragraph saying what changed and what the gap is now. Historical gate
-outputs remain visible; they do not silently reimpose an all-case adoption
-veto. Evidence-integrity checks remain mandatory. Review verifies by rerunning
-the harness, injecting defects, and checking the consumer contract, not by
-reading. On merge, the status table is updated. The loop ends when every row
-meets its target.
+1. Read [status.md](status.md), choose one named gap, and work in an isolated
+   worktree. User direction can change priorities or adoption policy.
+2. Freeze the measurement and acceptance contract before implementation or
+   fitting. Commit completed scientific code before executing an experiment.
+3. Prefer shared physical structure. Never introduce a catalog, system-specific
+   branch, hidden simulator information or consumer tuning option.
+4. Keep fitting, derivative fidelity, calibration and task success as distinct
+   claims. Report all attempted conditions, missing truth and failures.
+5. Verify changed behavior from saved data without refitting and reject altered
+   artifacts. Refactoring must preserve the claimed numerical behavior under
+   the declared runtime. Use small analytic fixtures for ordinary tests.
+6. Delete obsolete code rather than leave deprecated alternatives. Preserve
+   the current reproducible evidence before removing redundant artifacts;
+   committed history holds superseded source and reports.
+7. Update status with the actual result, remaining gap and scope. Routine work
+   within this charter needs no repeated permission question.

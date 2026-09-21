@@ -1,4 +1,4 @@
-"""Read-only generic forecasts on complete, previously unseen recordings."""
+"""Read-only motion forecasts on complete, previously unseen recordings."""
 
 from __future__ import annotations
 
@@ -32,7 +32,10 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
         )
     history, horizon = model.history_steps, model.horizon_steps
     shape = (horizon, len(model.contract["state_channels"]))
-    envelope = model.envelope()
+    calibration = model.report.get("envelope")
+    if calibration is not None and calibration.get("available") is False:
+        calibration = None
+    envelope = model.envelope() if calibration is not None else None
 
     def empty():
         return dict(
@@ -71,7 +74,8 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
                 target["windows"] += len(selected)
                 target["squared"] += np.sum(error**2, axis=0)
                 target["hold"] += np.sum(hold_error**2, axis=0)
-                target["covered"] += np.sum(np.abs(error) <= envelope, axis=0)
+                if envelope is not None:
+                    target["covered"] += np.sum(np.abs(error) <= envelope, axis=0)
     missing = [name for name, value in by_recording.items() if value["windows"] == 0]
     if missing:
         raise ValueError(
@@ -84,19 +88,32 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
             windows=count,
             rmse=np.sqrt(value["squared"] / count).tolist(),
             hold_current_rmse=np.sqrt(value["hold"] / count).tolist(),
-            coverage=(value["covered"] / count).tolist(),
+            coverage=(
+                (value["covered"] / count).tolist() if envelope is not None else None
+            ),
         )
 
     return dict(
-        format="glassbox-forecast-evaluation-v1",
+        format="glassbox-motion-forecast-evaluation-v1",
         model_fingerprint=model.fingerprint(),
         contract=model.contract,
         history_steps=history,
         horizon_steps=horizon,
         horizons_s=(np.arange(1, horizon + 1) * model.contract["dt_s"]).tolist(),
-        nominal_coverage=model.report["envelope"]["nominal_coverage"],
+        nominal_coverage=(
+            calibration["nominal_coverage"] if calibration is not None else None
+        ),
+        calibration_provenance=(
+            {key: value for key, value in calibration.items() if key != "half_width"}
+            if calibration is not None
+            else None
+        ),
+        known_recording_count=len(model._seen),
         known_recording_reuse_detected=False,
-        independence_check="recording IDs and exact content; caller owns recording boundaries",
+        independence_check=(
+            "recording IDs and exact content against retained identities; "
+            "caller owns recording boundaries and independence"
+        ),
         weighting="every_complete_window",
         aggregate=metrics(totals),
         per_recording={name: metrics(value) for name, value in by_recording.items()},

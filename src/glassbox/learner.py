@@ -1,35 +1,4 @@
-"""One maintained generic learner: fit(recordings), predict, update.
-
-This is the learner exposed by ``glassbox.fit``. It predicts Euclidean
-observation channels with a single recursive quadratic-plus-memory model.
-There are no caller-selected representations, optimizers or selection policies.
-Configuration identity and ordered channel identities are required data facts;
-adapters must include units, frame and command/measurement meaning in them.
-
-There is one recipe, ``generic-memory-v4-prototype``. It reads an explicit
-100 ms history and a causal memory over a 500 ms in-recording context. A saved
-model carries that recipe and ``update`` refits it; any other saved format is
-rejected rather than migrated.
-
-Durations round to the nearest sample, with at least one step for the delay
-and forecast and at least one memory step beyond the delay for the context.
-
-Every forecast carries a measured error envelope. The recipe already reserves a
-quarter of the supplied recordings as its development role, and the windows cut
-from them calibrate a split-conformal half-width per horizon step and per
-channel, in that channel's own physical units, at a nominal 90%. It is stored
-in the artifact and the report and read back through
-:meth:`LearnedDynamics.envelope`. There is no caller option and no way to turn
-it off: ``fit``, ``predict`` and ``update`` are unchanged, and ``update``
-recalibrates on the same pinned development cache it refits against.
-
-Recordings may also declare, per applied command, the exogenous component the
-caller injected into it. That is part of the recordings rather than a caller
-option, and this recipe reads none of it: when every recording declares one,
-the report records that it was declared and each command channel's excitation
-standard deviation as a fraction of that channel's own command range, and the
-fit is the same fit either way.
-"""
+"""One supported shared-physics learner: fit, differentiable predict, immutable update."""
 
 from __future__ import annotations
 
@@ -39,55 +8,58 @@ import json
 from dataclasses import asdict
 
 import jax
+import jax.numpy as jnp
 import numpy as np
 
+from ._dynamics import VehicleSequenceModel, fit_sequence
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
-from ._sequence_model import (
-    SequenceBatch,
-    SequenceModel,
-    fit_sequence_model,
-)
+from ._training import SequenceBatch
 from .recordings import SequenceCollection, SequenceWindows, WindowKey
 
-_ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
 ENVELOPE_COVERAGE = 0.9
-"""The nominal coverage of the envelope every forecast carries.
 
-Not a recipe constant: it is the level the envelope claims, which the evidence
-manifest declares and measures, rather than a fitting choice. A saved model
-records the level it was calibrated at.
-"""
-
+STATE_CHANNELS = (
+    "velocity_north [m/s,world_nwu]",
+    "velocity_west [m/s,world_nwu]",
+    "velocity_up [m/s,world_nwu]",
+    "body_rate_x [rad/s,body_flu]",
+    "body_rate_y [rad/s,body_flu]",
+    "body_rate_z [rad/s,body_flu]",
+    *(
+        f"rotation_{i}{j} [unitless,body_flu_to_world_nwu]"
+        for i in range(3)
+        for j in range(3)
+    ),
+)
 RECIPE = {
-    "id": "generic-memory-v4-prototype",
-    "kind": "filter_mlp",
-    "width": 32,
-    "memory": 8,
-    "delay_s": 0.1,
+    "id": "shared-vehicle-supported-motion-v1",
     "context_s": 0.5,
+    "delay_s": 0.1,
     "horizon_s": 0.25,
+    "prediction_limit_s": 1.2,
     "training_windows": 1536,
     "development_windows": 256,
     "steps": 1000,
-    "gradient_sampling": "ordered_full_cache",
-    "objective": "fixed_initial_training_channel_balance",
-    "optimizer": "safeguarded_adam",
+    "width": 32,
+    "memory": 8,
     "learning_rate": 0.002,
     "ridge_fraction": 0.01,
     "seed": 0,
-    "check_every": 100,
-    "hold_scale_floor": 0.01,
-    "initial_channel_mse_floor": 0.0001,
+    "gravity_world_m_s2": [0.0, 0.0, -9.80665],
+    "max_substep_s": 0.025,
+    "optimizer": "safeguarded_adam",
+    "objective": "fixed_initial_training_channel_balance",
     "fitter_wall_time_limit_s": 7200,
 }
-_FORMAT = "glassbox-default-recipe-v4"
+_FORMAT = "glassbox-supported-dynamics-v1"
+_ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
 
 
 def _priority(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
-def _contract(recordings):
+def _recording_contract(recordings):
     if not isinstance(recordings, SequenceCollection):
         raise TypeError("fit and update require a SequenceCollection of recordings")
     if (
@@ -164,18 +136,6 @@ def _indices(keys, origins, budget):
     return result
 
 
-def _excitation(windows, indices=None):
-    """The declared excitation of these windows, in the shape ``SequenceWindows`` takes."""
-    if not windows.excitation_declared:
-        return {}
-    return {
-        key: getattr(windows, key)
-        if indices is None
-        else getattr(windows, key)[indices]
-        for key in ("past_excitation", "future_excitation")
-    }
-
-
 def _subset(windows, indices):
     return SequenceWindows(
         SequenceBatch(
@@ -184,7 +144,6 @@ def _subset(windows, indices):
         ),
         tuple(windows.keys[i] for i in indices),
         tuple(windows.source_origins[i] for i in indices),
-        **_excitation(windows, indices),
     )
 
 
@@ -212,7 +171,6 @@ def _extract(recordings, names, budget):
 
 
 def _merge_cache(old, fresh):
-    both = old.excitation_declared and fresh.excitation_declared
     merged = SequenceWindows(
         SequenceBatch(
             **{
@@ -223,14 +181,6 @@ def _merge_cache(old, fresh):
         ),
         old.keys + fresh.keys,
         old.source_origins + fresh.source_origins,
-        **(
-            {
-                key: np.concatenate((getattr(old, key), getattr(fresh, key)))
-                for key in ("past_excitation", "future_excitation")
-            }
-            if both
-            else {}
-        ),
     )
     return _subset(
         merged,
@@ -288,125 +238,52 @@ def _calibrate(model, windows):
     return np.sort(residual, axis=0)[rank - 1], count, rank
 
 
-def excitation_fraction(recordings):
-    """What the recordings themselves say was injected into their commands.
-
-    ``None`` unless every recording declares its excitation, which is why an
-    undeclared fit's report is byte for byte the report it was before this
-    existed. When they all do, the answer is one number per command channel:
-    the standard deviation of the declared excitation over every applied
-    command, as a fraction of that channel's own command range in the same
-    recordings. Both quantities are measured from the recordings. There is no
-    caller option, no declared range to be told and no threshold here; a
-    channel whose command never moves has no range to be excited in and its
-    fraction is ``None`` rather than a number over zero.
-    """
-    if not recordings.excitation_declared:
-        return None
-    excitation = np.concatenate([s.excitation for s in recordings.segments])
-    commands = np.concatenate([s.inputs for s in recordings.segments])
-    span = commands.max(axis=0) - commands.min(axis=0)
-    deviation = excitation.std(axis=0)
-    return [
-        None if not width > 0 else float(value / width)
-        for value, width in zip(deviation, span, strict=True)
-    ]
+def _contract(recordings):
+    contract = _recording_contract(recordings)
+    if tuple(contract["state_channels"]) != STATE_CHANNELS:
+        raise ValueError(
+            "vehicle recordings require canonical velocity/rate/rotation units and frames; use a telemetry adapter"
+        )
+    for segment in recordings.segments:
+        _validate_rotations(segment.states)
+    return contract
 
 
-def _train(train, development, contract, seen, *, previous=None, excitation=None):
-    # Own the complete numerical operation, including calibration and host-array
-    # conversion. Prediction follows the caller's ordinary JAX configuration.
-    with jax.enable_x64(True):
-        return _train_owned(
-            train, development, contract, seen, previous=previous, excitation=excitation
+def _validate_rotations(states):
+    x = np.asarray(states)
+    if x.shape[-1] != 15 or not np.isfinite(x).all():
+        raise ValueError(
+            "vehicle observations must contain 15 finite canonical channels"
+        )
+    r = x[..., 6:].reshape(*x.shape[:-1], 3, 3)
+    if not np.allclose(
+        np.swapaxes(r, -1, -2) @ r, np.eye(3), atol=1e-5, rtol=0
+    ) or not np.allclose(np.linalg.det(r), 1.0, atol=1e-5, rtol=0):
+        raise ValueError(
+            "observed body-to-world rotations must be proper orthonormal matrices"
         )
 
 
-def _train_owned(train, development, contract, seen, *, previous=None, excitation=None):
-    b = train.batch
-    steps = steps_for(b.dt_s)
-    memory = dict(memory=RECIPE["memory"], delay_steps=steps["delay"])
-    ridge = RECIPE["ridge_fraction"] * len(b.past_states) * b.future_states.shape[1]
-    model, optimization = fit_sequence_model(
-        b,
-        development.batch,
-        width=RECIPE["width"],
-        ridge=ridge,
-        seed=RECIPE["seed"],
-        steps=RECIPE["steps"],
-        batch_size=len(b.past_states),
-        learning_rate=RECIPE["learning_rate"],
-        check_every=RECIPE["check_every"],
-        **memory,
-    )
-    envelope, calibration_windows, rank = _calibrate(model, development)
-    train_u = b.future_inputs.reshape(-1, b.future_inputs.shape[-1])
-    report = dict(
-        recipe=copy.deepcopy(RECIPE),
-        previous_revision=previous,
-        history_steps=model.history_steps,
-        horizon_steps=b.future_states.shape[1],
-        delay_steps=steps["delay"],
-        training=train.coverage(),
-        development=development.coverage(),
-        optimization=optimization,
-        precision=dict(
-            fitting="float64", calibration="float64", prediction="ambient_jax"
-        ),
-        development_errors=_measure(model, development),
-        constant_input_channels=[
-            contract["input_channels"][i]
-            for i in np.flatnonzero(train_u.std(0) <= 1e-8)
-        ],
-        envelope=dict(
-            nominal_coverage=ENVELOPE_COVERAGE,
-            method="split_conformal_absolute_error",
-            calibrated_on="development",
-            calibration_windows=calibration_windows,
-            quantile_rank=rank,
-            units="physical, per horizon step and per channel, aligned with predict",
-            half_width=envelope.tolist(),
-        ),
-        evidence_limits=[
-            "the development windows both select the checkpoint and calibrate the envelope, so the envelope's exchangeability is approximate rather than independent",
-            "the envelope's coverage is nominal on those windows and measured elsewhere; the harness's evidence tier is where it is measured",
-            "worse_than_hold describes measured channel error, not a probability or control-admission rule",
-            "support outside observed conditions is not established",
-            "Euclidean forecasts do not enforce manifold constraints",
-            "updates refit cached windows and keep the original development evidence source; fresh independent evaluation is still needed",
-        ],
-    )
-    if excitation is not None:
-        # Declared excitation is provenance; it never enters the numerical fit.
-        report["excitation_declared"] = True
-        report["excitation_standard_deviation_fraction"] = excitation
-    return LearnedDynamics(model, train, development, contract, seen, report, envelope)
-
-
-def _validate_saved_contract(model, windows, metadata):
-    """Validate relationships that a checksum alone cannot establish."""
-    contract, seen, report = (metadata[k] for k in ("contract", "seen", "report"))
+def _validate_contract(model, windows, contract, seen, report=None):
     if (
         not isinstance(contract, dict)
         or set(contract)
         != {"configuration_id", "state_channels", "input_channels", "dt_s"}
         or not isinstance(contract["configuration_id"], str)
         or not contract["configuration_id"].strip()
+        or tuple(contract["state_channels"]) != STATE_CHANNELS
         or contract["dt_s"] != model.dt_s
     ):
-        raise ValueError("saved recording contract differs from model")
-    for key, width in (
-        ("state_channels", len(model.norms["state_mean"])),
-        ("input_channels", len(model.norms["input_mean"])),
+        raise ValueError("saved vehicle signal contract differs from model")
+    channels = contract["input_channels"]
+    if (
+        not isinstance(channels, list)
+        or not channels
+        or any(not isinstance(v, str) or not v.strip() for v in channels)
+        or len(set(channels)) != len(channels)
+        or len(channels) != len(model.norms["input_mean"])
     ):
-        channels = contract[key]
-        if (
-            not isinstance(channels, list)
-            or len(channels) != width
-            or any(not isinstance(v, str) or not v.strip() for v in channels)
-            or len(set(channels)) != len(channels)
-        ):
-            raise ValueError("saved channel contract differs from model")
+        raise ValueError("saved command channels differ from model")
     if (
         not isinstance(seen, dict)
         or len(seen) < 2
@@ -419,43 +296,37 @@ def _validate_saved_contract(model, windows, metadata):
         )
         or len(set(seen.values())) != len(seen)
     ):
-        raise ValueError("invalid saved recording identity/content ledger")
+        raise ValueError("invalid recording identity/content ledger")
     steps = steps_for(model.dt_s)
     if (
         model.history_steps != steps["history"]
         or model.delay_steps != steps["delay"]
-        or model.params["w1"].shape[1] != RECIPE["width"]
-        or model.params["memory"].shape[1] != RECIPE["memory"]
-        or report.get("history_steps") != steps["history"]
-        or report.get("horizon_steps") != steps["horizon"]
-        or report.get("delay_steps") != steps["delay"]
+        or len(model.params["b1"]) != RECIPE["width"]
+        or len(model.params["memory_bias"]) != RECIPE["memory"]
     ):
-        raise ValueError("saved model dimensions or timing differ from recipe")
+        raise ValueError("model timing differs from the fixed recipe")
     roles = {}
-    for role, cap in (
-        ("train", RECIPE["training_windows"]),
-        ("development", RECIPE["development_windows"]),
-    ):
-        value = windows[role]
-        n = len(value.keys)
+    for role, cap in [("train", 1536), ("development", 256)]:
+        w = windows[role]
+        n = len(w.keys)
         if not 3 <= n <= cap:
-            raise ValueError("saved window count exceeds recipe bounds")
-        d, m = len(contract["state_channels"]), len(contract["input_channels"])
-        expected = {
-            "past_states": (n, steps["history"] + 1, d),
-            "past_inputs": (n, steps["history"], m),
-            "future_states": (n, steps["horizon"], d),
-            "future_inputs": (n, steps["horizon"], m),
+            raise ValueError("window count outside recipe bounds")
+        shapes = {
+            "past_states": (n, steps["history"] + 1, 15),
+            "past_inputs": (n, steps["history"], len(channels)),
+            "future_states": (n, steps["horizon"], 15),
+            "future_inputs": (n, steps["horizon"], len(channels)),
         }
-        if any(
-            getattr(value.batch, key).shape != shape for key, shape in expected.items()
+        if w.batch.dt_s != model.dt_s or any(
+            getattr(w.batch, k).shape != s for k, s in shapes.items()
         ):
-            raise ValueError("saved window shapes differ from model contract")
-        segment_starts = {}
-        for key, origin in zip(value.keys, value.source_origins, strict=True):
+            raise ValueError("retained window timing/shapes differ from recipe")
+        _validate_rotations(w.batch.past_states)
+        _validate_rotations(w.batch.future_states)
+        starts = {}
+        for key, origin in zip(w.keys, w.source_origins, strict=True):
             if (
-                not isinstance(key.recording_id, str)
-                or key.recording_id not in seen
+                key.recording_id not in seen
                 or not isinstance(key.segment_id, str)
                 or not key.segment_id.strip()
                 or type(key.origin) is not int
@@ -463,156 +334,224 @@ def _validate_saved_contract(model, windows, metadata):
                 or type(origin) is not int
                 or origin < key.origin
             ):
-                raise ValueError("invalid saved window provenance")
-            identity = (key.recording_id, key.segment_id)
-            start = origin - key.origin
-            if identity in segment_starts and segment_starts[identity] != start:
-                raise ValueError("saved segment origins are inconsistent")
-            segment_starts[identity] = start
-        roles[role] = {key.recording_id for key in value.keys}
-        report_role = "training" if role == "train" else role
-        if report.get(report_role) != value.coverage():
-            raise ValueError("saved coverage differs from retained windows")
+                raise ValueError("invalid window provenance")
+            identity, start = (key.recording_id, key.segment_id), origin - key.origin
+            if identity in starts and starts[identity] != start:
+                raise ValueError("inconsistent segment origins")
+            starts[identity] = start
+        roles[role] = {k.recording_id for k in w.keys}
+        if report is not None:
+            report_role = "training" if role == "train" else role
+            if report.get(report_role) != w.coverage():
+                raise ValueError("saved coverage differs from retained windows")
     if roles["train"] & roles["development"]:
-        raise ValueError("saved training and development recordings overlap")
+        raise ValueError("training and development recordings overlap")
+    if report is not None and (
+        report.get("recipe") != RECIPE
+        or report.get("history_steps") != steps["history"]
+        or report.get("horizon_steps") != steps["horizon"]
+        or report.get("prediction_limit_steps")
+        != max(1, int(np.rint(1.2 / model.dt_s)))
+        or report.get("delay_steps") != steps["delay"]
+    ):
+        raise ValueError("saved report timing or recipe differs from model")
+    if (
+        report is not None
+        and report.get("optimization", {}).get("selected_fingerprint")
+        != model.fingerprint
+    ):
+        raise ValueError("selected model fingerprint differs from optimization report")
+
+
+def _train(
+    train,
+    development,
+    contract,
+    seen,
+    *,
+    previous=None,
+):
+    """Fit from the fixed training/development roles retained by the revision."""
+    with jax.enable_x64(True):
+        model, optimization = fit_sequence(
+            train.batch,
+            development.batch,
+        )
+        _validate_contract(
+            model, {"train": train, "development": development}, contract, seen
+        )
+        envelope, count, rank = _calibrate(model, development)
+        steps = steps_for(model.dt_s)
+        report = dict(
+            recipe=copy.deepcopy(RECIPE),
+            previous_revision=previous,
+            history_steps=model.history_steps,
+            horizon_steps=steps["horizon"],
+            prediction_limit_steps=max(1, int(np.rint(1.2 / model.dt_s))),
+            delay_steps=model.delay_steps,
+            training=train.coverage(),
+            development=development.coverage(),
+            optimization=optimization,
+            precision=dict(
+                fitting="float64", calibration="float64", prediction="ambient_jax"
+            ),
+            development_errors=_measure(model, development),
+            envelope=dict(
+                nominal_coverage=ENVELOPE_COVERAGE,
+                method="split_conformal_absolute_error",
+                calibrated_on="development",
+                calibration_windows=count,
+                quantile_rank=rank,
+                units="physical, per horizon step and channel",
+                half_width=envelope.tolist(),
+            ),
+            evidence_limits=[
+                "Accuracy, calibration and task adequacy apply only to measured conditions.",
+                "A rigid-body formulation is not proven for arbitrary articulated or deforming systems.",
+                "Development selects the checkpoint and calibrates the envelope; calibration is not independent.",
+                "Means beyond the fitted horizon are recursive extrapolations without calibrated envelopes.",
+                "Computable derivatives do not establish physical response fidelity.",
+                "Updates preserve the original development source; fresh evaluation remains necessary.",
+            ],
+        )
+        result = LearnedDynamics(
+            model, train, development, contract, seen, report, envelope
+        )
+        return result
 
 
 class LearnedDynamics:
-    """One recipe with fixed fit/update mechanics and measured error evidence.
-
-    The retained arrays hold at most 1,536 training and 256 development windows.
-    The recording identity ledger grows with updates. Updates require new whole
-    recordings, not overlapping chunks of an existing recording, and perform a
-    batch refit of the same recipe. This is not a real-time streaming learner
-    or an active controller.
-    """
+    """One immutable supported-physics revision with bounded recording caches."""
 
     def __init__(self, model, train, development, contract, seen, report, envelope):
-        self._model = model
-        self._train, self._development = train, development
+        _validate_contract(
+            model, {"train": train, "development": development}, contract, seen, report
+        )
+        self._model, self._train, self._development = model, train, development
         self._contract, self._seen, self._report = map(
             copy.deepcopy, (contract, seen, report)
         )
-        if self._report["recipe"] != RECIPE:
-            raise ValueError("unsupported default recipe version")
-        self._envelope = np.array(envelope, dtype=float, copy=True)
-        if (
-            self._envelope.shape
-            != (
-                self.horizon_steps,
-                len(self._contract["state_channels"]),
-            )
-            or not np.isfinite(self._envelope).all()
-        ):
+        self._envelope = None
+        if envelope is not None:
+            self._envelope = np.array(envelope, dtype=np.float64, copy=True)
+            evidence = report["envelope"]
+            count = len(development.keys)
+            rank = min(int(np.ceil((count + 1) * ENVELOPE_COVERAGE)), count)
+            if (
+                self._envelope.shape != (self.horizon_steps, 15)
+                or not np.isfinite(self._envelope).all()
+                or np.any(self._envelope < 0)
+                or not np.array_equal(
+                    self._envelope, np.asarray(evidence["half_width"])
+                )
+                or evidence.get("nominal_coverage") != ENVELOPE_COVERAGE
+                or evidence.get("method") != "split_conformal_absolute_error"
+                or evidence.get("calibrated_on") != "development"
+                or evidence.get("calibration_windows") != count
+                or evidence.get("quantile_rank") != rank
+            ):
+                raise ValueError(
+                    "calibration provenance differs from retained development windows"
+                )
+            self._envelope.setflags(write=False)
+        elif report.get("envelope", {}).get("available") is not False:
             raise ValueError(
-                "the envelope must hold one finite half-width per horizon step and channel"
+                "uncalibrated revision must explicitly declare absent envelope"
             )
-        if np.any(self._envelope < 0):
-            raise ValueError("an envelope half-width cannot be negative")
-        self._envelope.setflags(write=False)
-
-    @property
-    def report(self):
-        return copy.deepcopy(self._report)
 
     @property
     def contract(self):
         return copy.deepcopy(self._contract)
 
     @property
+    def report(self):
+        return copy.deepcopy(self._report)
+
+    @property
     def recipe(self):
-        return copy.deepcopy(self._report["recipe"])
+        return copy.deepcopy(RECIPE)
+
+    @property
+    def dt_s(self):
+        return self._model.dt_s
 
     @property
     def history_steps(self):
-        """Observed transitions every forecast consumes; memory starts at rest there."""
         return self._model.history_steps
 
     @property
     def horizon_steps(self):
+        """Fitted/calibrated horizon; longer recursive means are distinct."""
         return self._train.batch.future_states.shape[1]
 
+    @property
+    def prediction_limit_steps(self):
+        return max(1, int(np.rint(1.2 / self._model.dt_s)))
+
     def predict(self, past_states, past_inputs, future_inputs):
-        """JAX-compatible means in declared observation coordinates, without x0.
+        """Differentiable canonical15 means excluding x0, single or batched.
 
-        Use the most recent required history. Commands must use the fitted time
-        grid and coordinate contract; no missing history is padded. Horizons
-        beyond this recipe's fitted range are rejected, not silently extrapolated.
-        The memory starts at rest at the first consumed observation; earlier
-        observations are never implied.
-
-        Inputs must be finite and representable in the caller's JAX precision.
-        Shapes are checked during tracing; value checks do not introduce host
-        callbacks into JIT or differentiation. Accuracy outside measured support
-        is not established, including poorly resolved large coordinate offsets.
+        Use real observed history on the fitted time grid. Means beyond
+        ``horizon_steps`` are extrapolations; ``envelope`` refuses those horizons.
+        Value checks occur on concrete calls, never through tracing callbacks.
         """
-        import jax.numpy as jnp
-
         x, up, uf = map(jnp.asarray, (past_states, past_inputs, future_inputs))
-        if x.ndim not in (2, 3) or up.ndim != x.ndim or uf.ndim != x.ndim:
+        if (
+            x.ndim not in (2, 3)
+            or up.ndim != x.ndim
+            or uf.ndim != x.ndim
+            or x.shape[:-2] != up.shape[:-2]
+            or x.shape[:-2] != uf.shape[:-2]
+            or x.shape[-1] != 15
+            or up.shape[-1] != len(self._contract["input_channels"])
+            or uf.shape[-1] != up.shape[-1]
+        ):
             raise ValueError(
-                "predict expects aligned [time,channel] or [batch,time,channel] arrays"
+                "predict needs aligned [time,channel] or [batch,time,channel] arrays"
             )
-        if x.shape[-2] != up.shape[-2] + 1 or x.shape[-2] < self.history_steps + 1:
+        if x.shape[-2] != up.shape[-2] + 1 or up.shape[-2] < self.history_steps:
             raise ValueError(
-                f"predict needs aligned history with at least {self.history_steps + 1} observations and {self.history_steps} inputs"
+                "predict needs aligned real observed history, without padding"
             )
-        if not 1 <= uf.shape[-2] <= self.horizon_steps:
-            raise ValueError(
-                f"unsupported forecast horizon: expected 1..{self.horizon_steps} steps"
-            )
+        if not 1 <= uf.shape[-2] <= self.prediction_limit_steps:
+            raise ValueError("forecast exceeds the prediction limit")
+        if not any(isinstance(v, jax.core.Tracer) for v in (x, up, uf)):
+            _validate_rotations(np.asarray(x[..., -self.history_steps - 1 :, :]))
+            if (
+                not np.isfinite(np.asarray(up)).all()
+                or not np.isfinite(np.asarray(uf)).all()
+            ):
+                raise ValueError("commands must be finite in the inference precision")
         return self._model.rollout(
             x[..., -self.history_steps - 1 :, :], up[..., -self.history_steps :, :], uf
         )
 
     def envelope(self, horizon_steps=None):
-        """The measured error envelope this forecast carries, in physical units.
-
-        One half-width per horizon step and per declared observation channel,
-        aligned row for row and column for column with what :meth:`predict`
-        returns over the same horizon. It is a split-conformal quantile of the
-        absolute forecast error on the development windows the fit already
-        holds out, at the nominal level in :data:`ENVELOPE_COVERAGE`, and it is
-        reported with every forecast rather than requested. Horizons beyond the
-        fitted range are rejected exactly as ``predict`` rejects them.
-        """
-        steps = self.horizon_steps if horizon_steps is None else int(horizon_steps)
-        if not 1 <= steps <= self.horizon_steps:
-            raise ValueError(
-                f"unsupported forecast horizon: expected 1..{self.horizon_steps} steps"
-            )
-        return np.array(self._envelope[:steps], dtype=float)
-
-    def diagnose(self, recordings):
-        """Inspect out-of-fit input predictability and extra-history error evidence.
-
-        This offline report does not update the model or qualify it for control.
-        At least three distinct, contract-matching diagnostic recordings are needed.
-        """
-        from ._sequence_diagnostics import diagnose
-
-        return diagnose(self, recordings)
+        if self._envelope is None:
+            raise ValueError("this revision has no calibrated envelope")
+        steps = self.horizon_steps if horizon_steps is None else horizon_steps
+        if (
+            not isinstance(steps, (int, np.integer))
+            or isinstance(steps, bool)
+            or not 1 <= steps <= self.horizon_steps
+        ):
+            raise ValueError("no calibrated envelope beyond the fitted horizon")
+        return np.array(self._envelope[:steps], copy=True)
 
     def update(self, recordings):
-        """Refit the recipe with fresh recordings; the current revision stays fixed."""
+        """Refit using fresh whole recordings; return a new immutable revision."""
         if _contract(recordings) != self._contract:
-            raise ValueError(
-                "update configuration, channels or sample interval differ from this model"
-            )
+            raise ValueError("update configuration, signals or timing differ")
         seen = _recording_content(recordings)
-        if set(seen) & set(self._seen):
-            raise ValueError("update reuses a known recording identity")
-        if set(seen.values()) & set(self._seen.values()):
-            raise ValueError("update reuses previously observed recording content")
+        if set(seen) & set(self._seen) or set(seen.values()) & set(self._seen.values()):
+            raise ValueError("update reuses a known recording identity or content")
         fresh = _extract(recordings, set(seen), RECIPE["training_windows"])
-        training = _merge_cache(self._train, fresh)
         return _train(
-            training,
+            _merge_cache(self._train, fresh),
             self._development,
             self._contract,
             {**self._seen, **seen},
             previous=self.fingerprint(),
-            excitation=excitation_fraction(recordings),
         )
 
     def _metadata(self):
@@ -625,142 +564,97 @@ class LearnedDynamics:
             report=self.report,
             windows={
                 role: dict(
-                    keys=[asdict(k) for k in windows.keys],
-                    source_origins=list(windows.source_origins),
-                    excitation_declared=windows.excitation_declared,
+                    keys=[asdict(k) for k in w.keys],
+                    source_origins=list(w.source_origins),
                 )
-                for role, windows in (
+                for role, w in [
                     ("train", self._train),
                     ("development", self._development),
-                )
+                ]
             },
         )
 
     def _arrays(self):
-        return {
-            "envelope_half_width": self._envelope,
-            **self._model.arrays(),
-            **{
-                f"{role}_{k}": getattr(windows.batch, k)
-                for role, windows in (
-                    ("train", self._train),
-                    ("development", self._development),
-                )
-                for k in _ARRAYS
-            },
-            **{
-                f"{role}_{key}": value
-                for role, windows in (
-                    ("train", self._train),
-                    ("development", self._development),
-                )
-                for key, value in _excitation(windows).items()
-            },
-        }
+        arrays = self._model.arrays()
+        if self._envelope is not None:
+            arrays["envelope_half_width"] = self._envelope
+        for role, w in [("train", self._train), ("development", self._development)]:
+            arrays.update({f"{role}_{k}": getattr(w.batch, k) for k in _ARRAYS})
+        return arrays
 
     def fingerprint(self):
         return array_fingerprint(self._metadata(), self._arrays())
 
     def save(self, path):
-        """Save model, recipe, evidence, and bounded update caches together."""
         save_arrays(path, self._metadata(), self._arrays())
 
     @classmethod
     def load(cls, path):
-        """Load a saved revision of this recipe, or refuse it.
-
-        Earlier recipes are evaluated under their pinned historical source.
-        This loader supports only the current quadratic-memory recipe.
-        """
         try:
-            return cls._load_current(path)
-        except (KeyError, TypeError, AttributeError, IndexError) as error:
-            raise ValueError("invalid saved revision metadata or arrays") from error
-
-    @classmethod
-    def _load_current(cls, path):
-        meta, arrays = load_arrays(path)
-        if meta.get("recipe") != RECIPE or meta.get("format") != _FORMAT:
-            raise ValueError("unsupported default recipe version")
-        if "envelope_half_width" not in arrays:
-            raise ValueError("a saved revision of this recipe carries an envelope")
-        model_meta = dict(meta["model"])
-        if model_meta.pop("format") != "glassbox-sequence-v2":
-            raise ValueError("unsupported sequence format")
-        model = SequenceModel(
-            **model_meta,
-            params={k[6:]: v for k, v in arrays.items() if k.startswith("param_")},
-            norms={k[5:]: v for k, v in arrays.items() if k.startswith("norm_")},
-        )
-        if model.kind != RECIPE["kind"]:
-            raise ValueError("saved model kind differs from its recipe")
-        windows = {}
-        expected_arrays = {"envelope_half_width", *model.arrays()}
-        for role in ("train", "development"):
-            w = meta["windows"][role]
-            declared = w.get("excitation_declared")
-            if type(declared) is not bool:
-                raise ValueError(
-                    "saved windows need an explicit excitation declaration"
-                )
-            expected_arrays.update(f"{role}_{k}" for k in _ARRAYS)
-            if declared:
-                expected_arrays.update(
-                    f"{role}_{k}" for k in ("past_excitation", "future_excitation")
-                )
-            windows[role] = SequenceWindows(
-                SequenceBatch(
-                    **{k: arrays[f"{role}_{k}"] for k in _ARRAYS}, dt_s=model.dt_s
-                ),
-                tuple(WindowKey(**k) for k in w["keys"]),
-                tuple(w["source_origins"]),
-                **(
-                    {
-                        key: arrays[f"{role}_{key}"]
-                        for key in ("past_excitation", "future_excitation")
-                    }
-                    if declared
-                    else {}
-                ),
+            meta, arrays = load_arrays(path)
+            if (
+                set(meta)
+                != {
+                    "format",
+                    "recipe",
+                    "model",
+                    "contract",
+                    "seen",
+                    "report",
+                    "windows",
+                }
+                or meta.get("format") != _FORMAT
+                or meta.get("recipe") != RECIPE
+                or set(meta["windows"]) != {"train", "development"}
+            ):
+                raise ValueError("unsupported shared vehicle recipe")
+            model = VehicleSequenceModel.from_arrays(
+                meta["model"],
+                {k: v for k, v in arrays.items() if k.startswith(("param_", "norm_"))},
             )
-        if set(arrays) != expected_arrays:
-            raise ValueError("saved array roster differs from the current recipe")
-        if any(value.dtype != np.dtype("float64") for value in arrays.values()):
-            raise ValueError("saved numerical arrays must be float64")
-        _validate_saved_contract(model, windows, meta)
-        result = cls(
-            model,
-            windows["train"],
-            windows["development"],
-            meta["contract"],
-            meta["seen"],
-            meta["report"],
-            arrays["envelope_half_width"],
-        )
-        if not np.array_equal(
-            np.asarray(result.report["envelope"]["half_width"]), result._envelope
-        ):
-            raise ValueError("saved envelope differs from its report")
-        return result
+            windows, expected = {}, set(model.arrays())
+            if meta["report"]["envelope"].get("available") is not False:
+                expected.add("envelope_half_width")
+            for role in ("train", "development"):
+                w = meta["windows"][role]
+                if set(w) != {"keys", "source_origins"}:
+                    raise ValueError("invalid retained-window metadata")
+                keys = _ARRAYS
+                expected.update(f"{role}_{k}" for k in keys)
+                windows[role] = SequenceWindows(
+                    SequenceBatch(
+                        **{k: arrays[f"{role}_{k}"] for k in _ARRAYS}, dt_s=model.dt_s
+                    ),
+                    tuple(WindowKey(**k) for k in w["keys"]),
+                    tuple(w["source_origins"]),
+                )
+            if set(arrays) != expected or any(
+                v.dtype != np.dtype("float64") for v in arrays.values()
+            ):
+                raise ValueError("saved array roster or dtype differs from recipe")
+            return cls(
+                model,
+                windows["train"],
+                windows["development"],
+                meta["contract"],
+                meta["seen"],
+                meta["report"],
+                arrays.get("envelope_half_width"),
+            )
+        except (KeyError, TypeError, AttributeError, IndexError) as error:
+            raise ValueError(
+                "invalid saved vehicle revision metadata or arrays"
+            ) from error
 
 
 def fit(recordings):
-    """Fit the recipe with automatic recording holdout and window sampling.
-
-    Supply a SequenceCollection carrying configuration and ordered channel facts.
-    At least two distinct recordings are required. No architecture, optimizer,
-    representation, split-policy, or random-seed options are accepted.
-    """
+    """Fit the one supported-physics recipe; no vehicle or tuning arguments."""
     contract = _contract(recordings)
     seen = _recording_content(recordings)
     names = sorted(seen, key=_priority)
     if len(names) < 2:
-        raise ValueError(
-            "fit needs at least two distinct recordings for training and development"
-        )
+        raise ValueError("fit needs at least two distinct recordings")
     count = min(len(names) - 1, max(1, int(np.ceil(len(names) / 4))))
     development = _extract(recordings, names[:count], RECIPE["development_windows"])
     train = _extract(recordings, names[count:], RECIPE["training_windows"])
-    return _train(
-        train, development, contract, seen, excitation=excitation_fraction(recordings)
-    )
+    return _train(train, development, contract, seen)

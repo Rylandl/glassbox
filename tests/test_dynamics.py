@@ -1,336 +1,298 @@
+"""Analytic vehicles and bounded fitting only; no simulator fixtures."""
+
+from dataclasses import replace
+
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from glassbox.core.dynamics import (
-    MOTOR_MIXER,
-    DynamicsParams,
-    FixedWingDynamicsParams,
-    hover_control,
-    initial_residual_parameters,
-    rollout,
-    rollout_with_latent,
-    state_derivative,
-    step,
-    step_with_latent,
-    with_thrust_command_offset,
-)
-from glassbox.core.metrics import predict, rollout_metrics
-from glassbox.core.synthetic import resting_state, true_parameters
+from glassbox import _dynamics as core
 
 
-def test_hover_is_an_equilibrium() -> None:
-    params = true_parameters()
-    state = jnp.asarray(resting_state())
-    next_state = step(params, state, hover_control(params), 0.02)
+def constant_model(commands=3, *, dt=0.05, history=3, delay=2):
+    b = 9 + 2 * commands
+    f = (delay + 1) * b + 2
+    q = b * (b + 1) // 2
+    params = dict(
+        linear=np.zeros((f, 6)),
+        quadratic=np.zeros((q, 6)),
+        bias=np.zeros(6),
+        w1=np.zeros((f, 3)),
+        b1=np.zeros(3),
+        w2=np.zeros((3, 6)),
+        memory=np.zeros((f, 2)),
+        memory_bias=np.zeros(2),
+        raw_tau=np.full(commands, np.log(np.expm1(0.049))),
+    )
+    norms = dict(
+        body_mean=np.zeros(9),
+        body_scale=np.ones(9),
+        motion_bound_scale=np.full(6, 4.0),
+        input_mean=np.zeros(commands),
+        input_scale=np.ones(commands),
+        feature_scale=np.ones(f),
+        quadratic_scale=np.ones(q),
+        output_scale=np.ones(6),
+        state_mean=np.zeros(15),
+        state_scale=np.ones(15),
+    )
+    return core.VehicleSequenceModel(dt, history, delay, params, norms)
 
-    np.testing.assert_allclose(next_state, state, atol=1e-6)
 
-
-def test_shared_thrust_command_offset_preserves_hover_equilibrium() -> None:
-    params = with_thrust_command_offset(true_parameters(), -0.15)
-    state = jnp.asarray(resting_state())
-
-    next_state = step(params, state, hover_control(params), 0.02)
-
-    np.testing.assert_allclose(next_state, state, atol=1e-6)
-    assert float(hover_control(params)[0]) == pytest.approx(
-        float(hover_control(true_parameters())[0]) - 0.15,
-        abs=1e-6,
+def inputs(model, horizon=4, *, omega=None):
+    state = np.r_[np.zeros(6), np.eye(3).reshape(9)]
+    if omega is not None:
+        state[3:6] = omega
+    return (
+        np.repeat(state[None], model.history_steps + 1, 0),
+        np.zeros((model.history_steps, len(model.norms["input_mean"]))),
+        np.zeros((horizon, len(model.norms["input_mean"]))),
     )
 
 
-def test_thrust_command_offset_is_bounded() -> None:
-    with pytest.raises(ValueError, match="strictly within"):
-        with_thrust_command_offset(true_parameters(), 0.3)
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_rotation_exp_zero_and_derivatives(dtype):
+    with jax.enable_x64(dtype is np.float64):
+        zero = jnp.zeros(3, dtype=dtype)
+        np.testing.assert_array_equal(core.rotation_exp(zero), np.eye(3))
+        jacobian = jax.jacfwd(core.rotation_exp)(zero)
+        assert np.isfinite(jacobian).all()
+        assert np.isfinite(jax.jacrev(core.rotation_exp)(zero)).all()
+        assert np.isfinite(jax.jacfwd(jax.jacrev(core.rotation_exp))(zero)).all()
+        expected = np.array([[0, 0, 0], [0, 0, -1], [0, 1, 0]])
+        np.testing.assert_array_equal(jacobian[..., 0], expected)
+        np.testing.assert_array_equal(jax.jit(core.rotation_exp)(zero), np.eye(3))
 
 
-def test_rollout_is_differentiable_with_respect_to_controls() -> None:
-    params = true_parameters()
-    state = jnp.asarray(resting_state())
-    controls = jnp.tile(hover_control(params), (3, 1))
-
-    def final_position(control_sequence: jax.Array) -> jax.Array:
-        return rollout(params, state, control_sequence, 0.02)[-1, 0:3]
-
-    jacobian = jax.jacrev(final_position)(controls)
-
-    assert jacobian.shape == (3, 3, 4)
-    assert bool(jnp.all(jnp.isfinite(jacobian)))
-    assert float(jnp.linalg.norm(jacobian)) > 0.0
-
-
-def test_true_model_has_zero_attitude_rollout_error(quadrotor_flight) -> None:
-    trajectory = quadrotor_flight(4, 0.2)
-
-    metrics = rollout_metrics(predict(true_parameters(), trajectory))
-
-    assert metrics["attitude_rmse_deg"] < 1e-5
-
-
-def test_motor_state_has_a_first_order_step_response() -> None:
-    params = true_parameters()
-    state = jnp.asarray(resting_state())
-    hover = hover_control(params)
-    command = hover + 0.1
-    controls = jnp.tile(command, (5, 1))
-
-    _, motor_states = rollout_with_latent(
-        params,
-        state,
-        controls,
-        0.02,
-        initial_motor_state=hover,
-    )
-
-    assert bool(jnp.all(motor_states[1:] > motor_states[:-1]))
-    assert bool(jnp.all(motor_states[-1] < command))
-
-
-def test_multirotor_latent_state_is_exactly_the_applied_controls() -> None:
-    params = true_parameters()
-    state = jnp.asarray(resting_state())
-    applied = jnp.asarray([0.4, 0.4, 0.4, 0.4])
-    command = jnp.asarray([0.8, 0.2, 0.2, 0.8])
-
-    next_state, latent = step_with_latent(params, state, applied, command, 0.01)
-
-    assert latent.shape == (4,)
-    decay = float(jnp.exp(-0.01 / params.physical()["motor_time_constant"]))
-    np.testing.assert_allclose(
-        latent, command + (applied - command) * decay, rtol=1e-6, atol=1e-7
-    )
-    assert bool(jnp.all(jnp.isfinite(next_state)))
-
-    with pytest.raises(ValueError, match="one applied value per control channel"):
-        step_with_latent(
-            params,
-            state,
-            jnp.concatenate((applied, jnp.zeros(3))),
-            command,
-            0.01,
+@pytest.mark.parametrize("commands", [1, 3, 4, 6])
+def test_freefall_and_constant_body_acceleration(commands):
+    with jax.enable_x64(True):
+        model = constant_model(commands)
+        args = inputs(model)
+        predicted = np.asarray(model.rollout(*args))
+        times = model.dt_s * np.arange(1, 5)
+        np.testing.assert_allclose(
+            predicted[:, :3], times[:, None] * np.asarray(core.GRAVITY), atol=1e-14
+        )
+        np.testing.assert_allclose(
+            predicted[:, 6:], np.broadcast_to(np.eye(3).reshape(9), (4, 9)), atol=1e-15
+        )
+        params = {k: v.copy() for k, v in model.params.items()}
+        params["bias"][:3] = [2.0, 3.0, 9.80665]
+        accelerated = replace(model, params=params)
+        np.testing.assert_allclose(
+            accelerated.rollout(*args)[:, :3], times[:, None] * [2, 3, 0], atol=1e-14
         )
 
 
-def test_control_generated_torque_follows_the_applied_control_with_no_memory() -> None:
-    params = true_parameters()
-    state = jnp.asarray(resting_state())
-    hover = hover_control(params)
-    command = hover + 0.02 * MOTOR_MIXER[0]
+def test_long_rotation_matches_analytic_and_stays_on_so3():
+    with jax.enable_x64(True):
+        model = constant_model(dt=0.01, history=11, delay=10)
+        omega = np.array([0.7, -0.2, 1.1])
+        predicted = np.asarray(model.rollout(*inputs(model, 120, omega=omega)))
+        rotations = predicted[:, 6:].reshape(-1, 3, 3)
+        expected = np.asarray(
+            core.rotation_exp(np.arange(1, 121)[:, None] * 0.01 * omega)
+        )
+        np.testing.assert_allclose(rotations, expected, atol=2e-14)
+        np.testing.assert_allclose(
+            rotations.swapaxes(-1, -2) @ rotations,
+            np.broadcast_to(np.eye(3), rotations.shape),
+            atol=2e-14,
+        )
+        np.testing.assert_allclose(np.linalg.det(rotations), 1, atol=2e-14)
 
-    applied = step_with_latent(params, state, hover, command, 0.02)[1]
-    derivative = state_derivative(params, state, applied)
-    expected = params.physical()["angular_control_matrix"] @ (MOTOR_MIXER @ applied)
 
-    np.testing.assert_allclose(derivative[10:13], expected, rtol=1e-6, atol=1e-7)
+def test_midpoint_angular_acceleration_and_two_substeps():
+    with jax.enable_x64(True):
+        model = constant_model()
+        params = {k: v.copy() for k, v in model.params.items()}
+        params["bias"][5] = 2.0
+        model = replace(model, params=params)
+        y = np.asarray(model.rollout(*inputs(model, 1)))
+        np.testing.assert_allclose(y[0, 3:6], [0, 0, 0.1], atol=1e-15)
+        np.testing.assert_allclose(
+            y[0, 6:].reshape(3, 3),
+            core.rotation_exp(np.array([0, 0, 0.0025])),
+            atol=1e-15,
+        )
 
 
-def test_rotational_control_cross_coupling_is_bounded_and_expressive() -> None:
-    params = DynamicsParams.from_physical(
-        thrust_accel=5.4,
-        angular_accel=(18.0, 16.5, 7.5),
-        linear_drag=0.18,
-        angular_drag=(0.24, 0.21, 0.13),
-        motor_time_constant=1e-4,
-        angular_control_cross_coupling=(
-            (0.0, 0.2, 0.0),
-            (0.0, 0.0, 0.0),
-            (0.0, 0.0, 0.0),
-        ),
+def test_command_filter_uses_entire_prefix_and_raw_commands_are_available():
+    with jax.enable_x64(True):
+        model = constant_model(commands=1)
+        past, up, _ = inputs(model, 2)
+        up[:, 0] = [1, 0, 0]
+        params, norms = jax.tree.map(jnp.asarray, (model.params, model.norms))
+        a, _, _ = core._history(
+            params, norms, jnp.asarray(past[None]), jnp.asarray(up[None]), 2, 0.05
+        )
+        np.testing.assert_allclose(a, [[np.exp(-2.0)]], atol=1e-15)
+        b = core.current_features(
+            past[-1], np.array([0.7]), np.array([0.2]), model.norms
+        )
+        np.testing.assert_array_equal(b[-2:], [0.7, 0.2])
+        assert np.all(np.asarray(core.time_constants(params)) > 0.001)
+
+
+@pytest.mark.parametrize("x64", [False, True])
+def test_native_precision_jit_jvp_reverse_and_no_global_flag_change(x64):
+    with jax.enable_x64(x64):
+        model = constant_model(commands=1)
+        params = {k: v.copy() for k, v in model.params.items()}
+        params["linear"][9, 0] = 2.0
+        model = replace(model, params=params)
+        x, up, uf = inputs(model)
+        uf[:] = 0.4
+        eager = model.rollout(x, up, uf)
+        compiled = jax.jit(model.rollout)(x, up, uf)
+        assert eager.dtype == (jnp.float64 if x64 else jnp.float32)
+        np.testing.assert_allclose(eager, compiled, atol=2e-7)
+
+        def fn(command):
+            return model.rollout(x, up, command)[-1, 0]
+
+        _, derivative = jax.jvp(
+            fn, (jnp.asarray(uf),), (jnp.ones_like(jnp.asarray(uf)),)
+        )
+        np.testing.assert_allclose(derivative, 0.4, atol=1e-7)
+        gradient = jax.jit(jax.grad(fn))(uf)
+        np.testing.assert_allclose(gradient, 0.1, atol=1e-7)
+        assert bool(jax.config.x64_enabled) is x64
+
+
+def test_future_causality_and_one_memory_update_per_sample():
+    with jax.enable_x64(True):
+        model = constant_model(commands=1)
+        params = {k: v.copy() for k, v in model.params.items()}
+        params["linear"][9, 0] = 1
+        params["linear"][-2, 0] = 1
+        params["memory"][-2:, :] = np.eye(2)
+        params["memory_bias"][:] = 0.5
+        model = replace(model, params=params)
+        x, up, uf = inputs(model)
+        changed = uf.copy()
+        changed[2:] = 10
+        np.testing.assert_array_equal(
+            model.rollout(x, up, uf)[:2], model.rollout(x, up, changed)[:2]
+        )
+        p, n = jax.tree.map(jnp.asarray, (model.params, model.norms))
+        a, history, hidden = core._history(
+            p, n, jnp.asarray(x[None]), jnp.asarray(up[None]), 2, 0.05
+        )
+        result = core.physical_step(
+            p, n, jnp.asarray(x[-1:]), jnp.zeros((1, 1)), a, history, hidden, 0.05
+        )
+        np.testing.assert_allclose(
+            result[3], np.tanh(np.asarray(hidden) + 0.5), atol=1e-15
+        )
+        np.testing.assert_allclose(result[0][0, 0], 0.05 * hidden[0, 0], atol=1e-15)
+
+
+def test_one_compiled_model_across_precision_contexts():
+    model = constant_model(commands=1)
+    arguments = inputs(model)
+    compiled = jax.jit(model.rollout)
+    for enabled in (False, True, False, True):
+        with jax.enable_x64(enabled):
+            actual = compiled(*arguments)
+            assert actual.dtype == (jnp.float64 if enabled else jnp.float32)
+            np.testing.assert_allclose(actual, model.rollout(*arguments), atol=2e-7)
+
+
+def test_common_world_heading_rotation_equivariance():
+    with jax.enable_x64(True):
+        model = constant_model()
+        params = {k: v.copy() for k, v in model.params.items()}
+        params["bias"][:3] = [1, 2, 9.80665]
+        model = replace(model, params=params)
+        past, up, uf = inputs(model)
+        heading = np.asarray(core.rotation_exp(np.array([0.0, 0.0, 1.2])))
+        rotated = past.copy()
+        rotated[..., :3] = past[..., :3] @ heading.T
+        rotated[..., 6:] = np.broadcast_to(heading.reshape(9), rotated[..., 6:].shape)
+        original = np.asarray(model.rollout(past, up, uf))
+        actual = np.asarray(model.rollout(rotated, up, uf))
+        np.testing.assert_allclose(
+            actual[..., :3], original[..., :3] @ heading.T, atol=1e-14
+        )
+        np.testing.assert_allclose(actual[..., 3:6], original[..., 3:6], atol=1e-14)
+        np.testing.assert_allclose(
+            actual[..., 6:].reshape(-1, 3, 3),
+            heading @ original[..., 6:].reshape(-1, 3, 3),
+            atol=1e-14,
+        )
+
+
+def test_archive_roundtrip_and_shape_dtype_corruption():
+    model = constant_model()
+    assert (
+        core.VehicleSequenceModel.from_arrays(
+            model.metadata(), model.arrays()
+        ).fingerprint
+        == model.fingerprint
     )
-    pitch_command = hover_control(params) + 0.02 * MOTOR_MIXER[1]
-    derivative = state_derivative(params, jnp.asarray(resting_state()), pitch_command)
-
-    assert float(derivative[10]) > 0.0
-    assert float(derivative[11]) > float(derivative[10])
-    assert np.max(np.abs(params.physical()["angular_control_cross_coupling"])) <= 0.5
-
-
-def test_zero_initialized_residual_matches_structured_model() -> None:
-    structured = true_parameters()
-    residual = initial_residual_parameters(structured)
-    state = jnp.asarray(resting_state())
-    controls = jnp.tile(hover_control(structured), (5, 1))
-
-    structured_states = rollout(structured, state, controls, 0.02)
-    residual_states = rollout(residual, state, controls, 0.02)
-
-    np.testing.assert_allclose(residual_states, structured_states, atol=1e-7)
-
-
-def test_estimated_wind_only_conditions_linear_residual() -> None:
-    base = true_parameters()
-    residual = initial_residual_parameters(base, hidden_units=1, exogenous_size=2)
-    residual = residual._replace(
-        hidden_weights=residual.hidden_weights.at[0, -2].set(5.0),
-        output_weights=jnp.ones_like(residual.output_weights),
-    )
-    state = jnp.asarray(resting_state())
-    control = hover_control(base)
-    roles = ("estimated_wind_north", "estimated_wind_west")
-
-    calm = state_derivative(
-        residual,
-        state,
-        control,
-        exogenous=jnp.zeros(2),
-        exogenous_roles=roles,
-    )
-    windy = state_derivative(
-        residual,
-        state,
-        control,
-        exogenous=jnp.asarray([1.0, 0.0]),
-        exogenous_roles=roles,
-    )
-
-    assert float(jnp.linalg.norm(windy[3:6] - calm[3:6])) > 0.1
-    np.testing.assert_allclose(windy[10:13], calm[10:13], atol=1e-7)
-
-
-def test_rollout_applies_per_step_exogenous_inputs(fixedwing_flight) -> None:
-    from glassbox.core.dynamics import WIND_EXOGENOUS_ROLES, rollout_with_latent
-    from glassbox.core.fixedwing_synthetic import (
-        true_fixed_wing_parameters,
-    )
-
-    trajectory = fixedwing_flight(1, 0.3)
-    params = true_fixed_wing_parameters()
-    controls = jnp.asarray(trajectory.controls)
-    steps = controls.shape[0]
-    wind = 2.0 * np.sin(np.linspace(0.0, 3.0, 2 * steps)).reshape(steps, 2)
-    dt_s = trajectory.nominal_dt_s
-    roles = trajectory.spec.control_roles
-
-    per_step_states, _ = rollout_with_latent(
-        params,
-        jnp.asarray(trajectory.states[0]),
-        controls,
-        dt_s,
-        None,
-        roles,
-        jnp.asarray(wind),
-        WIND_EXOGENOUS_ROLES,
-    )
-
-    # Chain single-step rollouts, each holding that step's wind vector.
-    state = jnp.asarray(trajectory.states[0])
-    latent = None
-    for index in range(steps):
-        states, applied = rollout_with_latent(
-            params,
-            state,
-            controls[index : index + 1],
-            dt_s,
-            latent,
-            roles,
-            jnp.asarray(wind[index]),
-            WIND_EXOGENOUS_ROLES,
+    assert set(model.metadata()) == {"format", "dt_s", "history_steps", "delay_steps"}
+    arrays = model.arrays()
+    arrays["param_bias"] = arrays["param_bias"].astype(np.float32)
+    with pytest.raises(ValueError, match="float64"):
+        core.VehicleSequenceModel.from_arrays(model.metadata(), arrays)
+    with pytest.raises(ValueError, match="archive"):
+        core.VehicleSequenceModel.from_arrays(
+            {**model.metadata(), "format": "old"}, model.arrays()
         )
-        state, latent = states[-1], applied[-1]
-    np.testing.assert_allclose(per_step_states[-1], state, rtol=1e-5, atol=1e-6)
-
-    held_states, _ = rollout_with_latent(
-        params,
-        jnp.asarray(trajectory.states[0]),
-        controls,
-        dt_s,
-        None,
-        roles,
-        jnp.asarray(wind[0]),
-        WIND_EXOGENOUS_ROLES,
-    )
-    broadcast_states, _ = rollout_with_latent(
-        params,
-        jnp.asarray(trajectory.states[0]),
-        controls,
-        dt_s,
-        None,
-        roles,
-        jnp.asarray(np.tile(wind[0], (steps, 1))),
-        WIND_EXOGENOUS_ROLES,
-    )
-    np.testing.assert_allclose(held_states, broadcast_states, rtol=1e-6, atol=1e-7)
-    assert not np.allclose(per_step_states[-1], held_states[-1], atol=1e-4)
-
-    with pytest.raises(ValueError, match="one row per control step"):
-        rollout_with_latent(
-            params,
-            jnp.asarray(trajectory.states[0]),
-            controls,
-            dt_s,
-            None,
-            roles,
-            jnp.asarray(wind[:-1]),
-            WIND_EXOGENOUS_ROLES,
-        )
+    with pytest.raises(ValueError, match="shapes"):
+        model.rollout(*inputs(model)[:2], np.zeros((2, 4)))
+    with pytest.raises(ValueError, match="positive"):
+        replace(model, norms={**model.norms, "output_scale": np.zeros(6)})
 
 
-def test_structured_parameters_carry_no_rotational_response_coordinate() -> None:
-    from glassbox.belief.information import estimable_structured_parameters
-    from glassbox.core.dynamics import structured_parameter_names
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_supported_coordinates_are_identity_inside_and_smooth_bounded_outside(dtype):
+    with jax.enable_x64(dtype is np.float64):
+        bound = jnp.asarray(8.0, dtype=dtype)
+        values = jnp.asarray([-2.0, -0.1, 0.0, 0.1, 2.0], dtype=dtype)
+        np.testing.assert_array_equal(core.supported_motion(values, bound), values)
+        far = jnp.asarray([-1e6, -10, 10, 1e6], dtype=dtype)
+        result = np.asarray(core.supported_motion(far, bound))
+        assert np.all(np.abs(result) <= bound)
+        assert np.all(np.diff(result) > 0)
 
-    names = structured_parameter_names(true_parameters())
+        def function(z):
+            return core.supported_motion(z, bound)
 
-    assert len(names) == 19
-    assert not any("angular_response" in name for name in names)
-    assert estimable_structured_parameters(true_parameters()).shape == (19,)
+        for point in [-2.0, 0.0, 2.0]:
+            point = jnp.asarray(point, dtype=dtype)
+            np.testing.assert_allclose(jax.grad(function)(point), 1, atol=1e-7)
+            np.testing.assert_allclose(
+                jax.grad(jax.grad(function))(point), 0, atol=1e-7
+            )
+        assert np.isfinite(jax.jit(jax.jacfwd(function))(far)).all()
 
 
-def test_from_physical_rejects_out_of_range_inputs() -> None:
-    from glassbox.core.fixedwing_synthetic import true_fixed_wing_parameters
+def test_batched_rollout_matches_individual_and_rejects_missing_context():
+    model = constant_model(commands=2)
+    x, up, uf = inputs(model)
+    xs = np.stack((x, x))
+    ups = np.stack((up, up))
+    ufs = np.stack((uf, uf))
+    predicted = np.asarray(model.rollout(xs, ups, ufs))
+    np.testing.assert_array_equal(predicted[0], model.rollout(x, up, uf))
+    np.testing.assert_array_equal(predicted[1], predicted[0])
+    with pytest.raises(ValueError, match="shapes/history"):
+        model.rollout(x[1:], up[1:], uf)
 
-    with pytest.raises(
-        ValueError, match="thrust_accel must be finite and strictly positive"
-    ):
-        DynamicsParams.from_physical(
-            thrust_accel=-5.4,
-            angular_accel=(18.0, 16.5, 7.5),
-            linear_drag=0.18,
-            angular_drag=(0.24, 0.21, 0.13),
-            motor_time_constant=0.08,
-        )
-    with pytest.raises(ValueError, match="angular_control_cross_coupling"):
-        DynamicsParams.from_physical(
-            thrust_accel=5.4,
-            angular_accel=(18.0, 16.5, 7.5),
-            linear_drag=0.18,
-            angular_drag=(0.24, 0.21, 0.13),
-            motor_time_constant=0.08,
-            angular_control_cross_coupling=(
-                (0.0, 0.9, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-            ),
-        )
-    physical = true_fixed_wing_parameters().physical()
-    kwargs = {
-        name: (
-            tuple(float(v) for v in np.asarray(value))
-            if np.ndim(value) > 0
-            else float(value)
-        )
-        for name, value in physical.items()
-    }
-    with pytest.raises(ValueError, match="surface_trim must lie strictly within"):
-        FixedWingDynamicsParams.from_physical(
-            **{**kwargs, "surface_trim": (1.5, 0.0, 0.0)}
-        )
-    with pytest.raises(ValueError, match="lift_accel_per_speed_sq must be finite"):
-        FixedWingDynamicsParams.from_physical(
-            **{**kwargs, "lift_accel_per_speed_sq": float("nan")}
-        )
-    with pytest.raises(ValueError, match="thrust_command_offset must be finite"):
-        DynamicsParams.from_physical(
-            thrust_accel=5.4,
-            thrust_command_offset=0.3,
-            angular_accel=(18.0, 16.5, 7.5),
-            linear_drag=0.18,
-            angular_drag=(0.24, 0.21, 0.13),
-            motor_time_constant=0.08,
-        )
-    with pytest.raises(ValueError, match="actuator_time_constant must be finite"):
-        FixedWingDynamicsParams.from_physical(
-            **{**kwargs, "actuator_time_constant": -0.05}
-        )
+
+def test_core_arrays_are_defensive_readonly_copies():
+    model = constant_model()
+    fingerprint = model.fingerprint
+    exported = model.arrays()
+    exported["param_bias"][0] += 1
+    assert model.fingerprint == fingerprint
+    with pytest.raises(ValueError, match="read-only"):
+        model.params["bias"][0] = 1
+    arrays = model.arrays()
+    del arrays["norm_motion_bound_scale"]
+    with pytest.raises(ValueError, match="archive"):
+        core.VehicleSequenceModel.from_arrays(model.metadata(), arrays)

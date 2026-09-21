@@ -1,1 +1,5 @@
-"""Fitting, benchmark, and evaluation workflows built on the core API."""
+"""Read-only forecast evaluation on independent recordings."""
+
+from .forecast import evaluate
+
+__all__ = ["evaluate"]

@@ -1,0 +1,19 @@
+{
+  "adoption": "Explicit user policy 2026-09-21; historical acceptance flags remain unchanged.",
+  "counts": {
+    "dart_gradients": 4144,
+    "dart_native_intervals": 120,
+    "dart_selected_means": 40,
+    "flight_queries": 8064,
+    "raw_training_recordings": 348,
+    "supported_flight_arrays": 12768
+  },
+  "format": "glassbox-adopted-baseline-reference-v1",
+  "manifest_sha256": "55009687fd5ca48a77a5cb69b0c5ce264dc5196f2863753942cdd4a51a097407",
+  "models": {
+    "cascade": "b6af9a5fa3f5fcc09bd218d063ac8d20a7cbd69a0c68d60980be90da4158a8c8",
+    "crazyflow": "29fce97cb901f8addb6d8f820f9069c2ee247541c9bb763cf33e0855d44bf5ec",
+    "dart": "95e9ede17a3ce64d4c5b49163f2869d7b9d03787e2cb7131d04f17041406fdc2"
+  },
+  "path": "artifacts/baseline"
+}
