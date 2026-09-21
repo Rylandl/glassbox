@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v4.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v6.json"
 
 COUNTERS = (
     "observations",
@@ -170,8 +170,8 @@ def summarize(data, info, reference=None, protocol=None, stream=None):
         if np.isfinite(data["command_z"]).any()
         else None,
     )
-    if protocol is not None and protocol["id"] == "online-fit-v5":
-        require(stream is not None, "v5 diagnostics require observed origins")
+    if protocol is not None and protocol["id"] in ("online-fit-v5", "online-fit-v6"):
+        require(stream is not None, "prospective diagnostics require observed origins")
         origins = observed(stream["states"][data["origin"]])
         forecasts = {arm: data[arm] for arm in ("candidate", "frozen", "kinematic")}
         if reference is not None:
@@ -197,6 +197,8 @@ def summarize(data, info, reference=None, protocol=None, stream=None):
             if a is not None and b is not None
             else None
         )
+    if protocol is not None and protocol["id"] == "online-fit-v6":
+        result["endpoint_objectives"] = info.get("endpoint_objectives")
     return result
 
 
@@ -286,7 +288,12 @@ def comparison_aggregate(cases, ratio_key):
 
 def aggregate(cases, protocol=None):
     protocol = read(PROTOCOL) if protocol is None else protocol
-    paired = protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5")
+    paired = protocol["id"] in (
+        "online-fit-v3",
+        "online-fit-v4",
+        "online-fit-v5",
+        "online-fit-v6",
+    )
     comparison = comparison_aggregate(cases, "reference_ratios" if paired else "ratios")
     total, families = comparison["aggregate_ratio"], comparison["families"]
     expected = {case["id"]: "quad" for case in protocol["streams"]["quad"]["cases"]}
@@ -325,7 +332,7 @@ def aggregate(cases, protocol=None):
             + protocol["comparison"]["reference"]["protocol_id"],
             frozen_comparison=comparison_aggregate(cases, "ratios"),
         )
-    if protocol["id"] == "online-fit-v5":
+    if protocol["id"] in ("online-fit-v5", "online-fit-v6"):
         robustness = {}
         for family in ("quad", "fixedwing"):
             selected = [case for case in cases if case["family"] == family]
@@ -371,7 +378,8 @@ def counter_names(protocol):
         return COUNTERS[:5]
     return (
         COUNTERS
-        if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5")
+        if protocol["id"]
+        in ("online-fit-v3", "online-fit-v4", "online-fit-v5", "online-fit-v6")
         else COUNTERS[:7]
     )
 
@@ -382,7 +390,8 @@ def dynamic_normalizers(protocol):
         allowed
         == (
             ["feature_scale", "quadratic_scale", "output_scale"]
-            if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5")
+            if protocol["id"]
+            in ("online-fit-v3", "online-fit-v4", "online-fit-v5", "online-fit-v6")
             else []
         ),
         "dynamic normalization contract differs",
@@ -470,6 +479,7 @@ def reference_contract(reference, protocol):
             "online-fit-v3": "online-fit-v2",
             "online-fit-v4": "online-fit-v2",
             "online-fit-v5": "online-fit-v4",
+            "online-fit-v6": "online-fit-v4",
         }.get(protocol["id"]),
         "reference protocol contract differs",
     )
@@ -730,6 +740,11 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
                     info[name + "_final_report"] = learner.report
                 except Exception as error:
                     info.update(status="failed", final_save_error=repr(error))
+        if protocol["id"] == "online-fit-v6" and online is not None:
+            try:
+                info["endpoint_objectives"] = save_endpoint_diagnostics(output)
+            except Exception as error:
+                info.update(status="failed", endpoint_diagnostic_error=repr(error))
         write(output / "case.json", info)
     reference_data = (
         arrays(reference / "predictions.npz") if reference is not None else None
@@ -738,6 +753,174 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
         paired_case(data, info, reference_data, read(reference / "case.json"))
     result = summarize(data, info, reference_data, protocol, stream)
     write(output / "summary.json", result)
+    return result
+
+
+def endpoint_objective(meta, values, predictions):
+    """Independent NumPy arithmetic from one saved cache/model endpoint."""
+    norms = {key[5:]: value for key, value in values.items() if key.startswith("norm_")}
+    role_losses, motion_squares, command_squares, counts = [], [], [], {}
+    dt, delay = meta["model"]["dt_s"], meta["model"]["delay_steps"]
+    require(
+        set(predictions) == {"bootstrap", "recent"},
+        "endpoint prediction inventory differs",
+    )
+    for role in ("bootstrap", "recent"):
+        past, up, future, truth = (
+            values[role + "_" + key]
+            for key in ("past_states", "past_inputs", "future_inputs", "future_states")
+        )
+        prediction = predictions[role]
+        require(
+            prediction.shape == truth.shape
+            and prediction.dtype == np.float64
+            and np.isfinite(prediction).all(),
+            "endpoint cache prediction contract differs",
+        )
+        counts[role] = len(past)
+        if not len(past):
+            continue
+        residual = (prediction - truth) / values["scale"]
+        groups = np.stack(
+            [
+                np.linalg.norm(residual[..., a:b], axis=-1)
+                for a, b in ((0, 3), (3, 6), (6, 15))
+            ],
+            axis=-1,
+        )
+        role_losses.append(
+            float(np.mean(np.where(groups <= 1, 0.5 * groups**2, groups - 0.5)))
+        )
+        states = np.concatenate((past, truth[:, :-1]), axis=1)[:, delay:]
+        commands = np.concatenate((up, future), axis=1)[:, delay:]
+        rotation = states[..., 6:].reshape(*states.shape[:-1], 3, 3)
+        body = np.concatenate(
+            (
+                np.einsum("...ji,...j->...i", rotation, states[..., :3]),
+                states[..., 3:6],
+            ),
+            axis=-1,
+        )
+        motion = (body - norms["body_mean"][:6]) / norms["body_scale"][:6]
+        support = norms["motion_bound_scale"] / 4
+        excess = np.maximum(np.abs(motion) - support, 0)
+        bounded = np.where(
+            np.abs(motion) <= support,
+            motion,
+            np.sign(motion) * (support + 3 * support * np.tanh(excess / (3 * support))),
+        )
+        motion_squares.append(np.mean(bounded**2, axis=(0, 1)))
+        command_squares.append(
+            np.mean(
+                ((commands - norms["input_mean"]) / norms["input_scale"]) ** 2,
+                axis=(0, 1),
+            )
+        )
+    require(bool(role_losses), "endpoint has no measured cache")
+    issued = np.maximum(1.0, np.sqrt(np.mean(command_squares, axis=0)))
+    domain = np.r_[
+        np.maximum(1.0, np.sqrt(np.mean(motion_squares, axis=0))),
+        1 / norms["body_scale"][6:9],
+        issued,
+        issued,
+    ]
+    left, right = np.triu_indices(len(domain))
+    factors = np.where(left == right, 2.0, np.sqrt(2.0))
+    physical = (
+        values["param_quadratic"]
+        * norms["output_scale"][None, :]
+        / norms["quadratic_scale"][:, None]
+    )
+    scaled = (
+        factors[:, None]
+        * domain[left, None]
+        * domain[right, None]
+        * dt
+        * physical
+        / values["scale"][0, :6]
+    )
+    prior = float(0.01 / 4 * np.sum(scaled**2))
+    data_loss = float(np.mean(role_losses))
+    require(np.isfinite([prior, data_loss]).all(), "nonfinite endpoint objective")
+    return dict(
+        cache_windows=counts,
+        data_loss=data_loss,
+        prior_loss=prior,
+        combined_loss=data_loss + prior,
+        domain=domain.tolist(),
+    )
+
+
+def save_endpoint_diagnostics(output):
+    """Read-only rollouts after all measured case timings; no new learner state."""
+    import jax
+
+    from glassbox import OnlineFit
+    from glassbox._learner_arrays import load_arrays
+
+    saved, result = {}, {}
+    for endpoint in ("initial", "final"):
+        path = output / (endpoint + "-online.npz")
+        session = OnlineFit.load(path)
+        before = session.fingerprint()
+        meta, values = load_arrays(path)
+        predicted = {}
+        with jax.enable_x64(True):
+            for role in ("bootstrap", "recent"):
+                truth = values[role + "_future_states"]
+                predicted[role] = (
+                    np.asarray(
+                        session.model.rollout(
+                            *(
+                                values[role + "_" + key]
+                                for key in (
+                                    "past_states",
+                                    "past_inputs",
+                                    "future_inputs",
+                                )
+                            )
+                        )
+                    )
+                    if len(truth)
+                    else np.empty_like(truth, dtype=np.float64)
+                )
+                saved[endpoint + "_" + role] = predicted[role]
+        require(session.fingerprint() == before, "endpoint diagnostic mutated session")
+        result[endpoint] = endpoint_objective(meta, values, predicted)
+    checkpoint(output / "endpoint-predictions.npz", **saved)
+    write(output / "endpoint-objectives.json", result)
+    return result
+
+
+def verify_endpoint_diagnostics(output):
+    """Recompute losses and physical prior with zero model or optimizer calls."""
+    from glassbox._learner_arrays import load_arrays
+
+    predicted = arrays(output / "endpoint-predictions.npz")
+    require(
+        set(predicted)
+        == {
+            endpoint + "_" + role
+            for endpoint in ("initial", "final")
+            for role in ("bootstrap", "recent")
+        },
+        "endpoint prediction inventory differs",
+    )
+    result = {}
+    for endpoint in ("initial", "final"):
+        meta, values = load_arrays(output / (endpoint + "-online.npz"))
+        result[endpoint] = endpoint_objective(
+            meta,
+            values,
+            {
+                role: predicted[endpoint + "_" + role]
+                for role in ("bootstrap", "recent")
+            },
+        )
+    require(
+        result == read(output / "endpoint-objectives.json"),
+        "endpoint objective differs",
+    )
     return result
 
 
@@ -755,7 +938,7 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v4",
+            p["id"] == "online-fit-v6",
             "unsupported candidate protocol for current learner",
         )
         require(
@@ -890,6 +1073,7 @@ def accounting(report, count, protocol):
         "online-fit-v3",
         "online-fit-v4",
         "online-fit-v5",
+        "online-fit-v6",
     ):
         require(
             report["cg_iterations"] == report["curvature_calls"] == 4 * count
@@ -898,7 +1082,12 @@ def accounting(report, count, protocol):
             "curvature accounting differs",
         )
 
-    if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5"):
+    if protocol["id"] in (
+        "online-fit-v3",
+        "online-fit-v4",
+        "online-fit-v5",
+        "online-fit-v6",
+    ):
         require(
             report["conditioning_calls"] == count, "conditioning accounting differs"
         )
@@ -1075,7 +1264,12 @@ def verify(output, authority):
         "saved protocol differs",
     )
     reference = None
-    if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5"):
+    if protocol["id"] in (
+        "online-fit-v3",
+        "online-fit-v4",
+        "online-fit-v5",
+        "online-fit-v6",
+    ):
         reference = output / "reference"
         reference_contract(reference, protocol)
         require(
@@ -1133,7 +1327,12 @@ def verify(output, authority):
             for key in initial:
                 if key != "metadata":
                     exact(initial[key], frozen[key], "independent initialization")
-            if protocol["id"] in ("online-fit-v3", "online-fit-v4", "online-fit-v5"):
+            if protocol["id"] in (
+                "online-fit-v3",
+                "online-fit-v4",
+                "online-fit-v5",
+                "online-fit-v6",
+            ):
                 norm = arrays(case / "normalization.npz")
                 for key, value in norm.items():
                     exact(
@@ -1177,6 +1376,17 @@ def verify(output, authority):
                             final[key],
                             "fixed normalization/frozen session",
                         )
+        if protocol["id"] == "online-fit-v6":
+            if info.get("endpoint_objectives") is not None:
+                require(
+                    verify_endpoint_diagnostics(case) == info["endpoint_objectives"],
+                    "case endpoint objective differs",
+                )
+            else:
+                require(
+                    info["status"] == "failed",
+                    "missing successful endpoint diagnostics",
+                )
         for arm in ("candidate", "frozen", "kinematic"):
             error, angles = residuals(data[arm], data["truth"])
             exact(data[arm + "_residual"], error, "component residual")

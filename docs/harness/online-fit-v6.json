@@ -38,7 +38,7 @@
       "motion_groups": "For velocity and body-rate separately, s_g[h]=max(sqrt(mean_windows(sum_axes((origin_g-target_g[h])^2))), 0.01*max(sqrt(mean_windows(sum_axes((origin_g-mean_origin_g)^2))),1e-4)). Use raw bootstrap origins, not componentwise-clipped state_scale.",
       "rotation_group": "Same formula on the 3x3 rotation entries, multiplying squared Frobenius sums by 1/2 before square roots. This measures chordal rotation distance with small-angle radian units. The spread uses the raw mean rotation matrix as a Euclidean center, with the same factor1/2.",
       "stored_array": "Retain (horizon,15) scale shape: repeat s_velocity three times, s_rate three times and sqrt(2)*s_rotation nine times. Loader recomputes it from bootstrap windows exactly.",
-      "scope_limit": "The objective and scales are invariant under common orthogonal frame rotations. The axis-normalized supported model itself is not claimed to be rotationally equivariant. Entirely unexcited groups may still have small scales."
+      "scope_limit": "The radial data objective and its scales are invariant under common orthogonal frame rotations. The new axis-domain curvature prior and combined objective are not claimed to share this invariance. The axis-normalized supported model itself is not claimed to be rotationally equivariant. Entirely unexcited groups may still have small scales."
     },
     "curvature_prior": {
       "head": "Only the explicit upper-triangular quadratic current-feature head, not the full recurrent dynamics Hessian. Let Q[ij,o] be its stored coefficient; physical head coefficient is Q*output_scale[o]/quadratic_scale[ij].",

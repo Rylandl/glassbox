@@ -147,7 +147,7 @@ class FakeOnline:
         )
 
 
-def run_fixture(tmp_path, monkeypatch, *, fail=False, short=False):
+def run_fixture(tmp_path, monkeypatch, *, fail=False, short=False, protocol=None):
     import glassbox
 
     class Chosen(FakeOnline):
@@ -178,7 +178,9 @@ def run_fixture(tmp_path, monkeypatch, *, fail=False, short=False):
         ordered_commands=["throttle [1]", "aileron [rad]", "elevator [rad]"],
     )
     output = tmp_path / "case"
-    result = evaluate.evaluate_case(source, output, info)
+    if protocol is None:
+        protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v4.json")
+    result = evaluate.evaluate_case(source, output, info, protocol)
     return result, output, evaluate.arrays(source)
 
 
@@ -254,7 +256,9 @@ def test_collection_reuse_is_bound_to_original_manifest_and_protocol(tmp_path):
         evaluate.collection_contract(tmp_path, "sealed", {}, "v2")
 
 
-@pytest.mark.parametrize("version,proposals", [(1, 4), (2, 1), (3, 1), (4, 1), (5, 1)])
+@pytest.mark.parametrize(
+    "version,proposals", [(1, 4), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1)]
+)
 def test_generic_session_archive_verification_without_optimizer_loader(
     tmp_path, monkeypatch, version, proposals
 ):
@@ -303,7 +307,7 @@ def test_generic_session_archive_verification_without_optimizer_loader(
             evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 5])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5])
 def test_other_protocol_cannot_run_maintained_candidate(tmp_path, monkeypatch, version):
     protocol = tmp_path / "protocol.json"
     protocol.write_text(json.dumps(dict(id=f"online-fit-v{version}")))
@@ -513,17 +517,18 @@ def test_v5_rotation_rate_uses_observed_nonlinear_defect_not_zero_target():
     assert changed["truth_relative_rmse_rad_s"] == pytest.approx(0.1)
 
 
-def test_v5_diagnostics_are_prospective_and_recompute_every_arm(tmp_path, monkeypatch):
+@pytest.mark.parametrize("version", [5, 6])
+def test_prospective_diagnostics_recompute_every_arm(tmp_path, monkeypatch, version):
     _result, output, stream = run_fixture(tmp_path, monkeypatch)
     data = evaluate.arrays(output / "predictions.npz")
     info = evaluate.read(output / "case.json")
     reference = copy.deepcopy(data)
     reference["candidate"][:, 0] += 2
-    for version in (1, 2, 3, 4):
-        historical = dict(id=f"online-fit-v{version}")
+    for old_version in (1, 2, 3, 4):
+        historical = dict(id=f"online-fit-v{old_version}")
         result = evaluate.summarize(data, info, reference, historical, stream)
         assert "diagnostics" not in result and "robustness_ratios" not in result
-    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v5.json")
+    protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     result = evaluate.summarize(data, info, reference, protocol, stream)
     assert set(result["diagnostics"]) == {
         "candidate",
@@ -543,8 +548,9 @@ def test_v5_diagnostics_are_prospective_and_recompute_every_arm(tmp_path, monkey
     )
 
 
-def test_v5_robustness_is_separate_and_uses_equal_families_without_case_veto():
-    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v5.json")
+@pytest.mark.parametrize("version", [5, 6])
+def test_robustness_is_separate_and_uses_equal_families_without_case_veto(version):
+    protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     cases = [
         aggregate_case(name, "quad", 0.01)
         for name in ("quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change")
@@ -576,8 +582,9 @@ def test_v5_robustness_is_separate_and_uses_equal_families_without_case_veto():
     assert not evaluate.aggregate(cases, protocol)["robustness_passed"]
 
 
-def test_v5_rejects_weaker_v2_reference_before_authentication(tmp_path, monkeypatch):
-    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v5.json")
+@pytest.mark.parametrize("version", [5, 6])
+def test_prospective_run_rejects_weaker_v2_reference(tmp_path, monkeypatch, version):
+    protocol = evaluate.read(evaluate.ROOT / f"docs/harness/online-fit-v{version}.json")
     protocol["comparison"]["reference"]["protocol_id"] = "online-fit-v2"
 
     def forbidden(*args):
@@ -588,8 +595,138 @@ def test_v5_rejects_weaker_v2_reference_before_authentication(tmp_path, monkeypa
         evaluate.reference_contract(tmp_path, protocol)
 
 
-def test_maintained_runner_uses_working_v4_against_its_v2_reference():
+def test_current_candidate_runner_uses_v6_against_working_v4():
     protocol = evaluate.read(evaluate.PROTOCOL)
-    assert protocol["id"] == "online-fit-v4"
-    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v2"
+    assert protocol["id"] == "online-fit-v6"
+    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v4"
     assert evaluate.run.__defaults__[0] == evaluate.PROTOCOL
+
+
+def endpoint_fixture(*, initial=False):
+    meta = dict(format="synthetic-endpoint", model=dict(dt_s=0.05, delay_steps=1))
+    values = dict(
+        norm_body_mean=np.zeros(9),
+        norm_body_scale=np.r_[np.ones(6), [0.5, 2, 4]],
+        norm_motion_bound_scale=np.full(6, 1e6),
+        norm_input_mean=np.zeros(1),
+        norm_input_scale=np.ones(1),
+        norm_output_scale=np.arange(1, 7, dtype=float),
+        norm_quadratic_scale=np.full(66, 2.0),
+        param_quadratic=np.zeros((66, 6)),
+        scale=np.ones((2, 15)),
+    )
+    left, right = np.triu_indices(11)
+    values["param_quadratic"][np.flatnonzero((left == 0) & (right == 0))[0], 0] = 2.0
+    values["param_quadratic"][np.flatnonzero((left == 0) & (right == 9))[0], 3] = 0.4
+    predictions = {}
+    for role, n, velocity, command in (
+        ("bootstrap", 2, 2.0, 3.0),
+        ("recent", 0 if initial else 3, 4.0, 5.0),
+    ):
+        past = np.zeros((n, 4, 15))
+        past[..., 6:] = np.eye(3).ravel()
+        past[..., 0] = velocity
+        past[:, 0, 0] = 1000  # Excluded by the declared t>=delay domain.
+        future = np.repeat(past[:, -1:], 2, axis=1)
+        up = np.full((n, 3, 1), command)
+        up[:, 0, 0] = 1000
+        uf = np.full((n, 2, 1), command)
+        for key, value in zip(
+            ("past_states", "past_inputs", "future_inputs", "future_states"),
+            (past, up, uf, future),
+        ):
+            values[role + "_" + key] = value
+        predictions[role] = future.copy()
+        if role == "bootstrap":
+            predictions[role][..., :3] += [3, 4, 0]
+        else:
+            predictions[role][..., 3:6] += [0, 0.6, 0.8]
+    return meta, values, predictions
+
+
+def test_endpoint_numpy_objective_preserves_role_weights_and_physical_prior():
+    meta, values, predictions = endpoint_fixture()
+    result = evaluate.endpoint_objective(meta, values, predictions)
+    expected_domain = np.r_[
+        np.sqrt(10), np.ones(5), [2, 0.5, 0.25], np.sqrt(17), np.sqrt(17)
+    ]
+    np.testing.assert_allclose(result["domain"], expected_domain, rtol=1e-15)
+    # Bootstrap norm 5 gives Huber 4.5; recent norm 1 gives Huber 0.5, over 3 groups.
+    assert result["data_loss"] == pytest.approx((4.5 / 3 + 0.5 / 3) / 2)
+    # Only two physical Hessian terms are nonzero; the off-diagonal contributes twice.
+    expected_prior = (
+        0.01 / 4 * ((2 * 10 * 0.05 * 1) ** 2 + 2 * (np.sqrt(10 * 17) * 0.05 * 0.8) ** 2)
+    )
+    assert result["prior_loss"] == pytest.approx(expected_prior)
+    assert result["combined_loss"] == result["data_loss"] + result["prior_loss"]
+    assert result["cache_windows"] == dict(bootstrap=2, recent=3)
+    transformed = copy.deepcopy(values)
+    transformed["norm_quadratic_scale"] *= 7
+    transformed["norm_output_scale"] *= 3
+    transformed["param_quadratic"] *= 7 / 3
+    shifted = evaluate.endpoint_objective(meta, transformed, predictions)
+    assert shifted["prior_loss"] == pytest.approx(result["prior_loss"], rel=2e-15)
+    initial = evaluate.endpoint_objective(*endpoint_fixture(initial=True))
+    assert initial["data_loss"] == 1.5
+    assert initial["domain"][-2:] == [3.0, 3.0]
+    assert initial["prior_loss"] == pytest.approx(
+        0.01 / 4 * (0.4**2 + 2 * (2 * 3 * 0.05 * 0.8) ** 2)
+    )
+
+
+def test_endpoint_verifier_uses_saved_predictions_without_model_or_optimizer(
+    tmp_path, monkeypatch
+):
+    from glassbox import OnlineFit
+    from glassbox._dynamics import VehicleSequenceModel
+    from glassbox._learner_arrays import save_arrays
+
+    result, saved = {}, {}
+    for endpoint in ("initial", "final"):
+        meta, values, predictions = endpoint_fixture(initial=endpoint == "initial")
+        save_arrays(tmp_path / (endpoint + "-online.npz"), meta, values)
+        result[endpoint] = evaluate.endpoint_objective(meta, values, predictions)
+        saved.update(
+            {
+                endpoint + "_" + role: prediction
+                for role, prediction in predictions.items()
+            }
+        )
+    evaluate.checkpoint(tmp_path / "endpoint-predictions.npz", **saved)
+    evaluate.write(tmp_path / "endpoint-objectives.json", result)
+
+    def forbidden(*args):
+        pytest.fail("endpoint verification called a model or optimizer")
+
+    monkeypatch.setattr(OnlineFit, "load", forbidden)
+    monkeypatch.setattr(OnlineFit, "observe", forbidden)
+    monkeypatch.setattr(VehicleSequenceModel, "rollout", forbidden)
+    assert evaluate.verify_endpoint_diagnostics(tmp_path) == result
+    saved["final_recent"][0, 0, 0] += 1
+    evaluate.checkpoint(tmp_path / "endpoint-predictions.npz", **saved)
+    with pytest.raises(ValueError, match="endpoint objective differs"):
+        evaluate.verify_endpoint_diagnostics(tmp_path)
+
+
+def test_v6_endpoint_diagnostics_run_after_all_timed_updates(tmp_path, monkeypatch):
+    protocol = evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v6.json")
+    calls = []
+
+    def saved(output):
+        data = evaluate.arrays(output / "predictions.npz")
+        assert data["assimilated"].all() and len(data["origin"]) == 5
+        assert np.isfinite(data["observe_s"]).all()
+        assert evaluate.arrays(output / "final-online.npz")["param_w"][0] == 5
+        calls.append(output)
+        return dict(
+            initial=dict(data_loss=1.0, prior_loss=2.0, combined_loss=3.0),
+            final=dict(data_loss=0.5, prior_loss=1.0, combined_loss=1.5),
+        )
+
+    monkeypatch.setattr(evaluate, "save_endpoint_diagnostics", saved)
+    result, output, _stream = run_fixture(tmp_path, monkeypatch, protocol=protocol)
+    assert calls == [output] and result["complete"]
+    assert (
+        result["endpoint_objectives"]
+        == evaluate.read(output / "case.json")["endpoint_objectives"]
+    )

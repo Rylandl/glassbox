@@ -229,7 +229,9 @@ def retained_loss(model, session):
             )
             residual = (prediction - windows["future_states"]) / session._scale
             values.append(numpy_group_huber(residual).mean())
-    return float(np.mean(values))
+    return float(np.mean(values)) + numpy_curvature_prior(
+        model, (session._bootstrap, session._recent), session._scale
+    )
 
 
 def test_delayed_motion_adaptation_is_causal_and_retention_stays_bounded(tmp_path):
@@ -491,8 +493,10 @@ def numpy_group_huber(residual):
     return np.where(magnitudes <= 1, 0.5 * magnitudes**2, magnitudes - 0.5)
 
 
+@pytest.mark.parametrize("prior", [np.zeros(2), np.array([0.15, 2.3])])
 def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
     monkeypatch,
+    prior,
 ):
     """Compare every group-IRLS proposal to a dense two-parameter solve."""
     matrix = np.random.default_rng(581).normal(0, 0.3, (15, 2))
@@ -510,6 +514,9 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
         )
 
     monkeypatch.setattr(online, "_rollout", linear_rollout)
+    monkeypatch.setattr(
+        online, "_curvature_diagonal", lambda *args, **kwargs: jnp.asarray(prior)
+    )
     solve = online._proposal.__wrapped__
     with jax.enable_x64(True):
         for target, damping in (
@@ -540,8 +547,8 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
                     for part in (slice(0, 3), slice(3, 6), slice(6, 15))
                 ]
             )
-            curvature = matrix.T @ (irls[:, None] * matrix) / 3
-            gradient = matrix.T @ (irls * residual) / 3
+            curvature = matrix.T @ (irls[:, None] * matrix) / 3 + np.diag(prior)
+            gradient = matrix.T @ (irls * residual) / 3 + prior * start
             expected = np.linalg.solve(curvature + damping * np.eye(2), -gradient)
             radius = max(1.0, 0.5 * np.linalg.norm(residual) / np.sqrt(3))
             step_size = np.linalg.norm(matrix @ expected) / np.sqrt(3)
@@ -553,13 +560,16 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
                 expected_reduction, abs=1e-12, rel=1e-10
             )
             assert float(current) == pytest.approx(
-                numpy_group_huber(residual).mean(), abs=1e-12
+                numpy_group_huber(residual).mean() + 0.5 * np.dot(prior, start**2),
+                abs=1e-12,
             )
             assert float(trial) == pytest.approx(
-                numpy_group_huber(residual + matrix @ delta).mean(), abs=1e-12
+                numpy_group_huber(residual + matrix @ delta).mean()
+                + 0.5 * np.dot(prior, (start + delta) ** 2),
+                abs=1e-12,
             )
             assert np.linalg.norm(matrix @ delta) / np.sqrt(3) <= radius * (1 + 1e-10)
-            if np.array_equal(target, start):
+            if np.array_equal(target, start) and not np.any(prior):
                 np.testing.assert_array_equal(delta, np.zeros(2))
                 assert current == trial == predicted == 0
             else:
@@ -896,3 +906,244 @@ def test_invalid_conditioning_retains_original_full_model_and_consumes_once(
     assert session.report["accepted_proposals"] == 0
     assert session.report["damping"] == 4
     assert session.cursor == 73 + 16
+
+
+def numpy_curvature_factors(model, roles, scale):
+    """Literal physical Hessian weighting, without production feature helpers."""
+    norms = model.norms
+    role_energy = []
+    for windows in roles:
+        if not len(windows["past_states"]):
+            continue
+        samples = []
+        for past, inputs, future, targets in zip(
+            *(windows[key] for key in online._FIELDS)
+        ):
+            observed = np.concatenate((past, targets[:-1]))
+            issued = np.concatenate((inputs, future))
+            energy = []
+            for state, command in zip(
+                observed[model.delay_steps :], issued[model.delay_steps :]
+            ):
+                rotation = state[6:].reshape(3, 3)
+                motion = (
+                    np.r_[rotation.T @ state[:3], state[3:6]] - norms["body_mean"][:6]
+                ) / norms["body_scale"][:6]
+                support = norms["motion_bound_scale"] / 4
+                for axis in range(6):
+                    excess = abs(motion[axis]) - support[axis]
+                    if excess > 0:
+                        motion[axis] = (
+                            np.sign(motion[axis])
+                            * support[axis]
+                            * (1 + 3 * np.tanh(excess / (3 * support[axis])))
+                        )
+                commands = (command - norms["input_mean"]) / norms["input_scale"]
+                energy.append(np.r_[motion, commands] ** 2)
+            samples.append(np.mean(energy, axis=0))
+        role_energy.append(np.mean(samples, axis=0))
+    rms = np.maximum(1, np.sqrt(np.mean(role_energy, axis=0)))
+    domain = np.r_[rms[:6], 1 / norms["body_scale"][6:9], rms[6:], rms[6:]]
+    factors = []
+    for index, (left, right) in enumerate(zip(*np.triu_indices(len(domain)))):
+        hessian = 2 if left == right else np.sqrt(2)
+        factors.append(
+            hessian
+            * domain[left]
+            * domain[right]
+            * model.dt_s
+            * norms["output_scale"]
+            / (norms["quadratic_scale"][index] * scale[0, :6])
+        )
+    return domain, np.asarray(factors)
+
+
+def numpy_curvature_prior(model, roles, scale):
+    _, factors = numpy_curvature_factors(model, roles, scale)
+    return 0.01 / 4 * np.sum((factors * model.params["quadratic"]) ** 2)
+
+
+def test_curvature_domain_uses_measured_physical_scales_and_issued_commands():
+    from jax.flatten_util import ravel_pytree
+
+    model, bootstrap, recent = conditioning_fixture()
+    norms = {name: value.copy() for name, value in model.norms.items()}
+    norms["body_scale"] = np.array([0.8, 1.2, 0.5, 1.1, 0.6, 0.9, 0.1, 0.3, 0.002])
+    norms["body_mean"] = np.array([0.2, 0.1, 0, -0.1, 0.3, 0.2, 0, 0, -0.99])
+    norms["input_scale"] = np.array([0.3, 1.5, 0.7])
+    norms["input_mean"] = np.array([0.1, -0.2, 0.3])
+    model = replace(model, norms=norms)
+    data, weights = online._full_cache(bootstrap, recent)
+    scale = online._scale(bootstrap)
+    domain, factors = numpy_curvature_factors(model, (bootstrap, recent), scale)
+    assert not np.allclose(domain[:6], 1)
+    np.testing.assert_array_equal(domain[6:9], [10, 1 / 0.3, 500])
+    np.testing.assert_array_equal(domain[9:12], domain[12:])
+    _, pooled = numpy_curvature_factors(
+        model,
+        ({k: np.concatenate((bootstrap[k], recent[k])) for k in bootstrap},),
+        scale,
+    )
+    assert not np.allclose(factors, pooled)  # Distinguishes role from pooled weighting.
+    with jax.enable_x64(True):
+        flat, unpack = ravel_pytree(model.params)
+        actual = online._curvature_diagonal(
+            model.params,
+            model.norms,
+            data,
+            scale,
+            weights,
+            delay=model.delay_steps,
+            dt_s=model.dt_s,
+        )
+        diagonal = unpack(actual)
+        np.testing.assert_allclose(
+            diagonal["quadratic"], 0.01 / 2 * factors**2, rtol=2e-13, atol=1e-14
+        )
+        for name in model.params:
+            if name != "quadratic":
+                np.testing.assert_array_equal(
+                    diagonal[name], np.zeros_like(model.params[name])
+                )
+        assert float(0.5 * jnp.dot(actual, flat**2)) == pytest.approx(
+            numpy_curvature_prior(model, (bootstrap, recent), scale), rel=2e-13
+        )
+        # Neither learned lag nor arbitrary target beyond the current features sets D.
+        changed = dict(model.params, raw_tau=np.full(3, 10.0))
+        last_target = [v.copy() for v in data]
+        last_target[3][:, -1, :6] += 1000
+        unchanged = online._curvature_diagonal(
+            changed,
+            model.norms,
+            tuple(last_target),
+            scale,
+            weights,
+            delay=model.delay_steps,
+            dt_s=model.dt_s,
+        )
+        np.testing.assert_array_equal(actual, unchanged)
+        zero = dict(model.params, quadratic=np.zeros_like(model.params["quadratic"]))
+        affine, _ = ravel_pytree(zero)
+        assert float(jnp.dot(actual, affine**2)) == 0
+
+
+def test_curvature_prior_and_directional_derivative_survive_reconditioning():
+    from jax.flatten_util import ravel_pytree
+
+    model, bootstrap, recent = conditioning_fixture()
+    data, weights = online._full_cache(bootstrap, recent)
+    scale = online._scale(bootstrap)
+    rng = np.random.default_rng(115)
+    direction = {
+        name: rng.normal(0, 0.1, value.shape) for name, value in model.params.items()
+    }
+    with jax.enable_x64(True):
+        params, norms, finite = online._recondition(
+            model.params,
+            model.norms,
+            data,
+            weights,
+            delay=model.delay_steps,
+            dt_s=model.dt_s,
+        )
+        assert finite
+        transformed = replace(
+            model,
+            params=jax.tree.map(np.asarray, params),
+            norms=jax.tree.map(np.asarray, norms),
+        )
+        sq = np.asarray(norms["quadratic_scale"]) / model.norms["quadratic_scale"]
+        so = model.norms["output_scale"] / np.asarray(norms["output_scale"])
+        changed_direction = dict(
+            direction, quadratic=sq[:, None] * direction["quadratic"] * so
+        )
+        values, derivatives = [], []
+        for core, tangent in ((model, direction), (transformed, changed_direction)):
+            flat, _ = ravel_pytree(core.params)
+            d, _ = ravel_pytree(tangent)
+            diagonal = online._curvature_diagonal(
+                core.params,
+                core.norms,
+                data,
+                scale,
+                weights,
+                delay=model.delay_steps,
+                dt_s=model.dt_s,
+            )
+            values.append(float(0.5 * jnp.dot(diagonal, flat**2)))
+            derivatives.append(float(jnp.dot(diagonal * flat, d)))
+            assert values[-1] == pytest.approx(
+                numpy_curvature_prior(core, (bootstrap, recent), scale), rel=3e-13
+            )
+        assert values[0] == pytest.approx(values[1], rel=3e-13)
+        assert derivatives[0] == pytest.approx(derivatives[1], rel=3e-13)
+
+
+def test_four_pcg_steps_match_independent_truncated_solve(monkeypatch):
+    rng = np.random.default_rng(341)
+    matrix = rng.normal(0, 0.3, (15, 6))
+    start = rng.normal(size=6)
+    prior = np.array([0, 0.01, 0.3, 1, 12, 90])
+    target = np.full(15, 8.0)
+    damping = 0.2
+    raw = matrix @ start - target
+    irls = np.concatenate(
+        [
+            np.full(b - a, 1 / max(1, np.linalg.norm(raw[a:b])))
+            for a, b in ((0, 3), (3, 6), (6, 15))
+        ]
+    )
+    curvature = matrix.T @ (irls[:, None] * matrix) / 3 + np.diag(prior)
+    gradient = matrix.T @ (irls * raw) / 3 + prior * start
+    hessian = curvature + damping * np.eye(6)
+    delta = np.zeros(6)
+    residual = -gradient.copy()
+    z = residual / (damping + prior)
+    direction = z.copy()
+    rho = residual @ z
+    for _ in range(4):
+        action = hessian @ direction
+        alpha = rho / (direction @ action)
+        delta += alpha * direction
+        residual -= alpha * action
+        z = residual / (damping + prior)
+        following = residual @ z
+        direction = z + (following / rho) * direction
+        rho = following
+    assert np.linalg.norm(hessian @ delta + gradient) > 1e-5
+    radius = max(1, 0.5 * np.linalg.norm(raw) / np.sqrt(3))
+    delta *= min(1, radius / (np.linalg.norm(matrix @ delta) / np.sqrt(3)))
+
+    def residual_function(params, norms, data, scale, delay, dt_s):
+        return (jnp.asarray(matrix) @ params["coefficients"] - target)[None, None]
+
+    monkeypatch.setattr(online, "_residual", residual_function)
+    monkeypatch.setattr(
+        online, "_curvature_diagonal", lambda *a, **kw: jnp.asarray(prior)
+    )
+    with jax.enable_x64(True):
+        proposal, current, trial, predicted, finite = online._proposal.__wrapped__(
+            {"coefficients": jnp.asarray(start)},
+            {},
+            (),
+            np.ones((1, 15)),
+            jnp.ones(1),
+            damping,
+            delay=1,
+            dt_s=0.05,
+        )
+    assert finite
+    np.testing.assert_allclose(
+        np.asarray(proposal["coefficients"]), start + delta, rtol=2e-12, atol=1e-12
+    )
+    assert float(predicted) == pytest.approx(
+        -gradient @ delta - 0.5 * delta @ curvature @ delta, rel=2e-12
+    )
+    assert float(current) == pytest.approx(
+        numpy_group_huber(raw).mean() + 0.5 * prior @ start**2, rel=2e-12
+    )
+    assert float(trial) == pytest.approx(
+        numpy_group_huber(raw + matrix @ delta).mean()
+        + 0.5 * prior @ (start + delta) ** 2,
+        rel=2e-12,
+    )

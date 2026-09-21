@@ -24,7 +24,7 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v4"
+_FORMAT = "glassbox-online-fit-v6"
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
@@ -34,6 +34,7 @@ _RECIPE = dict(
     batch_size=64,
     proposals=1,
     cg_iterations=4,
+    preconditioner="damping plus exact quadratic-prior diagonal",
     huber_delta=1.0,
     loss=dict(
         groups=[3, 3, 9],
@@ -42,6 +43,19 @@ _RECIPE = dict(
         scale="fixed bootstrap group hold-change RMS",
         floor="0.01 times max(raw group origin spread, 1e-4)",
         rotation_scale="sqrt(2) times chordal group scale",
+    ),
+    curvature_prior=dict(
+        head="explicit quadratic current-feature head only",
+        strength=0.01,
+        penalty="0.01/4 times squared scaled physical Hessian Frobenius norm",
+        motion_domain="max(1, role-balanced measured supported-motion RMS)",
+        gravity_domain="inverse immutable body gravity-direction scales",
+        command_domain="max(1, measured issued RMS), copied to filtered coordinates",
+        time_domain="same eligible measured positions as reconditioning",
+        output_domain="dt divided by fixed first-step velocity/rate group scales",
+        hessian_factors="2 on diagonal, sqrt(2) on upper off-diagonal",
+        acceptance="exact data plus prior loss; domain fixed within each proposal",
+        trust="forecast-only linearized prediction-change norm",
     ),
     initial_damping=1.0,
     damping_bounds=[1e-8, 1e8],
@@ -175,15 +189,59 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
     return *conditioned, finite
 
 
+def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
+    """Diagonal of the quadratic-head prior in current parameter coordinates.
+
+    Domain lengths use completed measured positions and immutable raw scales.
+    Issued commands supply both command domains, so no learned filter parameter
+    can weaken the prior. Compensated reconditioning preserves its physical
+    value, although damping and the truncated solve remain coordinate dependent.
+    """
+    past, past_inputs, future_inputs, targets = data
+    states = jnp.concatenate((past, targets[:, :-1]), axis=1)
+    commands = jnp.concatenate((past_inputs, future_inputs), axis=1)
+    # Only supported motion and issued coordinates are used from this call.
+    # Supplying issued values for the unused filtered block avoids a filter pass.
+    current = current_features(states, commands, commands, norms)[:, delay:]
+    rms = jnp.sqrt(
+        jnp.sum(weights[:, None, None] * current**2, axis=(0, 1)) / current.shape[1]
+    )
+    count = commands.shape[-1]
+    issued = jnp.maximum(1.0, rms[9 : 9 + count])
+    domain = jnp.concatenate(
+        (
+            jnp.maximum(1.0, rms[:6]),
+            1.0 / norms["body_scale"][6:9],
+            issued,
+            issued,
+        )
+    )
+    i, j = jnp.triu_indices(domain.shape[0])
+    factor = jnp.where(i == j, 2.0, jnp.sqrt(2.0)) * domain[i] * domain[j]
+    coefficient = (
+        factor[:, None]
+        * dt_s
+        * norms["output_scale"][None, :]
+        / (norms["quadratic_scale"][:, None] * scale[0, :6])
+    )
+    diagonal = jax.tree.map(jnp.zeros_like, params)
+    diagonal["quadratic"] = 0.005 * coefficient**2
+    return ravel_pytree(diagonal)[0]
+
+
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
 def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
-    """Four matrix-free CG iterations; all parameters remain differentiable.
+    """Four matrix-free preconditioned CG iterations with a fixed curvature prior.
 
     Each physical group's normalized norm sets its Huber threshold. Residual
     weights include the role weight and 1/(horizon*3); each group's IRLS factor
-    is broadcast over its coordinates and stays fixed throughout the proposal.
+    and the measured prior domain stay fixed throughout the proposal.
     """
     flat, unpack = ravel_pytree(params)
+    prior = _curvature_diagonal(
+        params, norms, data, scale, weights, delay=delay, dt_s=dt_s
+    )
+    preconditioner = damping + prior
     raw, push = jax.linearize(
         lambda value: _residual(unpack(value), norms, data, scale, delay, dt_s), flat
     )
@@ -192,54 +250,67 @@ def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
     root_weight = jnp.sqrt(weight)
     factors = 1 / jnp.sqrt(jnp.maximum(1.0, _group_squared(raw)))
     irls = jnp.repeat(factors, np.array([3, 3, 9]), axis=-1, total_repeat_length=15)
-    gradient = pull(weight * irls * raw)[0]
+    gradient = pull(weight * irls * raw)[0] + prior * flat
 
     def cg_step(_, carry):
-        delta, residual, direction, squared, finite = carry
+        delta, residual, direction, rho, finite = carry
         projected = push(direction)
-        curvature = pull(weight * irls * projected)[0] + damping * direction
+        curvature = pull(weight * irls * projected)[0] + preconditioner * direction
         denominator = jnp.vdot(direction, curvature)
         valid = jnp.all(jnp.isfinite(curvature)) & jnp.all(jnp.isfinite(projected))
-        valid &= jnp.isfinite(squared) & jnp.isfinite(denominator)
-        valid &= (squared == 0) | (denominator > 0)
-        active = valid & (squared > 0)
-        alpha = jnp.where(active, squared / jnp.where(active, denominator, 1.0), 0.0)
+        valid &= jnp.isfinite(rho) & jnp.isfinite(denominator)
+        valid &= (rho == 0) | ((rho > 0) & (denominator > 0))
+        active = valid & (rho > 0)
+        alpha = jnp.where(active, rho / jnp.where(active, denominator, 1.0), 0.0)
         delta = jnp.where(active, delta + alpha * direction, delta)
         following = jnp.where(active, residual - alpha * curvature, residual)
-        next_squared = jnp.vdot(following, following)
-        beta = jnp.where(active, next_squared / jnp.where(active, squared, 1.0), 0.0)
+        preconditioned = following / preconditioner
+        next_rho = jnp.vdot(following, preconditioned)
+        valid &= jnp.all(jnp.isfinite(preconditioned)) & jnp.isfinite(next_rho)
+        valid &= next_rho >= 0
+        beta = jnp.where(active, next_rho / jnp.where(active, rho, 1.0), 0.0)
         direction = jnp.where(
-            active, following + beta * direction, jnp.zeros_like(direction)
+            active, preconditioned + beta * direction, jnp.zeros_like(direction)
         )
-        return delta, following, direction, next_squared, finite & valid
+        return delta, following, direction, next_rho, finite & valid
 
+    initial_residual = -gradient
+    initial_direction = initial_residual / preconditioner
+    initial_finite = jnp.all(jnp.isfinite(prior)) & jnp.all(prior >= 0)
+    initial_finite &= jnp.all(jnp.isfinite(preconditioner))
+    initial_finite &= jnp.all(preconditioner > 0)
     delta, _, _, _, finite = jax.lax.fori_loop(
         0,
         4,
         cg_step,
         (
             jnp.zeros_like(flat),
-            -gradient,
-            -gradient,
-            jnp.vdot(gradient, gradient),
-            jnp.asarray(True),
+            initial_residual,
+            initial_direction,
+            jnp.vdot(initial_residual, initial_direction),
+            initial_finite,
         ),
     )
     linearized = root_weight * push(delta)
     radius = jnp.maximum(1.0, 0.5 * jnp.linalg.norm(root_weight * raw))
     shrink = jnp.minimum(1.0, radius / jnp.maximum(jnp.linalg.norm(linearized), 1e-30))
     delta, linearized = delta * shrink, linearized * shrink
-    predicted = -jnp.vdot(gradient, delta) - 0.5 * jnp.sum(irls * linearized**2)
-    proposal = unpack(flat + delta)
+    predicted = -jnp.vdot(gradient, delta) - 0.5 * (
+        jnp.sum(irls * linearized**2) + jnp.vdot(delta, prior * delta)
+    )
+    trial = flat + delta
+    proposal = unpack(trial)
     trial_raw = _residual(proposal, norms, data, scale, delay, dt_s)
-    current_loss = jnp.sum(weight * _huber(raw))
-    trial_loss = jnp.sum(weight * _huber(trial_raw))
+    current_loss = jnp.sum(weight * _huber(raw)) + 0.5 * jnp.vdot(flat, prior * flat)
+    trial_loss = jnp.sum(weight * _huber(trial_raw)) + 0.5 * jnp.vdot(
+        trial, prior * trial
+    )
     finite &= jnp.all(
         jnp.stack(
             [
                 jnp.all(jnp.isfinite(v))
                 for v in (
-                    flat + delta,
+                    trial,
                     raw,
                     trial_raw,
                     gradient,
