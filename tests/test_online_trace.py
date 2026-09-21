@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 import trace_online as trace
 
 
-def selected_fixture():
+def selected_fixture(*, angular=False):
     origins = np.arange(15, 240, dtype=np.int64)
     velocity = (np.arange(225) % 19).astype(float) / 20
     rate = (np.arange(225) % 17).astype(float) / 18
@@ -31,16 +31,28 @@ def selected_fixture():
         candidate_residual=prediction - truth,
         time_s=origins * 0.05,
     )
+    measures = dict(velocity=velocity, rate=rate)
+    if angular:
+        angles = (np.arange(225) % 13).astype(float) / 40
+        angles[np.isin(origins, [180, 185])] = 0.7
+        cosine, sine = np.cos(angles), np.sin(angles)
+        rotation = np.zeros((225, 3, 3))
+        rotation[:, 0, 0] = rotation[:, 1, 1] = cosine
+        rotation[:, 1, 0], rotation[:, 0, 1] = sine, -sine
+        rotation[:, 2, 2] = 1
+        # Nonorthogonal matrices require proper-rotation projection, not acos(trace).
+        prediction[:, 6:] = (1.1 * rotation).reshape(225, 9)
+        measures["orientation"] = angles
     # Deliberately literal average ranks, independent of a library rank function.
     ranks = [
         np.array([sum(values < x) + (sum(values == x) + 1) / 2 for x in values])
-        for values in (velocity, rate)
+        for values in measures.values()
     ]
-    scores = ranks[0] + ranks[1]
+    scores = sum(ranks)
     center = np.median(scores)
     anchors = {
         name: int(min(origins[values == max(values)]))
-        for name, values in (("velocity", velocity), ("rate", rate))
+        for name, values in measures.items()
     }
     controls = {}
     for name, anchor in anchors.items():
@@ -63,10 +75,15 @@ def selected_fixture():
     )
 
 
-def test_selection_uses_average_ranks_ties_and_frozen_rows_without_mutating_data():
-    data, case = selected_fixture()
+@pytest.mark.parametrize("angular", [False, True])
+def test_selection_uses_average_ranks_ties_and_frozen_rows_without_mutating_data(
+    angular,
+):
+    data, case = selected_fixture(angular=angular)
     initial = copy.deepcopy(data)
-    assert case["anchors"] == dict(velocity=70, rate=180)
+    assert case["anchors"] == dict(
+        velocity=70, rate=180, **({"orientation": 180} if angular else {})
+    )
     assert trace.selected_origins(data, case) == case["captures"]
     assert trace.selected_origins(data, case) == case["captures"]
     for name in data:
@@ -82,6 +99,90 @@ def test_selection_rejects_altered_frozen_declaration(field):
         case[field]["velocity"] += 1
     with pytest.raises(ValueError):
         trace.selected_origins(data, case)
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_three_metric_controls_exclude_every_anchor_then_break_distance_and_row_ties(
+    duplicate,
+):
+    from scipy.spatial.transform import Rotation
+
+    origins = np.arange(100, 131)
+    truth = np.zeros((31, 15))
+    truth[:, 6:] = np.eye(3).ravel()
+    prediction = truth.copy()
+    rate_anchor = 115 if duplicate else 118
+    prediction[15, 0] = 5
+    prediction[rate_anchor - 100, 3] = 4
+    prediction[rate_anchor - 100, 6:] = (
+        Rotation.from_rotvec([0, 0, 0.4]).as_matrix().ravel()
+    )
+    data = dict(origin=origins, candidate=prediction, truth=truth)
+    controls = dict(
+        velocity=113,
+        rate=113 if duplicate else 120,
+        orientation=113 if duplicate else 120,
+    )
+    captures = list(range(112, 117 if duplicate else 121))
+    case = dict(
+        anchors=dict(velocity=115, rate=rate_anchor, orientation=rate_anchor),
+        controls=controls,
+        captures=captures,
+    )
+    assert trace.selected_origins(data, case) == captures
+    assert len(captures) == len(set(captures))
+
+
+@pytest.mark.parametrize("unknown", ["position", "angular_acceleration"])
+def test_selection_rejects_unknown_anchor_keys(unknown):
+    data, case = selected_fixture(angular=True)
+    case["anchors"][unknown] = case["anchors"].pop("orientation")
+    with pytest.raises(ValueError, match="anchor metrics"):
+        trace.selected_origins(data, case)
+
+
+def test_protocol_requires_all_three_v2_metrics_and_exact_reference_inventory(tmp_path):
+    _data, case = selected_fixture(angular=True)
+    protocol = dict(
+        id="online-causal-trace-v2",
+        cases=[case],
+        reference=dict(
+            protocol_id="online-fit-v6",
+            source_commit="scientific",
+            manifest_sha256="sealed",
+        ),
+    )
+    bound = dict(
+        source=dict(
+            commit="diagnostic",
+            files={"src/glassbox/online.py": "hash", "scripts/trace_online.py": "new"},
+        ),
+        runtime={"x64_enabled": False},
+    )
+    reference = tmp_path / "reference"
+    reference.mkdir()
+    original = copy.deepcopy(bound)
+    original["source"]["commit"] = "scientific"
+    original["source"]["files"]["scripts/trace_online.py"] = "old"
+    trace.write(reference / "protocol.json", dict(id="online-fit-v6"))
+    trace.write(reference / "binding.json", original)
+    trace.validate_protocol(protocol)
+    trace.validate_reference(protocol, bound, reference)
+    for changed in ("removed", "changed", "extra"):
+        altered = copy.deepcopy(bound)
+        files = altered["source"]["files"]
+        if changed == "removed":
+            del files["src/glassbox/online.py"]
+        elif changed == "changed":
+            files["src/glassbox/online.py"] = "different"
+        else:
+            files["src/glassbox/extra.py"] = "extra"
+        with pytest.raises(ValueError, match="source inventory"):
+            trace.validate_reference(protocol, altered, reference)
+    protocol["cases"][0]["anchors"].pop("orientation")
+    with pytest.raises(ValueError, match="anchor metrics"):
+        trace.validate_protocol(protocol)
+    assert trace.PROTOCOL.name == "online-causal-trace-v2.json"
 
 
 def analytic_model(dt, *, varying_heads):
@@ -186,8 +287,8 @@ def test_stage_refinement_preserves_exact_constant_angular_acceleration(factor):
     )
 
 
-def replay_fixture(tmp_path, monkeypatch):
-    data, case = selected_fixture()
+def replay_fixture(tmp_path, monkeypatch, *, angular=False):
+    data, case = selected_fixture(angular=angular)
     data["candidate"] = data["candidate"].astype(np.float32)
     source_states = np.zeros((241, 15))
     source_states[:, 6:] = np.eye(3).ravel()
@@ -327,10 +428,13 @@ def replay_fixture(tmp_path, monkeypatch):
     return reference, case, data, info, Session, events
 
 
+@pytest.mark.parametrize("angular", [False, True])
 def test_replay_captures_before_prediction_and_completes_all_225_updates(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, angular
 ):
-    reference, case, data, info, Session, events = replay_fixture(tmp_path, monkeypatch)
+    reference, case, data, info, Session, events = replay_fixture(
+        tmp_path, monkeypatch, angular=angular
+    )
     output = tmp_path / "case"
     result = trace.replay_case(reference, output, case)
     assert result["transitions"] == 225 and result["captures"] == case["captures"]
@@ -394,28 +498,46 @@ def test_replay_stops_before_assimilation_when_prediction_proof_fails(
     assert not (tmp_path / "case/replay.json").exists()
 
 
+@pytest.mark.parametrize("angular", [False, True])
 @pytest.mark.parametrize("tampering", ["diagnostic", "stage"])
 def test_verify_recomputes_saved_diagnostics_without_assimilation(
-    tmp_path, monkeypatch, tampering
+    tmp_path, monkeypatch, tampering, angular
 ):
     import evaluate_online
 
     output = tmp_path / "trace"
     output.mkdir()
-    reference, case, data, _info, Session, _events = replay_fixture(output, monkeypatch)
+    reference, case, data, _info, Session, _events = replay_fixture(
+        output, monkeypatch, angular=angular
+    )
     result = trace.replay_case(reference, output / case["id"], case)
     protocol = dict(
-        id="online-causal-trace-v1",
-        reference=dict(manifest_sha256="fixture"),
+        id="online-causal-trace-v2" if angular else "online-causal-trace-v1",
+        reference=dict(
+            manifest_sha256="fixture",
+            protocol_id="online-fit-v6" if angular else "online-fit-v4",
+            source_commit="scientific",
+        ),
         cases=[case],
     )
+    bound = dict(
+        protocol_sha256="unused",
+        source=dict(commit="scientific", files={"src/glassbox/online.py": "same"}),
+        runtime={"x64_enabled": False},
+    )
+    trace.write(reference / "binding.json", bound)
+    trace.write(
+        reference / "protocol.json", dict(id=protocol["reference"]["protocol_id"])
+    )
+    trace.write(output / "manifest.json", dict(format="glassbox-" + protocol["id"]))
     trace.write(output / "protocol.json", protocol)
     trace.write(
         output / "binding.json",
-        dict(protocol_sha256=trace.digest(output / "protocol.json")),
+        dict(bound, protocol_sha256=trace.digest(output / "protocol.json")),
     )
 
-    def diagnostics(path):
+    def diagnostics(path, **kwargs):
+        assert kwargs == ({"angular": True} if angular else {})
         context = trace.arrays(path / "context.npz")
         return dict(origin=int(context["origin"])), dict(
             prediction=context["recorded_prediction"].astype(np.float64)
@@ -424,7 +546,7 @@ def test_verify_recomputes_saved_diagnostics_without_assimilation(
     monkeypatch.setattr(trace, "snapshot_diagnostics", diagnostics)
     for row in case["captures"]:
         path = output / case["id"] / str(row)
-        summary, values = diagnostics(path)
+        summary, values = diagnostics(path, **({"angular": True} if angular else {}))
         trace.write(path / "diagnostics.json", summary)
         trace.checkpoint(path / "diagnostics.npz", **values)
     summary, values = trace.update_comparison(output / case["id"], case, data)
@@ -479,3 +601,25 @@ def test_saved_recent_cache_is_checked_against_actual_causal_tape(
     session._recent["future_states"][0, 0, 0] += 0.2
     with pytest.raises(ValueError, match="causal recent cache future_states"):
         trace.validate_cache(session, tape, initial)
+
+
+@pytest.mark.parametrize("angular", [False, True])
+def test_snapshot_diagnostics_passes_angular_only_for_new_protocol(
+    tmp_path, monkeypatch, angular
+):
+    import _online_trace_diagnostics as diagnostic
+
+    reference, case, _data, _info, _Session, _events = replay_fixture(
+        tmp_path, monkeypatch
+    )
+    output = tmp_path / "case"
+    trace.replay_case(reference, output, case)
+    calls = []
+
+    def record(*args, **kwargs):
+        calls.append(kwargs)
+        return {}, {}
+
+    monkeypatch.setattr(diagnostic, "diagnose_snapshot", record)
+    trace.snapshot_diagnostics(output / str(case["captures"][0]), angular=angular)
+    assert calls == ([{"angular": True}] if angular else [{}])

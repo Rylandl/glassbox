@@ -235,6 +235,108 @@ def _jacobians(params, norms, states, filtered, command, history, hidden):
     return jax.vmap(local)(states, filtered)
 
 
+@jax.jit
+def _angular_head_jacobians(params, norms, states, filtered, command, history, hidden):
+    """Angular head derivatives with frozen filter/history/memory context.
+
+    The last axes are head, angular output, and physical local coordinate
+    (world velocity, body rate, right attitude tangent). The derivative of the
+    hidden-linear head is zero here even when its acceleration is substantial.
+    """
+
+    def local(state, applied):
+        rotation = state[6:].reshape(3, 3)
+
+        def parts(delta):
+            changed = jnp.concatenate(
+                (
+                    state[:6] + delta[:6],
+                    (rotation @ dynamics.rotation_exp(delta[6:])).reshape(9),
+                )
+            )
+            fields = _stage_fields(
+                params, norms, changed[None], applied[None], command, history, hidden
+            )
+            return fields["head_contributions"][0, :, 3:6]
+
+        return jax.jacfwd(parts)(jnp.zeros(9, dtype=state.dtype))
+
+    return jax.vmap(local)(states, filtered)
+
+
+def _angular_diagnostics(resolutions, jacobian, params, norms, dt_s):
+    """Account for rate increments along saved paths and local head derivatives."""
+    arrays, reconstruction = {}, {}
+    increments = {}
+    for factor, values in resolutions.items():
+        step = dt_s / len(values["states"])
+        increment = step * values["head_contributions"][:, 1, :, 3:6].sum(axis=0)
+        change = values["prediction"][3:6] - values["states"][0, 0, 3:6]
+        np.testing.assert_allclose(
+            increment.sum(axis=0), change, rtol=1e-10, atol=1e-10, equal_nan=False
+        )
+        increments[factor] = increment
+        arrays[f"factor_{factor}_angular_head_increments"] = increment
+        reconstruction[str(factor)] = float(
+            np.max(np.abs(increment.sum(axis=0) - change))
+        )
+    native, refined = resolutions[1], resolutions[64]
+    difference = increments[1] - increments[64]
+    rate_difference = native["prediction"][3:6] - refined["prediction"][3:6]
+    np.testing.assert_allclose(
+        difference.sum(axis=0), rate_difference, rtol=1e-10, atol=1e-10, equal_nan=False
+    )
+    arrays["native_minus_refined_angular_head_increments"] = difference
+    head_jacobian = np.asarray(
+        _angular_head_jacobians(
+            params,
+            norms,
+            jnp.asarray(native["states"][:, :2].reshape(-1, 15)),
+            jnp.asarray(native["filtered"][:, :2].reshape(-1, len(native["command"]))),
+            jnp.asarray(native["command"]),
+            jnp.asarray(native["history"]),
+            jnp.asarray(native["hidden"]),
+        )
+    )
+    angular_jacobian = jacobian[:, 3:6, :]
+    np.testing.assert_allclose(
+        head_jacobian.sum(axis=1),
+        angular_jacobian,
+        rtol=1e-10,
+        atol=1e-10,
+        equal_nan=False,
+    )
+    shaped = head_jacobian.reshape(-1, 2, len(HEAD_PARTS), 3, 9)
+    arrays["native_angular_head_jacobians"] = shaped
+    block_summary = {}
+    for name, start, unit in (
+        ("velocity", 0, "(rad/s^2)/(m/s)"),
+        ("rate", 3, "(rad/s^2)/(rad/s)"),
+        ("attitude", 6, "(rad/s^2)/rad"),
+    ):
+        block_norm = np.linalg.norm(shaped[..., start : start + 3], axis=(-2, -1))
+        arrays[f"native_angular_head_{name}_block_norms"] = block_norm
+        block_summary[name] = dict(
+            units=unit, maximum_by_head=block_norm.max(axis=(0, 1)).tolist()
+        )
+    if not all(np.isfinite(value).all() for value in arrays.values()):
+        raise ValueError("nonfinite angular increment or head derivative diagnostic")
+    summary = dict(
+        increment_units="rad/s",
+        increment_reconstruction_max_abs=reconstruction,
+        native_minus_refined_reconstruction_max_abs=float(
+            np.max(np.abs(difference.sum(axis=0) - rate_difference))
+        ),
+        jacobian_reconstruction_max_abs=float(
+            np.max(np.abs(head_jacobian.sum(axis=1) - angular_jacobian))
+        ),
+        jacobian_coordinate_order=("world_velocity", "body_rate", "right_attitude"),
+        jacobian_blocks=block_summary,
+        scope="Signed increments account for the integrated path, not causal head error; removing a head changes that path and parts may cancel. Jacobians freeze issued command, filter, history and hidden state. Zero hidden-linear derivative does not imply irrelevant memory; the nonlinear head mixes contexts. No combined norm of unlike coordinate units or stability claim.",
+    )
+    return summary, arrays
+
+
 def _decomposition(native, refined, truth, part):
     error = native[part] - truth[part]
     numerical = native[part] - refined[part]
@@ -394,7 +496,14 @@ def _cache_diagnostics(session, model, query, command, query_applied):
 
 
 def diagnose_snapshot(
-    session, past_states, past_inputs, command, truth, recorded_prediction
+    session,
+    past_states,
+    past_inputs,
+    command,
+    truth,
+    recorded_prediction,
+    *,
+    angular=False,
 ):
     """Inspect one captured causal model without observing, initializing or fitting."""
     before = session.fingerprint()
@@ -552,6 +661,11 @@ def diagnose_snapshot(
             maximum_midpoint_amplification=float(amplification.max()),
             scope="Frozen history/filter/memory local field; moving right-attitude tangent. Midpoint amplification is the scalar stability polynomial of local eigenvalues, not the full Lie-group step derivative or recurrent/path stability.",
         )
+        if angular:
+            summary["angular"], angular_arrays = _angular_diagnostics(
+                resolutions, jacobian, params, norms, model.dt_s
+            )
+            arrays.update(angular_arrays)
         summary["measured_interval_mean"] = dict(
             world_acceleration=(
                 (truth[:3] - past_states[-1, :3]) / model.dt_s
@@ -572,7 +686,7 @@ def diagnose_snapshot(
         cache_rollouts=len(
             [r for r in ("bootstrap", "recent") if r in summary["cache"]]
         ),
-        derivative_batches=1,
+        derivative_batches=1 + int(angular),
         optimizer_steps=0,
     )
     if session.fingerprint() != before:

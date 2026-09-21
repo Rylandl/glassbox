@@ -8,14 +8,63 @@ from pathlib import Path
 
 import numpy as np
 from collect_throw import authenticate, binding, check_source, checkpoint, seal
-from evaluate_online import COUNTERS, fingerprint, metrics
+from evaluate_online import COUNTERS, fingerprint, metrics, residuals
 from run_dart import ROOT, clean, write
 from scipy.stats import rankdata
 from verify_baseline import arrays, digest, observed, read, require
 
 from glassbox import OnlineFit
 
-PROTOCOL = ROOT / "docs/harness/online-causal-trace-v1.json"
+PROTOCOL = ROOT / "docs/harness/online-causal-trace-v2.json"
+REFERENCES = {
+    "online-causal-trace-v1": "online-fit-v4",
+    "online-causal-trace-v2": "online-fit-v6",
+}
+
+
+def validate_protocol(protocol):
+    require(protocol["id"] in REFERENCES, "unsupported trace protocol")
+    require(
+        protocol["reference"]["protocol_id"] == REFERENCES[protocol["id"]],
+        "trace reference protocol differs",
+    )
+    expected = {"velocity", "rate"}
+    if protocol["id"] == "online-causal-trace-v2":
+        expected.add("orientation")
+    require(
+        all(set(case["anchors"]) == expected for case in protocol["cases"]),
+        "trace anchor metrics differ",
+    )
+
+
+def validate_reference(protocol, bound, reference):
+    original = read(reference / "binding.json")
+    require(
+        read(reference / "protocol.json")["id"] == protocol["reference"]["protocol_id"],
+        "causal reference protocol differs",
+    )
+    require(
+        original["source"]["commit"] == protocol["reference"]["source_commit"],
+        "causal reference source commit differs",
+    )
+    source = {
+        name: value
+        for name, value in bound["source"]["files"].items()
+        if name.startswith("src/")
+    }
+    require(
+        bool(source)
+        and source
+        == {
+            name: value
+            for name, value in original["source"]["files"].items()
+            if name.startswith("src/")
+        },
+        "learner source inventory differs",
+    )
+    require(
+        bound["runtime"] == original["runtime"], "runtime differs from causal reference"
+    )
 
 
 def paired_exact(actual, expected, label):
@@ -30,10 +79,29 @@ def paired_exact(actual, expected, label):
 
 def selected_origins(data, case):
     rows = data["origin"]
-    errors = data["candidate"] - data["truth"]
-    v, w = (np.linalg.norm(errors[:, a:b], axis=1) for a, b in ((0, 3), (3, 6)))
-    anchors = dict(velocity=int(rows[np.argmax(v)]), rate=int(rows[np.argmax(w)]))
-    score = rankdata(v, method="average") + rankdata(w, method="average")
+    names = set(case["anchors"])
+    require(
+        names in ({"velocity", "rate"}, {"velocity", "rate", "orientation"}),
+        "unknown or incomplete anchor metrics",
+    )
+    require(
+        rows.ndim == 1 and len(rows) and np.all(np.diff(rows) > 0),
+        "scored origins must be strictly increasing",
+    )
+    error = data["candidate"] - data["truth"]
+    errors = dict(
+        velocity=np.linalg.norm(error[:, :3], axis=1),
+        rate=np.linalg.norm(error[:, 3:6], axis=1),
+    )
+    if "orientation" in names:
+        # Same proper-rotation projection and SO(3) metric as the evaluation.
+        errors["orientation"] = residuals(data["candidate"], data["truth"])[1]
+    require(
+        all(np.isfinite(value).all() for value in errors.values()),
+        "nonfinite selection errors",
+    )
+    anchors = {name: int(rows[np.argmax(value)]) for name, value in errors.items()}
+    score = sum(rankdata(value, method="average") for value in errors.values())
     middle, controls = np.median(score), {}
     for name, anchor in anchors.items():
         eligible = [
@@ -247,7 +315,7 @@ def replay_case(reference, output, case):
     return result
 
 
-def snapshot_diagnostics(path):
+def snapshot_diagnostics(path, *, angular=False):
     from _online_trace_diagnostics import diagnose_snapshot
 
     session = OnlineFit.load(path / "session.npz")
@@ -260,6 +328,7 @@ def snapshot_diagnostics(path):
         c["command"],
         c["truth"],
         c["recorded_prediction"],
+        **({"angular": True} if angular else {}),
     )
     require(session.fingerprint() == before, "diagnostic mutated session")
     return result, values
@@ -312,34 +381,17 @@ def run(reference, output, protocol=PROTOCOL):
     p, bound = read(protocol), binding(protocol)
     write(output / "attempt.json", dict(protocol=p["id"]))
     try:
-        require(p["id"] == "online-causal-trace-v1", "unsupported trace protocol")
+        validate_protocol(p)
         authority = p["reference"]["manifest_sha256"]
         authenticate(reference, authority)
         from evaluate_online import verify as verify_reference
 
         verify_reference(reference, authority)
-        original_binding = read(reference / "binding.json")
-        require(
-            bound["runtime"] == original_binding["runtime"],
-            "runtime differs from causal reference",
-        )
+        validate_reference(p, bound, reference)
         require(
             Path(importlib.util.find_spec("glassbox").origin).resolve()
             == ROOT / "src/glassbox/__init__.py",
             "use bound learner checkout",
-        )
-        require(
-            {
-                name: value
-                for name, value in bound["source"]["files"].items()
-                if name.startswith("src/")
-            }
-            == {
-                name: value
-                for name, value in original_binding["source"]["files"].items()
-                if name.startswith("src/")
-            },
-            "learner source inventory differs",
         )
         shutil.copytree(reference, output / "reference")
         shutil.copyfile(protocol, output / "protocol.json")
@@ -352,7 +404,12 @@ def run(reference, output, protocol=PROTOCOL):
             path = output / case["id"]
             for row in case["captures"]:
                 print(f"diagnosing {case['id']} origin {row}", flush=True)
-                summary, values = snapshot_diagnostics(path / str(row))
+                summary, values = snapshot_diagnostics(
+                    path / str(row),
+                    **(
+                        {"angular": True} if p["id"] == "online-causal-trace-v2" else {}
+                    ),
+                )
                 checkpoint(path / str(row) / "diagnostics.npz", **values)
                 write(path / str(row) / "diagnostics.json", summary)
             summary, values = update_comparison(
@@ -378,7 +435,7 @@ def run(reference, output, protocol=PROTOCOL):
         write(output / "failure.json", dict(error=repr(error), complete=False))
         raise
     finally:
-        authority = seal(output, "glassbox-online-causal-trace-v1")
+        authority = seal(output, "glassbox-" + p["id"])
         print(dict(output=str(output), manifest_sha256=authority), flush=True)
 
 
@@ -386,7 +443,11 @@ def verify(output, authority):
     authenticate(output, authority)
     require(not (output / "failure.json").exists(), "trace attempt failed")
     p = read(output / "protocol.json")
-    require(p["id"] == "online-causal-trace-v1", "unsupported trace protocol")
+    validate_protocol(p)
+    require(
+        read(output / "manifest.json")["format"] == "glassbox-" + p["id"],
+        "trace manifest format differs",
+    )
     require(
         digest(output / "protocol.json")
         == read(output / "binding.json")["protocol_sha256"],
@@ -396,6 +457,7 @@ def verify(output, authority):
     from evaluate_online import verify as verify_reference
 
     verify_reference(reference, p["reference"]["manifest_sha256"])
+    validate_reference(p, read(output / "binding.json"), reference)
     count, captures = 0, 0
     results = []
     for case in p["cases"]:
@@ -464,7 +526,10 @@ def verify(output, authority):
                 ),
                 c["recorded_prediction"],
             )
-            summary, values = snapshot_diagnostics(point)
+            summary, values = snapshot_diagnostics(
+                point,
+                **({"angular": True} if p["id"] == "online-causal-trace-v2" else {}),
+            )
             require(
                 clean(summary) == read(point / "diagnostics.json"),
                 "diagnostic summary differs",
