@@ -36,42 +36,46 @@ success or live model replacement. Public v4 remains the adopted public recipe.
 
 ## Latest iteration
 
-The [bounded-motion feature iteration](bounded-motion-features.md) is **closed
-at its failed evaluation prerequisite**. All three bounded fits complete:
-Dart 1,000 attempts/selects step 0, Crazyflow 980/selects 700, Cascade
-1,000/selects 1,000. Selected development objectives change −9.28%, +18.45%
-and −4.13% versus the saved unbounded refinements, respectively. These are
-selection objectives, not held-out physical errors. On Dart, conditioning alone
-improves development objective, but every fitted checkpoint makes it worse.
-The frozen requirement for selected updated Dart weights therefore blocks all
-new simulator, response-evaluation and controller stages. The gate came from
-an optimizer-only experiment; conditioning already changes the predictor at
-step 0, so this failure does not establish that the bound fails on accuracy or
-runaway recovery. The [result record](harness/bounded-motion-features-v1-result.json)
-preserves the failed prerequisite and completed fits: all 33 checkpoint
-witnesses replay exactly, all six training-evidence alterations are rejected,
-and 172 preflight tests pass. No fit is pending or needs restarting. No model
-is promoted, and prior physical/control results remain unchanged.
+The [conditioning attribution diagnostic](conditioning-attribution.md) is
+**complete and its evidence is qualified**. Four saved revisions are compared
+on all 189 previously inspected Dart queries, with no fitting, gradients,
+simulator collection or controller trials. Conditioning alone removes the
+original model's nine nonfinite and four extreme finite response trajectories;
+both bounded revisions have none. It also reduces 1.2-second pilot forecast
+prefix body-rate RMSE from 3.320 to 1.536 rad/s. This is a measured repair of
+observed runaway on known evidence, not a stability or fresh-accuracy guarantee.
+At 250 ms, conditioned pilot response prefix body-rate error worsens 27.06%;
+further fitting adds another 18.84% rate and 33.92% velocity error relative to
+the conditioned start. Full 1.2-second response endpoint errors remain
+3.992 m/s and 8.920 rad/s. The [result record](harness/conditioning-attribution-v1-result.json)
+preserves every query, metric, failure and comparison: all 378 historical
+reference predictions reproduce exactly, all 756 predictions replay exactly,
+the independent reduction and four actual alteration checks pass, and 80
+preflight tests pass. There are no pending fits or prediction calls. The
+previous bounded-fit prerequisite remains failed; no model is promoted and
+all earlier fresh physical/control verdicts remain unchanged.
 
 ## Next named gap
 
-**Separate feature-conditioning benefit from refinement damage.** Freeze a
-no-fit diagnostic on all 189 previously inspected Dart queries and their saved
-native truth. Compare four fixed revisions for this same configuration:
-original shared-v1, conditioned initialization/selected step 0, bounded terminal
-step 1,000, and prior unbounded refinement. Measure nonfinite and extreme finite
-states, endpoint and prefix physical errors, and signed command-response
-errors. This isolates conditioning from subsequent fitting before another
-expensive optimization run. All queries remain known diagnostic evidence;
-no new fit, native simulator rollout, controller trial or promotion belongs in
-this next diagnostic. Its protocol is not frozen or run yet.
+**Preserve local command-response fidelity while bounding recursive growth.**
+The leading hypothesis is a smooth bounded motion representation that is
+exactly the identity inside the recorded training envelope. The current tanh
+map perturbs supported features, increases the starting training objective
+about 177-fold, and worsens short response accuracy despite fixing runaway.
+Freeze one replacement function and derive its support solely from the existing
+training cache. Test exact feature/derivative identity within that support,
+then compare saved-weight predictions on the same complete 189 known queries
+before any further fitting. Keep filters, learned weights, existing norms,
+mechanics and timing unchanged. This is a representation hypothesis: recursive
+states may leave support, and preserving local features need not restore full
+rollout accuracy. No next protocol has been frozen or run yet.
 
-The [recurrence diagnostic](recurrence-attribution.md) still establishes the
-motivation: smaller integration steps worsened the selected runaway branches,
-and early affine feedback preceded quadratic overflow. Whether the new
-conditioning actually repairs those trajectories is unmeasured. Future fresh
-accuracy work must retain Crazyflow response/tail regressions and Cascade
-crosswind performance, and qualify Dart control separately.
+The [completed bounded fits](bounded-motion-features.md) also establish a
+separate generalization problem: Dart's large training decrease worsens the
+development objective and much of the measured command response. Do not repeat
+those fits. After the representation tradeoff is resolved, fresh accuracy work
+must retain Crazyflow response/tail regressions and Cascade crosswind
+performance, and qualify Dart control separately.
 
 ## Preserved boundaries
 
