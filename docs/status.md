@@ -30,7 +30,18 @@ after preserving the models, relevant recordings and current proof in the
 [baseline identity](baseline.json) and [replay instructions](../CONTRIBUTING.md#replay-the-adopted-baseline).
 No new long fit, controller optimization or simulator trial was run.
 
-## Next scientific gap
+## Current iteration
+
+**Dart contact precision below 1 mm.** The user set this target after cleanup.
+First attribute the saved 6.19 mm miss to the learned forecast, the controller's
+deadline objective, or optimization. The [saved-evidence protocol](harness/dart-precision-v1.json)
+scores all 40 plans and their actually executed 10/20/30 ms prefixes. The
+[native reproduction protocol](harness/dart-precision-native-v1.json) then checks
+the unchanged nominal trial through the lean public implementation. No precision
+intervention has been selected or measured yet. All original attitude, speed and
+deadline limits remain required alongside the stricter miss criterion.
+
+## Following scientific gap
 
 Freeze neighborhood reliability and prediction accuracy around
 the successful Dart task, keeping the model/controller fixed and reporting every
