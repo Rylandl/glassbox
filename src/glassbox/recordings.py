@@ -55,6 +55,8 @@ class SequenceSegment:
         u.setflags(write=False)
         object.__setattr__(self, "states", x)
         object.__setattr__(self, "inputs", u)
+        object.__setattr__(self, "dt_s", float(self.dt_s))
+        object.__setattr__(self, "start_row", int(self.start_row))
 
 
 def segments_from_mask(recording_id, states, inputs, valid, *, dt_s):

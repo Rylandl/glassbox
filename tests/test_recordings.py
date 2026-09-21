@@ -104,3 +104,23 @@ def test_corruption_and_repaired_unknown_arrays_rejected(tmp_path):
     save_arrays(path, metadata, arrays)
     with pytest.raises(ValueError, match="arrays"):
         load_recordings(path)
+
+
+def test_numpy_scalar_recording_facts_preserve_content_ledger_on_roundtrip(tmp_path):
+    from glassbox.learner import _recording_content
+
+    original = collection()
+    segment = replace(
+        original.segments[0], dt_s=np.float32(0.05), start_row=np.int64(7)
+    )
+    recordings = replace(original, segments=(segment,))
+    assert type(segment.dt_s) is float
+    assert type(segment.start_row) is int
+    ledger = _recording_content(recordings)
+    assert len(ledger[segment.recording_id]) == 64
+    path = tmp_path / "numpy-scalars.npz"
+    save_recordings(recordings, path)
+    restored = load_recordings(path)
+    assert _recording_content(restored) == ledger
+    assert restored.segments[0].dt_s == float(np.float32(0.05))
+    assert restored.segments[0].start_row == 7

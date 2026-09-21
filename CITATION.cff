@@ -10,13 +10,13 @@ date-released: 2026-09-08
 license: Apache-2.0
 repository-code: "https://github.com/Rylandl/glassbox"
 abstract: >-
-  Glassbox fits differentiable quadrotor and fixed-wing dynamics from telemetry,
-  evaluates rollout predictions against declared baselines, and updates fitted
-  models with new telemetry.
+  Glassbox learns differentiable rigid-body dynamics from observations and
+  commands using one shared-physics formulation with separately fitted weights
+  per configuration. It evaluates forecast residuals and supports immutable
+  model updates from new recordings.
 keywords:
   - system identification
   - differentiable dynamics
-  - uncertainty quantification
   - JAX
-  - PX4
-  - model predictive control
+  - learned dynamics
+  - rigid-body motion

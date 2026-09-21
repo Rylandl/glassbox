@@ -39,6 +39,33 @@ one-off experiment tooling. Preserve the evidence needed to support current clai
 and the recordings needed for the next iteration before deleting their obsolete
 containers. Git retains committed history.
 
+## Replay the adopted baseline
+
+The local `artifacts/baseline` directory contains the three adopted models,
+retained recordings and saved evaluation inputs/outputs. It is deliberately
+outside Git and the Python distribution. For another checkout, copy this whole
+directory from the preserved evidence pack; its manifest must match the hash in
+[docs/baseline.json](docs/baseline.json).
+
+```bash
+env -u JAX_ENABLE_X64 SCIPY_ARRAY_API=1 uv run python \
+  scripts/verify_baseline.py artifacts/baseline --dart-root /path/to/dart
+```
+
+Exact replay requires the recorded runtime: CPython 3.12.12, JAX 0.11.1,
+NumPy 2.5.3 and SciPy 1.18.1, on CPU/arm64 with JAX default32. The verifier
+checks runtime and payload hashes before predictions. A different supported
+installation can run the ordinary tests; bitwise baseline equivalence across
+other backends or versions has not been established.
+
+The optional Dart path supplies the unchanged external objective and contact
+scorer; their source hashes are checked. A complete run reproduces all 12,768
+saved flight arrays, 40 selected Dart trajectories and 4,144 objective/gradient
+evaluations without fitting, optimizing or simulating. Omitting `--dart-root`
+still checks the models, flight arrays, selected trajectories and independent
+contact reconstruction, but reports `complete: false` and zero gradient replays.
+The result is a preservation check on existing evidence, not a fresh flight trial.
+
 ## Package boundaries
 
 - `learner.py` owns fit, predict, update and saved model revisions.
