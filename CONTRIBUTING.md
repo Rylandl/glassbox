@@ -146,6 +146,27 @@ imports or model/optimizer calls. Its scalar decision audit does not independent
 regenerate each trial loss. [The current result](docs/online-fitting.json) pins
 the scientific source (`899e0d9`), runtime and measured artifact authority.
 
+The [saved-session cost profile](docs/harness/online-cost-profile-v1.json) keeps
+all fifteen package files unchanged. It replays genuine next observations on
+fresh disposable sessions and probes final retained caches without inventing a
+next observation. Run it alone, after committing its harness, in the pinned
+runtime and with a new output directory:
+
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
+  scripts/profile_online_cost.py artifacts/online-fit-v8/evaluation \
+  --output artifacts/online-cost-profile-reproduction
+python scripts/verify_online_cost.py artifacts/online-cost-profile-reproduction \
+  --manifest-sha256 PROFILE_MANIFEST_SHA256 --source-root .
+```
+
+The second command uses saved arrays and source, with no learner or JAX imports.
+Omit `--source-root` to audit the sealed pack after moving on to another source
+revision; supply the recorded checkout to additionally check its complete bound
+source inventory. Component prefixes and cached derivative actions are diagnostic,
+nonadditive compiler scopes. Only the nested observe/snapshot times are additive;
+repeated fixed snapshots do not establish real-time trajectory performance.
+
 Historical source-bound trace, reconstruction, head and backtracking tools must
 run from their recorded scientific checkouts, including their `verify` commands:
 they authenticate the complete original source inventory. Their commands below
