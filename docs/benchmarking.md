@@ -14,11 +14,12 @@ end of each stream. This includes late flight conditions and the quad
 configuration change. The table keeps first-origin error visible beside
 all-origin 250 ms velocity/rate RMSE, worst body-rate error, cold fit-plus-first-
 forecast time, first-update time and warm update time.
-All five physical horizons, orientation and native one-step scores remain in
-the saved summary. Candidate, prior direct readout and historical full learner
-are shown side by side; full-learner one-step scores are not invented when that
-control is absent. The optional four-case smoke screen still uses two early
-origins to find obvious failures quickly.
+The table also shows matched native one-step body-rate error for candidate,
+prior direct readout and historical full learner. All five physical horizons,
+orientation and one-step velocity scores remain in the saved summary. Native
+one-step intervals differ by case (10 or 50 ms), so compare within a row rather
+than pooling them across families. The optional four-case smoke screen still
+uses two early origins to find obvious failures quickly.
 
 ```sh
 ./.venv/bin/python scripts/benchmark_online_readout.py run \
@@ -39,11 +40,12 @@ decision. A separate candidate-specific unit test is warranted only for a
 new derivative, causality or numerical claim.
 
 The original two-origin runner and expanded full-stream runner were validated
-against the archived physical SO(3) direct readout. The full run took **15.0 s**
+against the archived physical SO(3) direct readout. The final full run took **14.45 s**
 on this machine; all **263 conditional forecasts and 4,187 one-step predictions**
 match the archived arrays exactly. Its saved-data verifier passed. The
 [validation index](online-readout-benchmark-validation.json) preserves both
-versions' hashes.
+versions and the complete pre-timing run. First JAX compilation appears in
+the first update for a new shape and is reported separately from warm updates.
 
 This benchmark uses known recordings and a fresh but nonzero causal prefix;
 it is not held-out-vehicle, counterfactual command-response or live Throw

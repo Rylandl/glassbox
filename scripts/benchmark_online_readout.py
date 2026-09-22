@@ -52,6 +52,7 @@ def source_case(spec, name, suite):
         full = arrays(roots["paired_full"] / grid / "predictions.npz")
         full_rows = full["origin_rows"]
         full_forecasts = full["conditional_baseline"]
+        full_one_rows, full_one = full["rows"], full["one_step_baseline"]
         identity = "paired-quad-v2"
         names = tuple(f"motor_{i} [1]" for i in range(4))
     else:
@@ -61,11 +62,16 @@ def source_case(spec, name, suite):
         full = arrays(roots["full"] / name / "predictions.npz")
         full_rows = full["conditional_rows"]
         full_forecasts = full["baseline_conditional"]
+        full_one_rows, full_one = full["row"], full["baseline"]
         identity, names = info["opaque_id"], tuple(info["ordered_commands"])
     require(np.array_equal(full_rows[:count], origins), "full control origin mismatch")
     states, commands = observed(tape["states"]), tape["commands"].astype(float)
     horizon = round(0.25 / dt)
     end_row = int(origins[1]) if suite == "smoke" else first + len(previous["one"])
+    require(
+        np.array_equal(full_one_rows[: end_row - first], np.arange(first, end_row)),
+        "full one-step control rows differ",
+    )
     require(origins[-1] + horizon < len(states), "missing 250 ms truth")
     require(end_row + 1 <= len(states), "missing one-step truth")
     truth = np.stack(
@@ -86,6 +92,7 @@ def source_case(spec, name, suite):
         direct=previous["conditional"][:count],
         direct_one=previous["one"][: end_row - first],
         full=full_forecasts[:count],
+        full_one=full_one[: end_row - first],
     )
 
 
@@ -183,7 +190,7 @@ def run_case(case, factory, output):
     return dict(
         candidate=scores(case, forecast, one),
         direct=scores(case, case["direct"], case["direct_one"]),
-        full=scores(case, case["full"], None),
+        full=scores(case, case["full"], case["full_one"]),
         initialization_s=initialization_s,
         first_prediction_s=first_prediction_s,
         first_update_s=float(update_s[0]),
@@ -207,7 +214,7 @@ def verify_case(case, output, result):
             "candidate score mismatch")
     require(result["direct"] == scores(case, case["direct"], case["direct_one"]),
             "direct score mismatch")
-    require(result["full"] == scores(case, case["full"], None),
+    require(result["full"] == scores(case, case["full"], case["full_one"]),
             "full score mismatch")
     require(result["updates"] == len(saved["update_s"]), "update count mismatch")
     require(
@@ -226,8 +233,8 @@ def table(cases, results):
     lines = [
         "Errors are candidate / direct / full. Rate is rad/s; velocity is m/s.",
         "",
-        "| Case | Origins | First rate | 250 ms rate RMSE | 250 ms velocity RMSE | Worst rate | Cold forecast s / first update ms / warm ms |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Case | Origins | First rate | Native one-step rate RMSE | 250 ms rate RMSE | 250 ms velocity RMSE | Worst rate | Cold forecast s / first update ms / warm ms |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in cases:
         result = results[name]
@@ -240,6 +247,7 @@ def table(cases, results):
             f"| {name} | "
             f"{len(arms[0]['origins'])} | "
             f"{triple(lambda arm: arm['origins']['0']['250']['body_rate_rmse_rad_s'])} | "
+            f"{triple(lambda arm: arm['one_step']['body_rate_rmse_rad_s'])} | "
             f"{triple(lambda arm: arm['horizons']['250']['body_rate_rmse_rad_s'])} | "
             f"{triple(lambda arm: arm['horizons']['250']['velocity_rmse_m_s'])} | "
             f"{triple(lambda arm: arm['worst_250_rate_rad_s'])} | "
