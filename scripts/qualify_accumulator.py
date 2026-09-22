@@ -693,7 +693,15 @@ def main():
     elif args.mode == "evaluate":
         evaluate(args.arm, args.fit_root, args.output)
     elif args.mode == "verify":
-        print(json.dumps(verify(args.output, read(args.authorities)), indent=2))
+        if args.index is not None:
+            index = read(args.index)
+            authenticate(Path(index["fits"]["path"]), index["fits"]["manifest_sha256"])
+            result = verify(
+                Path(index["evaluation"]["path"]), index["evaluation"]["authorities"]
+            )
+        else:
+            result = verify(args.output, read(args.authorities))
+        print(json.dumps(result, indent=2))
     else:
         print(json.dumps(replay(read(args.index)), indent=2))
 

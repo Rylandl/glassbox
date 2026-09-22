@@ -529,7 +529,7 @@ def main():
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=ROOT / "docs/harness/dart-lateral-precision-v1.json",
+        default=ROOT / "docs/harness/accumulator-dart-qualification-v1.json",
     )
     args = parser.parse_args()
     result = run(
