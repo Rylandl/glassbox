@@ -20,42 +20,48 @@ controllers and simulators remain external.
 
 ## Latest completed iteration
 
-**Learned accumulator memory — nearly twice as fast on quads; fixed-wing angular
-regression remains unexplained.** The [paired screen](accumulator-memory.md)
-retains all explicit lag inputs and replaces nonlinear hidden recurrence with
-eight learned exponential accumulators. Quad parameters fall 10,130 → 8,714;
-fixed-wing parameters fall 3,399 → 3,103. Scientific source `808772b` is retained
-on `codex/accumulator-memory`, outside the maintained learner.
+**Fixed-wing angular diagnosis — initialization and solver budget dominate the
+observed architecture difference.** The [controlled experiment](accumulator-angular-diagnosis.md)
+loads identical saved starting sessions for seven arms and completes all 3,150
+causal updates across the two known fixed-wing tapes. Both unchanged arms reproduce
+every saved prediction, model fingerprint and report exactly. Scientific harness
+`353c44e`, coordinator correction `f74449f`, and saved-data explanation `1deac89`
+live on `codex/accumulator-angular-diagnosis`; four diagnostic tests pass.
 
-Both arms complete all six tapes and 3,137 causal predictions/updates. The baseline
-reproduces all original v8 predictions, post-update fingerprints and reports
-exactly. Exclusive alternating 25-update blocks reduce quad median latency
-**47.69%** and p95 **49.46%**; all frozen speed checks pass. Independent saved-data
-verification confirms 127 granted intervals per arm with no overlap.
+The accumulator's current-feature projection was initialized **1.880× stronger**
+than the same rows in v8 because its normalization denominator changed with the
+smaller matrix. Restoring only that initial scale changes equal-case angular
+error from **5.58% worse to 7.27% better than v8**, with 8.42% better velocity.
+All other parameters, architecture and the 16-iteration PCG budget remain the same.
+The stronger initialization also saturates more prefix memory-drive values.
+This supports a conditioning explanation, not proof of an irreducible capacity gap.
 
-Quad combined velocity/rate error improves 0.29%. Fixed-wing velocity improves
-11.56%, but angular-rate error worsens **5.58%** and rotation/rate defect worsens
-9.74%. Equal-family combined error improves 1.84%; aggregate rate (+2.49%) and
-rotation/rate defect (+4.25%) fail their frozen 2% allowances. The failed screen
-is preserved. No offline fits or Dart trials were run. All 471 candidate tests
-pass; the maintained package remains byte-identical to adopted v8.
+Increasing PCG from 16 to 64 iterations reduces angular error **55.99% for v8**
+and **58.27% for the original accumulator**, relative to each arm's 16-iteration
+result. At 64 iterations the architectures differ by only **0.12%** on aggregate
+angular error. Both cached fitting error and next-observation prediction improve.
+Removing recurrent feedback or lag drives produces mixed, path-dependent effects;
+these tapes do not establish that nonlinear feedback is required.
 
-The accumulator remains the leading candidate because the measured speed/accuracy
-tradeoff warrants further investigation. V8 remains the validated implementation
-pending explanation of the angular regression and broader qualification. The
-prior [rank-two compression](history-compression.md) and arithmetic batching
-experiments remain unadopted; their evidence is retained in that result index.
+All arms and the one coordinator bookkeeping failure are retained. Independent
+verification uses saved arrays without importing JAX or calling a model. This is
+diagnosis on previously inspected tapes, not new generalization evidence. No
+quad runs of the modified initialization, offline fits or Dart trials were run.
+No 64-iteration speed claim is made. The original [paired accumulator screen](accumulator-memory.md)
+measured 47.69% lower quad median update time and 49.46% lower p95 at 16 iterations;
+its failed frozen accuracy flags remain unchanged. V8 remains maintained.
 
 ## Next scientific gap
 
-**Explain the accumulator's fixed-wing angular regression.** First localize excess
-error by time and axis in the saved paired predictions, and compare initial
-shared parameters, normalization, and optimizer decisions. Then freeze controlled
-interventions that separate optimization/initialization effects from altered
-memory representation. Preserve every attempted result and distinguish diagnostic
-replays on known tapes from new generalization evidence.
+**Qualify the accumulator with controlled initial memory-drive scale.** The next
+single candidate should restore or control that scale generically, retaining
+all lag inputs and the measured speed advantage. Freeze a full six-stream paired
+comparison before changing the initializer; follow with matched offline
+forecast/response and Dart evidence if the result warrants qualification. No
+consumer knobs or platform branches. The known-tape diagnosis does not select a
+universally optimal scale.
 
-Preserve shared rigid-body mechanics, arbitrary command dimensions and one recipe;
-no consumer options or platform branches. The accumulator still needs matched
-offline forecast/response and Dart qualification before replacing the adopted
-model. Fixed-wing absolute errors, calibration and live recovery remain open.
+Solver conditioning is the subsequent efficiency target: recover the much better
+64-iteration solution with less work. Merely increasing the budget is an accuracy
+reference, not evidence of faster fitting. Fixed-wing absolute errors, calibration
+and live recovery remain separate open gaps.
