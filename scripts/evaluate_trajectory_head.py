@@ -264,7 +264,7 @@ def audit_correction(saved):
         assert saved["multiplier"][index] == expected
         assert np.allclose(
             saved["head"][index],
-            saved["direct_mean"][index] + expected * delta,
+            saved["correction_base_mean"][index] + expected * delta,
             rtol=1e-12,
             atol=1e-10,
         )
@@ -388,7 +388,7 @@ def run_case(root, source, deadline):
         data = {key: np.asarray(value) for key, value in recorded.items()}
         for field, values in zip(CORRECTION_FIELDS, zip(*corrections)):
             data[field] = np.asarray(values)
-        data["direct_mean"] = np.asarray(direct_means)
+        data["correction_base_mean"] = np.asarray(direct_means)
         save(output / "predictions.npz", **data)
         save(output / "final.npz", **fit.session.model.arrays())
         write(
