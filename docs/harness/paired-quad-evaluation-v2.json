@@ -1,0 +1,22 @@
+{
+  "id": "paired-quad-evaluation-v2",
+  "gap": "Measure unchanged full and fast online learners on the same quad flight at 10 and 50 ms observation schedules.",
+  "source": {
+    "collection_path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-sampling-v2",
+    "collection_manifest_sha256": "44192c3ad160adb2de9faf7702c1bf1de7f51e3c0293a8de98bb32ecb4b0fdd6",
+    "fast_readout_source_commit": "17e492117ee559bc5eabef179d4ededdd9424522",
+    "maintained_source_commit": "55ca121"
+  },
+  "schedules": [
+    {"id": "fine", "dt_s": 0.01, "prefix_begin_row": 50, "first_prediction_row": 125, "common_origin_stride_rows": 25, "forecast_steps": 25, "expected_updates": 875},
+    {"id": "coarse", "dt_s": 0.05, "prefix_begin_row": 10, "first_prediction_row": 25, "common_origin_stride_rows": 5, "forecast_steps": 5, "expected_updates": 175}
+  ],
+  "arms": ["baseline", "curvature", "candidate"],
+  "initialization": "Construct a fresh OnlineFit(prefix), unchanged CurvedReadout(prefix), and unchanged SensitivityReadout(prefix) separately within each schedule. Require identical initial model arrays across the three arms within that schedule. No fitted weights, normalizers or class knowledge cross episodes or schedules. Prefix acquisition is 0.5–1.25 s on both, including 0.25 s initialization data; score first at 1.25 s.",
+  "causality": "For each row from first prediction to the last issued command, predict one native step and any scheduled retrospective conditional forecast before revealing next state; then observe the actual issued command and next state exactly once. Rotate arm order every row. Record model fingerprint and all prediction/update durations. Future commands are used only for retrospective forecast scoring, never fitting.",
+  "forecast": "Common physical origins are t=1.25,1.50,...,9.75 s while complete 250 ms truth exists, 35 origins per schedule. Save 10/50 ms one-step predictions over all 875/175 updates separately. At common origins score velocity-vector RMSE in m/s, body-rate-vector RMSE in rad/s, and SO(3) orientation RMSE in rad at elapsed horizons 50,100,150,200,250 ms. Preserve per-origin vector errors and every forecast array. The future issued command is the same physical held trajectory at both schedules.",
+  "timing": "Exclusive CPU run in one process. Synchronize observe and snapshot before stopping each update timer. Report construction, first prediction and first update separately, then warmed median/p95 and total update time for each arm and schedule. Compare total update CPU per elapsed second as well as per-update timing; prediction timing is separate.",
+  "comparison": "Within schedule report candidate/full and curvature/full physical error ratios at every common horizon. Across schedules compare each unchanged arm at fixed physical time and origin, including absolute errors and sample/update-count change. Do not compare 10 ms native one-step error directly with 50 ms native one-step error. Report command/state span, whether there is enough excitation, and finite-failure or truncation. Descriptive probe only; one controlled trajectory does not qualify an architecture or a vehicle class.",
+  "verification": "Authenticate collected fine/coarse tapes and exact shared-index states and held commands. Commit complete evaluation source before fitting. Save every prediction, truth, update duration, initial/final model arrays, and direct-readout means/features/targets/penalties plus terminal sufficient statistics. Independently recompute all physical metrics, origin counts and timing summaries from saved arrays without fitting; reject artifact tampering. Stop on nonfinite model/forecast or source mismatch and preserve the attempt.",
+  "budget": {"fits": 6, "maximum_wall_s": 900, "maximum_updates_per_arm": 875, "attempts": 1, "strength_sweeps": 0}
+}
