@@ -11,7 +11,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from ._dynamics import VehicleSequenceModel, fit_sequence
+from ._dynamics import RECIPE_ID, VehicleSequenceModel, fit_sequence
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
 from ._training import SequenceBatch
 from .recordings import SequenceCollection, SequenceWindows, WindowKey
@@ -32,7 +32,7 @@ STATE_CHANNELS = (
     ),
 )
 RECIPE = {
-    "id": "shared-vehicle-accumulator-v1",
+    "id": RECIPE_ID,
     "context_s": 0.5,
     "delay_s": 0.1,
     "horizon_s": 0.25,
@@ -42,6 +42,8 @@ RECIPE = {
     "steps": 1000,
     "width": 32,
     "memory": 8,
+    "nonlinear_history": "orthonormal_discrete_cubic_identity_through_four_lags",
+    "nonlinear_history_summaries": 4,
     "memory_dynamics": "stable_nonlinear_driven_accumulators",
     "memory_projection_initial_scale": "inverse_sqrt_full_head_feature_count",
     "memory_initial_time_range_s": [0.01, 0.5],

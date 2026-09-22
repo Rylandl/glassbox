@@ -64,6 +64,7 @@ def test_lifecycle_roundtrip_history_and_error_scope(tiny_fit, tmp_path):
         loaded.predict(x, up, np.tile(uf, (5, 1)))
     metadata, arrays = load_arrays(path)
     assert metadata["report"]["precision"]["fitting"] == "float64"
+    assert metadata["recipe"]["id"] == metadata["report"]["optimization"]["recipe"]
     assert all(v.dtype == np.float64 for v in arrays.values())
     changed = loaded.report
     changed["recipe"]["width"] = 1
