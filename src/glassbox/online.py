@@ -24,7 +24,7 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v8"
+_FORMAT = "glassbox-online-accumulator-v1"
 _STEP_SCALES = (1.0, 0.5, 0.25, 0.125, 0.0625)
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
@@ -171,7 +171,7 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
         bias=params["bias"] * so,
         w1=sf[:, None] * params["w1"],
         w2=params["w2"] * so[None, :],
-        memory=sf[:, None] * params["memory"],
+        memory=sf[: params["memory"].shape[0], None] * params["memory"],
     )
     changed_norms = dict(
         norms,

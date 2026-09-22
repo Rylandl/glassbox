@@ -21,9 +21,10 @@ def constant_model(commands=3, *, dt=0.05, history=3, delay=2):
         w1=np.zeros((f, 3)),
         b1=np.zeros(3),
         w2=np.zeros((3, 6)),
-        memory=np.zeros((f, 2)),
+        memory=np.zeros((b, 2)),
         memory_bias=np.zeros(2),
         raw_tau=np.full(commands, np.log(np.expm1(0.049))),
+        raw_memory_tau=np.full(2, np.log(np.expm1(0.049))),
     )
     norms = dict(
         body_mean=np.zeros(9),
@@ -185,7 +186,9 @@ def test_future_causality_and_one_memory_update_per_sample():
             p, n, jnp.asarray(x[-1:]), jnp.zeros((1, 1)), a, history, hidden, 0.05
         )
         np.testing.assert_allclose(
-            result[3], np.tanh(np.asarray(hidden) + 0.5), atol=1e-15
+            result[3],
+            np.exp(-1) * np.asarray(hidden) + (1 - np.exp(-1)) * np.tanh(0.5),
+            atol=1e-15,
         )
         np.testing.assert_allclose(result[0][0, 0], 0.05 * hidden[0, 0], atol=1e-15)
 

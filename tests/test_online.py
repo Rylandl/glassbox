@@ -893,7 +893,7 @@ def test_conditioning_matches_independent_role_window_time_rms_and_never_shrinks
             np.testing.assert_allclose(norms[name], values, rtol=2e-13, atol=2e-13)
             assert np.any(np.asarray(norms[name]) > model.norms[name])
         assert_normalizers_advance(model.norms, norms)
-        for name in ("b1", "memory_bias", "raw_tau"):
+        for name in ("b1", "memory_bias", "raw_tau", "raw_memory_tau"):
             np.testing.assert_array_equal(params[name], model.params[name])
         high = {name: np.asarray(value).copy() for name, value in norms.items()}
         for name in DYNAMIC_NORMALIZERS:
