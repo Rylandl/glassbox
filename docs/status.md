@@ -16,43 +16,50 @@ controllers and simulators remain external.
 | Online fitting | Adopted **online v8** reduces equal-family velocity/rate error **41.76% against v6** and 87.73% against frozen startup across six known tapes. All 3,137 targets are scored before assimilation; all twelve primary cells improve. Worst-decile error falls 42.86%, orientation RMSE 53.53%. Fixed-wing velocity/rate errors remain 1.6–4.5× the no-fit kinematic baseline; rare errors still regress. See [online evidence](online-fitting.md). |
 | Updates and calibration | Offline updates preserve immutable revisions and development roles. Online sessions retain bounded causal caches. Development-selected calibration does not establish independent coverage; streaming sessions have no calibrated envelope. |
 | Scope | Rigid-body motion across recorded quad/fixed-wing configurations. Broad airframe, articulated-system and arbitrary-system readiness remain unproved. No current-learner online closed-loop recovery trial has run. |
-| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All **15 package files remain byte-identical to adopted v8** during the cost profile, so its previous exact baseline replay remains applicable. All **464 tests pass**. |
+| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All **15 maintained package files remain byte-identical to adopted v8**; its exact baseline replay remains applicable. The maintained implementation has 464 passing tests. The separate history-compression candidate passes 474 tests but is not adopted. |
 
 ## Latest completed iteration
 
-**V8 cost diagnosis — measurements complete; component qualification fails.**
-The [saved-session profile](online-cost-profile.md) measures all 35 frozen
-checkpoints: 29 genuine next observations and six final-cache probes. All 725
-native replays exactly reproduce original v8 model, report and session state.
-An independent audit validates 257 profile payloads, 400 parent payloads and
-12,675 raw timing samples without model calls. The learner is unchanged.
+**Learned temporal compression — smaller, mixed accuracy, not adopted.**
+The [frozen architecture screen](history-compression.md) replaces separate lag
+inputs with two learned temporal summaries, preserving the generic mechanics,
+nonlinear head, recurrent memory and online solver. Quad parameter count falls
+**10,130 → 3,894 (61.56%)**; fixed-wing changes 3,399 → 3,403. Source `3fc490a`
+is retained on `codex/learned-history-compression`, outside the maintained learner.
 
-Quad initial medians are **75.44 ms for the native proposal versus 77.38 ms for
-the public update**; the nested public snapshot costs only 0.054 ms. Passing
-setup/trust diagnostics and a 4.68 ms cached curvature application consistently
-point to repeated derivative work. The sixteen-step proposal already reuses one
-nonlinear linearization. Separate component times are nonadditive; the fraction
-specifically spent propagating through history is not yet measured.
+All six original tapes and 3,137 causal predictions/updates complete. Against
+adopted v8, equal-family combined velocity/rate error falls **5.13%**, and
+worst-decile error falls **8.56%**. Velocity alone improves 16.66%, while body-rate
+error worsens 8.00% and orientation worsens **6.71%**. Size, primary, family, tail
+and rotation/rate gates pass; the aggregate orientation gate fails its frozen
+2% allowance. This is not a single-case veto. Every case and regression remains
+in the saved result, verified without fitting; 474 candidate tests pass.
 
-Four initial-quad standalone solver prefixes fail the frozen numerical tolerance
-and are excluded from conclusions. Every full instrumented/native proposal and
-trust checkpoint matches exactly; all other comparisons pass. The failed first
-attempt remains sealed. A committed failure-collection change completed the same
-roster without changing kernels or criteria, while retaining the failed overall
-qualification. Across both attempts: 726 native replays, zero initializations.
-This is a useful cost diagnosis, not a speedup or new real-time qualification.
+Warm quad updates remain **85.52–86.05 ms** median (89.03–90.56 ms p95), with no
+qualified speedup. No offline fits, Dart trials or later paired timing were run
+after the screen failed. Neither information loss nor changed optimizer
+coordinates is established as the cause of the angular regression.
+
+The preceding arithmetic-only batching candidate `c631a1c` also remains
+unadopted: 198 gradient and 17 objective arrays fail saved numerical-preservation
+bounds. Its timing comparison had mismatched background load. Both experiments
+and their sealed authorities are retained in the [result index](history-compression.json).
+The maintained package remains unchanged.
 
 ## Next scientific gap
 
-**Reduce repeated derivative application cost.** Freeze one prospective candidate:
-cache transport through the learned-memory recurrence and batch history parameter
-JVP/VJP calculations. Preserve the model, conditioning, prior, sixteen solver
-steps, trust bound and backtracking. Measure construction cost and total proposal
-latency, then verify numerical and forecast preservation against adopted v8.
-History transport is a plausible target, not a measured share or promised route
-to 10 ms. Reordered arithmetic needs qualification; do not lower solver effort,
-add consumer choices or trade away measured gains.
+**Compact temporal memory with accurate angular response and cheaper derivatives.**
+Investigate stable accumulators with learned time constants as the next single
+architecture candidate. Before freezing it, inspect compiled derivative work
+and the angular failures of rank-two compression. Parameter count alone has not
+explained update cost. The prior [cost diagnosis](online-cost-profile.md) places
+most warmed update latency inside the sixteen-step compiled proposal, with one
+nonlinear linearization reused throughout; the history-specific share remains
+unmeasured.
 
-Fixed-wing absolute forecast errors, known-tape coverage, physical derivatives,
-calibration and live consumer recovery remain separate open gaps. V8 remains
-the one maintained fitter; this iteration changes profiling tools only.
+Preserve shared rigid-body mechanics, arbitrary ordered command dimensions and
+one recipe. No consumer choices or platform branches. Caching recurrent state
+requires accounting for changes to learned timescales and feature coordinates.
+A successful online screen must still pass matched offline forecast/response
+and Dart qualification before replacing the adopted model. Fixed-wing absolute
+errors, calibration and live recovery remain separate open gaps.

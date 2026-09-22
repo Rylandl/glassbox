@@ -1,0 +1,295 @@
+{
+  "source_commit": "3fc490a",
+  "protocol_commit": "89303fd",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/history-basis-v1/evaluation",
+  "manifest_sha256": "24f942c2532eaedc4791b436874698fa8db0897bf34adb0bcb520c2b6e9f942b",
+  "verifier": "scripts/screen_history_basis.py verify (NumPy/SciPy only)",
+  "verified": true,
+  "tests": {
+    "existing_and_architecture": 472,
+    "screen": 2,
+    "total": 474
+  },
+  "attempted_cases": 6,
+  "scored_then_assimilated_rows": 3137,
+  "initialization_count": 6,
+  "offline_fits": 0,
+  "closed_loop_trials": 0,
+  "aggregate": {
+    "orientation_rmse_rad": 1.0671225401639262,
+    "primary": 0.9487026158876697,
+    "rotation_rate": 0.977695024788589,
+    "tail": 0.9144024806379648
+  },
+  "families": {
+    "fixedwing": {
+      "orientation_rmse_rad": 1.0198108028032733,
+      "primary": 0.9386934200103539,
+      "rotation_rate": 0.9337695727627826,
+      "tail": 0.8811203764168011
+    },
+    "quad": {
+      "orientation_rmse_rad": 1.116629194940565,
+      "primary": 0.9588185388389958,
+      "rotation_rate": 1.0236867738880544,
+      "tail": 0.9489417325667926
+    }
+  },
+  "gates": {
+    "family_primary": true,
+    "orientation": false,
+    "primary": true,
+    "rotation_rate": true,
+    "size": true,
+    "tails": true
+  },
+  "screen_passed": false,
+  "adopted": false,
+  "cases": [
+    {
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.06860581029324685,
+        "orientation_rmse_rad": 0.00032489903496104634,
+        "velocity_rmse_m_s": 0.0074580887183823994
+      },
+      "count": 875,
+      "family": "quad",
+      "id": "quad-arm-115",
+      "parameter_ratio": 0.38440276406712737,
+      "parameters": 3894,
+      "predict": {
+        "count": 875,
+        "first_s": 0.41717458283528686,
+        "warm_max_s": 0.0029441670048981905,
+        "warm_median_s": 0.0009038954740390182,
+        "warm_p95_s": 0.0011428330559283494
+      },
+      "ratios": {
+        "body_rate_rmse_rad_s": 0.7909285437664598,
+        "orientation_rmse_rad": 0.663267900572714,
+        "primary": 0.7324875133685679,
+        "rotation_rate": 0.6796029716775636,
+        "tail": 0.7337926630464727,
+        "velocity_rmse_m_s": 0.6783646404842525
+      },
+      "reference": {
+        "body_rate_rmse_rad_s": 0.0867408450914427,
+        "orientation_rmse_rad": 0.0004898458596903374,
+        "velocity_rmse_m_s": 0.01099421796669476
+      },
+      "update": {
+        "count": 875,
+        "first_s": 2.8480027499608696,
+        "warm_max_s": 0.21113833412528038,
+        "warm_median_s": 0.08605354139581323,
+        "warm_p95_s": 0.09055810057325288
+      }
+    },
+    {
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.04390088226714905,
+        "orientation_rmse_rad": 0.00020918620367567608,
+        "velocity_rmse_m_s": 0.003086811319751655
+      },
+      "count": 875,
+      "family": "quad",
+      "id": "quad-arm-125",
+      "parameter_ratio": 0.38440276406712737,
+      "parameters": 3894,
+      "predict": {
+        "count": 875,
+        "first_s": 0.0009560000617057085,
+        "warm_max_s": 0.0026149158366024494,
+        "warm_median_s": 0.0009042499586939812,
+        "warm_p95_s": 0.001111471012700349
+      },
+      "ratios": {
+        "body_rate_rmse_rad_s": 1.1736447910135737,
+        "orientation_rmse_rad": 1.1986646168947503,
+        "primary": 0.9350227407236437,
+        "rotation_rate": 1.3273514830794195,
+        "tail": 0.9277211903398023,
+        "velocity_rmse_m_s": 0.7449166326681571
+      },
+      "reference": {
+        "body_rate_rmse_rad_s": 0.037405595460646764,
+        "orientation_rmse_rad": 0.0001745160412072494,
+        "velocity_rmse_m_s": 0.004143834604276794
+      },
+      "update": {
+        "count": 875,
+        "first_s": 0.08538100006990135,
+        "warm_max_s": 0.2132339170202613,
+        "warm_median_s": 0.08587937545962632,
+        "warm_p95_s": 0.0890328061999753
+      }
+    },
+    {
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.6162991096829367,
+        "orientation_rmse_rad": 0.0034509100033470693,
+        "velocity_rmse_m_s": 1.1665025459467007
+      },
+      "count": 62,
+      "family": "quad",
+      "id": "quad-arm-135",
+      "parameter_ratio": 0.38440276406712737,
+      "parameters": 3894,
+      "predict": {
+        "count": 62,
+        "first_s": 0.0009245418477803469,
+        "warm_max_s": 0.0030070000793784857,
+        "warm_median_s": 0.0008934170473366976,
+        "warm_p95_s": 0.001036791829392314
+      },
+      "ratios": {
+        "body_rate_rmse_rad_s": 1.7401730425177189,
+        "orientation_rmse_rad": 1.6315425056094486,
+        "primary": 1.3198426757038855,
+        "rotation_rate": 0.9171664602474393,
+        "tail": 1.2839551915825267,
+        "velocity_rmse_m_s": 1.00104107238028
+      },
+      "reference": {
+        "body_rate_rmse_rad_s": 0.35415966954140504,
+        "orientation_rmse_rad": 0.002115121114823798,
+        "velocity_rmse_m_s": 1.1652893953421768
+      },
+      "update": {
+        "count": 62,
+        "first_s": 0.08512808312661946,
+        "warm_max_s": 0.11365904193371534,
+        "warm_median_s": 0.0856512919999659,
+        "warm_p95_s": 0.08912987494841218
+      }
+    },
+    {
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.0439037116781423,
+        "orientation_rmse_rad": 0.00020919723486453664,
+        "velocity_rmse_m_s": 0.0030868958885455385
+      },
+      "count": 875,
+      "family": "quad",
+      "id": "quad-change",
+      "parameter_ratio": 0.38440276406712737,
+      "parameters": 3894,
+      "predict": {
+        "count": 875,
+        "first_s": 0.0009114579297602177,
+        "warm_max_s": 0.009004584047943354,
+        "warm_median_s": 0.0008941040141507983,
+        "warm_p95_s": 0.0010667208814993496
+      },
+      "ratios": {
+        "body_rate_rmse_rad_s": 1.1735106938146778,
+        "orientation_rmse_rad": 1.1985353729409336,
+        "primary": 0.9349774236384013,
+        "rotation_rate": 1.3273302603266586,
+        "tail": 0.9277211903398023,
+        "velocity_rmse_m_s": 0.7449295411802652
+      },
+      "reference": {
+        "body_rate_rmse_rad_s": 0.03741228086761315,
+        "orientation_rmse_rad": 0.0001745440640197495,
+        "velocity_rmse_m_s": 0.004143876323732128
+      },
+      "update": {
+        "count": 875,
+        "first_s": 0.08559845783747733,
+        "warm_max_s": 0.4057587089482695,
+        "warm_median_s": 0.08551808295305818,
+        "warm_p95_s": 0.0905398710281588
+      }
+    },
+    {
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.606885850453913,
+        "orientation_rmse_rad": 0.020499263081499845,
+        "velocity_rmse_m_s": 0.29133778618887207
+      },
+      "count": 225,
+      "family": "fixedwing",
+      "id": "fixedwing-80",
+      "parameter_ratio": 1.0011768167107973,
+      "parameters": 3403,
+      "predict": {
+        "count": 225,
+        "first_s": 0.29863162501715124,
+        "warm_max_s": 0.001120125176385045,
+        "warm_median_s": 0.0006842295406386256,
+        "warm_p95_s": 0.0008668768568895756
+      },
+      "ratios": {
+        "body_rate_rmse_rad_s": 1.004826359431147,
+        "orientation_rmse_rad": 1.0992966255893286,
+        "primary": 1.031010729744469,
+        "rotation_rate": 0.9958010598062976,
+        "tail": 0.9701098775496074,
+        "velocity_rmse_m_s": 1.0578774281458931
+      },
+      "reference": {
+        "body_rate_rmse_rad_s": 0.6039708699495936,
+        "orientation_rmse_rad": 0.018647617580478126,
+        "velocity_rmse_m_s": 0.2753984331620443
+      },
+      "update": {
+        "count": 225,
+        "first_s": 2.4004725001286715,
+        "warm_max_s": 0.014536208007484674,
+        "warm_median_s": 0.011321145459078252,
+        "warm_p95_s": 0.012042684736661613
+      }
+    },
+    {
+      "candidate": {
+        "body_rate_rmse_rad_s": 1.6649235548664028,
+        "orientation_rmse_rad": 0.039188613384929016,
+        "velocity_rmse_m_s": 0.5125251851047273
+      },
+      "count": 225,
+      "family": "fixedwing",
+      "id": "fixedwing-81",
+      "parameter_ratio": 1.0011768167107973,
+      "parameters": 3403,
+      "predict": {
+        "count": 225,
+        "first_s": 0.0008123749867081642,
+        "warm_max_s": 0.0010724591556936502,
+        "warm_median_s": 0.0006755414651706815,
+        "warm_p95_s": 0.0007857438526116311
+      },
+      "ratios": {
+        "body_rate_rmse_rad_s": 0.9833391571513654,
+        "orientation_rmse_rad": 0.946072287774657,
+        "primary": 0.8546422567194062,
+        "rotation_rate": 0.8756022163575482,
+        "tail": 0.8002940034977477,
+        "velocity_rmse_m_s": 0.7427888756981603
+      },
+      "reference": {
+        "body_rate_rmse_rad_s": 1.6931325705461773,
+        "orientation_rmse_rad": 0.04142243028501356,
+        "velocity_rmse_m_s": 0.690001158974003
+      },
+      "update": {
+        "count": 225,
+        "first_s": 0.011157042114064097,
+        "warm_max_s": 0.015305875102058053,
+        "warm_median_s": 0.011316208518110216,
+        "warm_p95_s": 0.01171465259976685
+      }
+    }
+  ],
+  "preceding_arithmetic_candidate": {
+    "source_commit": "c631a1c",
+    "adopted": false,
+    "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-update-batch-v1",
+    "candidate_manifest_sha256": "f7415286e4a920fd569601cdf9049e99df66581eb50b280fbf6d0ca0e33ecb6e",
+    "preservation_manifest_sha256": "45e1de740d99673af791f2ee99b8ab912ae190c58c637c037951954665a40e98",
+    "preservation_failed_arrays": 215,
+    "gradient_failures": 198,
+    "objective_failures": 17,
+    "timing_qualified": false
+  }
+}

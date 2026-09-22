@@ -1,0 +1,43 @@
+{
+  "id": "history-basis-v1",
+  "gap": "Reduce dense lag-feature parameter growth while preserving one generic shared-physics recipe.",
+  "parent": {
+    "source_commit": "03c5574",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+    "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"
+  },
+  "candidate": {
+    "change": "Replace D explicit lag differences per current feature with R=min(2,D) learned linear temporal summaries. For differences[...,D,C] and learned basis[D,R], summary[...,R,C]=einsum('...dc,dr->...rc',differences,basis). All three dense heads consume current, flattened summaries, and the existing eight hidden values.",
+    "initialization": "A deterministic orthonormal constant and linear-ramp basis over oldest-to-newest lag positions; D=1 has only the constant. Prefix-only ridge initialization is performed in compressed feature coordinates, with unchanged affine-anchored quadratic ridge, seed, hidden initialization, and loss scales. Basis is optimized together with other parameters by the existing optimizer. No distillation or future labels.",
+    "unchanged": "Rigid-body mechanics, gravity, supported features, command filter, 500ms context, 100ms explicit lag span, 32-unit nonlinear head, eight-dimensional nonlinear memory, offline budget, online cache, conditioning compensation, quadratic prior, sixteen PCG steps, trust and backtracking. No platform dispatch or consumer settings.",
+    "dimension": "Feature width=(1+R)*(9+2*M)+8. Adds D*R basis coefficients. Quad M=4,D=10:3894 parameters; fixedwing M=3,D=2:3403. Only the small basis, not all dense heads, still grows with sample rate.",
+    "limits": "This is a rank-two temporal bottleneck, not learned context length, a persistent accumulator, sample-rate invariance, or lossless compression. It may lose independent delayed effects; retain that failure if observed. Two is a fixed engineering hypothesis, not an optimal rank claim."
+  },
+  "stages": {
+    "analytic": "Before science: exact full-rank temporal change-of-basis algebra and JVP/VJP; generic command dimensions and D=1; causal lag order and learned-basis derivatives; compensated reconditioning; public prediction and archive/session round trips; no fabricated history.",
+    "online_screen": "Initialize once per case from exactly the original visible prefix. Score every original target before revealing/assimilating it once, all3137 rows. Both architectures use the same prefix data and fitting procedure but different parameterizations; initial models need not match. Compare against authenticated adopted v8 predictions, never frozen startup as the primary denominator.",
+    "promotion": "This screen cannot adopt a new architecture. Even a pass requires separately frozen matched offline fitting and forecast/command-response evaluation, derivative checks and Dart consumer qualification. Existing saved weights cannot establish architecture preservation. Only if accuracy and size pass is a fresh interleaved full-update timing comparison justified."
+  },
+  "cases": ["quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change", "fixedwing-80", "fixedwing-81"],
+  "metrics": {
+    "primary": "Velocity vector RMSE and body-rate vector RMSE; geometric mean of candidate/v8 with denominator floor1e-9; equal cases within family, equal velocity/rate weights, equal family weights.",
+    "secondary": "Orientation RMSE, largest-decile velocity/rate RMS, truth-relative rotation/rate defect, per-case errors, parameter counts and learned basis singular values. No individual-case veto or dropped observations.",
+    "runtime": "Time synchronized public predict and full observe plus immutable model snapshot. Report first call and warm median/p95/max, initialization separately. Historical v8 timing ratios are descriptive only, not a qualified speedup; do not add timing scopes. No concurrent fits or tests during this stream."
+  },
+  "screen_gates": {
+    "all_six_cases_complete_finite": true,
+    "equal_family_primary_ratio_max": 1.01,
+    "each_family_primary_ratio_max": 1.02,
+    "equal_family_tail_ratio_max": 1.02,
+    "equal_family_orientation_ratio_max": 1.02,
+    "equal_family_rotation_rate_ratio_max": 1.02,
+    "quad_parameter_ratio_max": 0.5,
+    "fixedwing_parameter_ratio_max": 1.02
+  },
+  "evidence": "Commit this protocol before implementation and all scientific source before model calls. Seal protocol, source/runtime binding, input authority, initial/final sessions, all predictions/truth/origins/timings, causal row journals with pre/post model fingerprints and reports, and every attempted case including failures. Recompute scores/gates and check row/source/truth/session identities without fitting. No threshold relaxation, retries, sweeps or combining failed candidates.",
+  "references": {
+    "HiPPO": "https://arxiv.org/abs/2008.07669",
+    "LRU": "https://arxiv.org/abs/2303.06349",
+    "relationship": "These motivate compact history representations and efficient recurrence; this simple learned temporal factorization is not an implementation of either paper and inherits no accuracy/speed claim."
+  }
+}
