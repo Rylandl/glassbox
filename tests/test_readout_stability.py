@@ -164,3 +164,27 @@ def test_diagnostic_feature_vector_reconstructs_readout():
         np.testing.assert_allclose(
             phi @ mean * n["output_scale"], physical, atol=1e-12, rtol=1e-12
         )
+
+
+def test_snapshot_reuse_is_forwarded_before_any_diagnostic_work(monkeypatch, tmp_path):
+    import diagnose_readout_stability as diagnostic
+
+    class StopAfterArgumentCheck(Exception):
+        pass
+
+    replay = tmp_path / "existing-replay"
+
+    def recover(name, parent, source, output, replay_pack=None):
+        assert replay_pack == replay
+        raise StopAfterArgumentCheck
+
+    monkeypatch.setattr(diagnostic, "recover_reference", recover)
+    import pytest
+
+    with pytest.raises(StopAfterArgumentCheck):
+        diagnostic.diagnose_case(
+            "case",
+            dict(sources=dict(tapes=dict(path="/t"), full=dict(path="/f"))),
+            tmp_path / "out",
+            replay,
+        )

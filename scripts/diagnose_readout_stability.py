@@ -368,7 +368,7 @@ def diagnose_case(name, spec, output, replay_pack=None):
     parent, source = (Path(spec["sources"][k]["path"]) for k in ("tapes", "full"))
     output.mkdir()
     info, data, states, commands, references = recover_reference(
-        name, parent, source, output
+        name, parent, source, output, replay_pack
     )
     initial = model_from(info, arrays(source / name / "initial.npz"))
     result = {
