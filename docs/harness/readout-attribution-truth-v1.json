@@ -1,0 +1,29 @@
+{
+  "id": "readout-attribution-truth-v1",
+  "gap": "Test whether the fast readout's attitude-to-angular-rate sensitivity is excessive relative to the actual fixed-wing plant, not merely relative to another learned model.",
+  "parent": "readout-attribution-v1",
+  "sources": {
+    "model_attribution": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/readout-attribution-v1",
+      "manifest_sha256": "5366e4c7d413f933370cb4ea61ea59579e887e552d4ff3a66db0d01479ac4324"
+    },
+    "recording_80": {
+      "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/recording-80.npz",
+      "sha256": "f3fd3ea993cb31c2eed6695a2531360d73e0b75e54716e0ae18815f1aba33bdc"
+    },
+    "recording_81": {
+      "path": "/Users/ryland/autonomy/dart/artifacts/cascade-accuracy/comparison-01/recording-81.npz",
+      "sha256": "6cbb9750a454714f654f27dc5e18459c5152feb3b08a702f12326e55d863e4a6"
+    },
+    "cascade_source": {
+      "path": "/Users/ryland/autonomy/dart/cascade",
+      "commit": "d6613886f8bbdc514a9ae88ff344c23af994df6a"
+    }
+  },
+  "roster": "Both recordings, every one of their 14 saved conditional origins. Replay all 240 issued 50 ms commands from the recorded initial rigid-body state and constant-command actuator equilibrium. Retain the complete replayed actuator and aerodynamic state at each origin. No Glassbox model is fitted or updated.",
+  "replay_gate": "Require maximum absolute difference between replayed and saved 13-state telemetry below 0.0005 over all 241 samples in each recording; report every case's maximum and last-sample difference. If this fails, do not label any derivative plant truth.",
+  "measurement": "At each of the five measured states from each origin, differentiate one 50 ms Cascade step with respect to nine canonical physical tangent coordinates [world velocity m/s, body angular rate rad/s, right SO(3) attitude rad], holding the complete replayed internal plant state otherwise fixed. At each origin, differentiate the five-command 250 ms simulator rollout with internal actuators and aerodynamics evolving. Compare the body-rate rows and initial attitude columns with Glassbox's saved 50-dimensional measured/rolled five-step derivative products. Preserve all 9x9 plant matrices and per-origin gains. Simulator internals are diagnostic truth only and are never learner inputs.",
+  "checks": "Use the recorded issued commands exactly; verify recording hashes and Cascade source commit, with source changes limited to unrelated viz/test files. Check one-step and five-step unperturbed branches against replay. Compare two finite-difference directions at initial and middle origins to autodiff with a declared float32 tolerance. Save source binding, replay errors, all matrices and per-origin comparisons; verify summary from saved output without simulation.",
+  "budget": {"fits": 0, "updates": 0, "maximum_wall_s": 600},
+  "interpretation": "A large learned derivative alone does not prove error: judge its magnitude and direction against the plant, the full learner and physical forecast errors. The plant replay is near exact rather than bitwise exact. Differentiation holds the replayed internal state fixed at origin and then lets it evolve. These known development recordings are not held-out configuration evidence."
+}
