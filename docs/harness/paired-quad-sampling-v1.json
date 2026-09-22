@@ -1,0 +1,28 @@
+{
+  "id": "paired-quad-sampling-v1",
+  "gap": "Separate the quad/fixed-wing family comparison from the 10/50 ms observation-schedule difference on exactly one physical quad trajectory.",
+  "behavior_source": {
+    "repository": "/Users/ryland/projects/glassbox-throw",
+    "commit": "9bd74c18988008f85938ce2fef170820d55fa2f2",
+    "crazyflow_version": "0.3.2",
+    "controller": "glassbox_throw.throw_study.DUAL_CONTROL_PASS6_MODEL",
+    "learner_role": "The existing Throw controller and identifier generate only the behavior trajectory; neither is a fitted Glassbox evaluation arm. Their internal applied-motor telemetry remains unavailable to the Glassbox learners."
+  },
+  "collection": {
+    "plant": "glassbox_throw.plant.CrazyflowPlant, cf21B_500, first-principles, 500 Hz simulation, 100 Hz plant observation, CPU, rng_seed 0, initial applied motors zero",
+    "scenario": "Canonical Throw release with arm_length_ratio=1.25; no midflight configuration change or added state noise.",
+    "policy": "Original pass6 behavior policy operates at 20 Hz through an adapter whose step holds each issued command for five consecutive 10 ms plant steps and returns the last sample. Capture every intermediate state and the command actually issued during each 10 ms interval. The policy therefore sees its own requested command applied for the entire 50 ms interval.",
+    "duration": "Original 10 s limit and floor-contact stop. Preserve truncation, failure and every actual command; do not select a replacement trajectory based on model performance.",
+    "paired_tapes": "Fine tape is the raw 10 ms plant trace. Coarse tape takes states and timestamps at indices 0,5,10,... and one command per five-interval block. Require exact state equality at shared indices, command equality within every block, and common 50 ms elapsed time. No interpolation or command-changing decimation."
+  },
+  "evaluation": {
+    "prefix": "Each arm starts from its own same-episode causal prefix spanning tape time 0.5 to 1.25 s, inclusive states and interval-aligned issued commands. First prediction is at 1.25 s for both schedules. Initialization and first-use costs count separately; no fleet training, reused normalizer or prior fitted model.",
+    "arms": ["maintained full OnlineFit", "unchanged curvature fast readout", "unchanged first-order sensitivity fast readout"],
+    "updates": "At each schedule, score before revealing the next observation, then assimilate exactly one new interval through that arm. The 10 ms arm has five times as many observations per elapsed second; report update count and complete-update cost, not only per-update medians.",
+    "forecasts": "At common physical origin times 1.25,1.50,1.75,... s while 250 ms truth exists, forecast 50,100,150,200,250 ms with the same future issued-command trajectory. These are retrospective forecasts, never information supplied to an update. Compute velocity-vector RMSE m/s, body-rate-vector RMSE rad/s and SO(3) orientation RMSE rad at each horizon, plus every origin's errors. Report 10 and 50 ms one-step errors separately; compare schedules only at common horizons.",
+    "comparison": "Within each schedule report each fast arm versus the maintained full learner in absolute units and ratios. Across schedules compare the same model on identical physical origins, emphasizing fixed-physical-time error and per-second compute. This isolates vehicle family from the observation schedule, but does not isolate timestep from the fivefold difference in observation/update count or history parameterization. One trajectory is diagnostic, not broad quad generalization.",
+    "timing": "One exclusive CPU process with rotated update order across arms. Synchronize whole observe and model snapshot. Report construction, first prediction/update and warmed median/p95 complete updates, plus total fitting time per elapsed physical second."
+  },
+  "verification": "Freeze and commit collection and evaluation source before executing either. Bind external source/runtime and the collected tape. Require shared-state and held-command identities; equal initial model arrays within each schedule across three arms; causal row indices; finite predictions; exact update counts. Save every scoreable forecast, physical truth, one-step prediction, update duration, initial/final arrays and direct-solve statistics for independent no-fit verification. Preserve all attempts and failures. No candidate model is adopted from this one paired recording.",
+  "budget": {"collection_trajectories": 1, "fits_per_schedule": 3, "maximum_updates_per_arm_at_10ms": 875, "maximum_wall_s_collection": 600, "maximum_wall_s_evaluation": 900}
+}
