@@ -64,27 +64,45 @@ Initialization preserved original draw scales, physical coefficients and initial
 predictions; compact normalizers have explicit compensation. The result does
 not repeat the earlier initialization-strength error.
 
-## Next: conditioning at the fixed update budget
+## Next: rapid readout fitting without pretraining
 
-The named next gap is **accuracy achieved by the bounded online solver**. Earlier
-64-PCG experiments reduced fixed-wing angular error by roughly 56–58% relative
-to 16 iterations for both architectures. Full-stream sensitivity to small
-rounding changes reinforces this concern. The current preconditioner captures
-damping and the explicit prior diagonal, but not forecast-Jacobian correlations.
-That is stronger evidence than assuming the network still needs fewer weights.
+The user accepted investigating a fast linear estimator only under a strict
+cold-start requirement: Throw must learn from observations in the current episode.
+A pretrained shared dynamics representation with small per-aircraft corrections
+would defeat the intended demonstration. No fleet-trained feature map, class
+prior, previously learned normalizer or fitted revision enters initialization.
+Shared mechanics and data-independent generic features are allowed.
 
-First inspect residual convergence and parameter-block correlations at saved
-quad and fixed-wing states. Then freeze one feature-Gram or block preconditioner
-candidate, retaining the 16-iteration budget and generic model. Its construction,
-factorization and derivative work count in the whole update. Verify prediction
-and command-response accuracy over complete causal streams, alongside solver
-residuals; lowering a numerical residual is not by itself physical improvement.
+The existing acceleration heads already form a linear readout when the nonlinear
+features, command filters and accumulator parameters are fixed. Preserving all
+output paths gives `195 + 153 + 32 + 1 = 381` features and 2,286 output weights
+for four commands / 10 ms. A proposed 500–600-weight estimator would require
+another capacity decision. Its covariance is also part of memory/runtime cost.
 
-This changes optimizer structure, not the model's vehicle scope. If correlations
-instead identify a useful generic parameterization change, freeze it separately
-rather than mixing interventions. Do not launch another width/rank sweep or
-spend extra iterations and call it efficiency. A practical improvement must earn
-its arithmetic cost on complete updates; portability requires another backend.
+The first experiment should isolate the update method after fresh initialization
+from a causally available episode prefix. Include all initialization observations
+and computation in identification curves; do not initialize from a completed fit
+and call subsequent adaptation cold-start learning. A measured-increment loss
+can be linear in the readout; recursive predictions remain nonlinear through
+state-dependent features. Judge the resulting model by physical recursive
+forecasts and command responses as well as complete update time.
+
+The broader candidate is fast readout estimation with representation learning
+from the same episode wherever necessary. Freezing generic initial features is
+an experiment, not a decision to freeze system dynamics forever. Revising features
+invalidates old estimator sufficient statistics unless they are transformed
+consistently or rebuilt from retained observations. No pretraining-based rescue
+is admissible. Audit the Throw startup/data contract and freeze one bounded
+comparison before implementing it. See [status](status.md).
+
+## Deferred: conditioning at the fixed update budget
+
+Earlier 64-PCG experiments reduced fixed-wing angular error by roughly 56–58%
+relative to 16 iterations for both architectures. Full-stream sensitivity to
+rounding also suggests an optimizer issue. The current preconditioner captures
+damping and prior diagonal, not forecast-Jacobian correlations. This remains
+useful evidence and a fallback if the no-pretraining linear estimator does not
+earn its accuracy/runtime cost; it is no longer the named next experiment.
 
 ## Secondary opportunities
 

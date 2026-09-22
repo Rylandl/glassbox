@@ -46,15 +46,39 @@ paired timings or blind generalization tests. Earlier frozen results remain inta
 
 ## Next iteration
 
-**Improve the conditioning of the bounded online update.** First measure the
-forecast Jacobian's correlated parameter blocks on saved quad/fixed-wing states;
-then freeze one block/feature-Gram preconditioner candidate against the unchanged
-16-PCG update. Count construction and derivative cost in the entire update and
-compare full causal trajectories. Earlier 64-PCG results substantially reduced
-fixed-wing angular error, and the rounding-sensitive replay strengthens this
-priority. A smaller network alone did not solve it.
+**Test rapid linear readout fitting from a fresh episode, without pretraining.**
+The user's explicit requirement supersedes the planned preconditioner experiment:
+Throw must identify the system from the current episode, not adapt variations of
+a fleet-trained dynamics core. Shared physics and fixed generic features are
+allowed; learned representations, priors, normalizers and optimizer/memory state
+from previous flights are not.
 
-This is optimizer structure, separate from the completed model compression.
-Do not start another network-size sweep or increase the default work budget to
-hide poor conditioning. Reproducing the refined offline fit, calibration and
-live recovery remain separate gaps. Command-filter parallelization is secondary.
+First audit the actual Throw observation/startup contract and freeze a paired
+causal protocol. Count all prefix observations, initialization work and time to
+first useful prediction. Rebuild both arms from the permitted episode prefix;
+no offline fitted revision or learned feature extractor may initialize either
+arm. Score before assimilating each target, and reset between episodes. Existing
+known tapes support a diagnostic; unseen configurations remain separate evidence.
+
+Test a linear estimator over the current model's features, freezing the feature
+parameters only during that bounded screen after permitted fresh initialization.
+Preserve the existing output paths initially: the four-command / 10 ms model
+has 381 readout features and 2,286 output weights, not an assumed 500-weight head.
+Derive the estimator from measured motion increments; recursive forecast loss
+does not become linear merely because feature weights are fixed. Count feature
+construction, normalization, covariance and estimator work in the complete update.
+Compare physical forecasts, command responses and accuracy versus both elapsed
+time and observations against the current whole-model learner.
+
+This tests whether a fast linear update is useful without a pretrained basis.
+It does not establish that fixed features alone can represent arbitrary dynamics.
+If representation adaptation is needed, it must also learn from the current
+episode. Changes to features require rebuilding or consistently transforming
+accumulated estimator statistics. Do not rescue a failed screen with fleet
+pretraining or a catalog. No implementation or frozen numerical protocol has yet
+been produced for this experiment.
+
+Solver conditioning remains a fallback/diagnostic, supported by the earlier
+64-PCG and rounding-sensitive results. Reproducing refined offline fits,
+calibration and controller recovery are separate gaps; controllers remain in
+Dart/Throw. The adopted model and all measured results above are unchanged.

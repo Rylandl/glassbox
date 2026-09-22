@@ -13,6 +13,19 @@ choices are required. Configuration and command names establish data identity;
 they do not select equations. The present formulation covers rigid-body motion,
 not arbitrary articulated or deformable systems.
 
+The Throw demo must learn from a fresh start, without pretraining. No fleet-trained
+feature extractor, previously fitted dynamics, learned class prior or calibration
+from previous flights may initialize the learner. General physical equations,
+fixed generic bases and data-independent initialization/regularization are
+allowed. Every learned quantity, including feature weights, normalization,
+response coefficients and memory parameters, must come from observations causally
+available in the current episode. Initialization and history accumulation count
+in the data and elapsed-time budget; a fitted prefix is not free pretraining.
+Reset learned state between evaluation episodes and never use future observations.
+Adapting small variations around a pretrained dynamics core does not meet this
+requirement. Existing offline fit/predict/update remains a workflow of the same
+learner; its results do not qualify cold-start Throw performance.
+
 The model is the product. Its public workflow is `fit(recordings)`,
 `model.predict(...)` and `model.update(recordings)`, with fingerprinted save/load
 and immutable revisions. A bounded `OnlineFit` session assimilates contiguous
@@ -50,7 +63,7 @@ architecture changes from fitting provenance before attributing a regression.
 | Accuracy | Low held-out forecast and command-response residuals across configurations and conditions, in physical units and across supported horizons. Aggregate weights and regression limits are declared before measurement. |
 | Usability | Self-contained revisions; clear signals, timing and history contract; reproducible predictions and usable derivatives; independent consumers use public interfaces. |
 | Capability | Analytic mechanics, delayed/hidden response, causality, variable input dimension and numerical derivatives have meaningful regression tests. Broader system classes require their own evidence. |
-| Consumer performance | Dart meets separately declared task limits. Controller outcomes supplement direct prediction/response evidence. |
+| Consumer performance | Throw requires identification from the current episode without pretraining, with initialization data/time counted. Dart meets separately declared task limits. Controller outcomes supplement direct prediction/response evidence. |
 | Updates | Immutable revisions preserve recording roles and fit budget. Improvement and regressions are measured on fresh recordings; live controller adoption requires separate evidence. |
 | Error evidence | Error envelopes identify calibration data and horizon. Held-out coverage is measured; absent evidence stays absent. |
 | Lean | Only the learner, necessary recording interfaces, small evaluation tools, active tests and evidence needed for current work remain. |
