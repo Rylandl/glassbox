@@ -1,4 +1,4 @@
-"""Run one reusable, causal two-origin online-readout benchmark."""
+"""Run one reusable, causal online-readout benchmark."""
 
 import argparse
 import hashlib
@@ -33,12 +33,13 @@ def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def source_case(spec, name):
+def source_case(spec, name, suite):
     roots = {key: Path(value["path"]) for key, value in spec["sources"].items()}
     direct_root = roots["direct"] / name
     previous = arrays(direct_root / "predictions.npz")
     result = read(direct_root / "result.json")
-    origins = previous["conditional_rows"][:2].astype(int)
+    count = 2 if suite == "smoke" else len(previous["conditional_rows"])
+    origins = previous["conditional_rows"][:count].astype(int)
     begin, first, dt = (
         result["prefix_begin_row"],
         result["first_prediction_row"],
@@ -61,10 +62,12 @@ def source_case(spec, name):
         full_rows = full["conditional_rows"]
         full_forecasts = full["baseline_conditional"]
         identity, names = info["opaque_id"], tuple(info["ordered_commands"])
-    require(np.array_equal(full_rows[:2], origins), "full control origin mismatch")
+    require(np.array_equal(full_rows[:count], origins), "full control origin mismatch")
     states, commands = observed(tape["states"]), tape["commands"].astype(float)
     horizon = round(0.25 / dt)
-    require(origins[1] + horizon < len(states), "missing 250 ms truth")
+    end_row = int(origins[1]) if suite == "smoke" else first + len(previous["one"])
+    require(origins[-1] + horizon < len(states), "missing 250 ms truth")
+    require(end_row + 1 <= len(states), "missing one-step truth")
     truth = np.stack(
         [states[row + 1 : row + horizon + 1] for row in origins]
     )
@@ -76,22 +79,32 @@ def source_case(spec, name):
         commands=commands,
         begin=begin,
         origins=origins,
+        end_row=end_row,
         dt=dt,
         horizon=horizon,
         truth=truth,
-        direct=previous["conditional"][:2],
-        direct_one=previous["one"][: origins[1] - first],
-        full=full_forecasts[:2],
+        direct=previous["conditional"][:count],
+        direct_one=previous["one"][: end_row - first],
+        full=full_forecasts[:count],
     )
 
 
 def scores(case, forecast, one):
     one_step = None
     if one is not None:
-        actual_one = case["states"][case["origins"][0] + 1 : case["origins"][1] + 1]
+        actual_one = case["states"][case["origins"][0] + 1 : case["end_row"] + 1]
         one_step = metrics(one, actual_one)
-    result = {"one_step": one_step, "origins": {}}
-    for index in range(2):
+    result = {"one_step": one_step, "horizons": {}, "origins": {}}
+    for ms in HORIZONS:
+        step = round(ms / 1000 / case["dt"]) - 1
+        result["horizons"][str(ms)] = metrics(
+            forecast[:, step], case["truth"][:, step]
+        )
+    terminal_error = forecast[:, -1, 3:6] - case["truth"][:, -1, 3:6]
+    result["worst_250_rate_rad_s"] = float(
+        np.max(np.linalg.norm(terminal_error, axis=1))
+    )
+    for index in range(len(case["origins"])):
         result["origins"][str(index)] = {}
         for ms in HORIZONS:
             step = round(ms / 1000 / case["dt"]) - 1
@@ -103,7 +116,7 @@ def scores(case, forecast, one):
 
 
 def run_case(case, factory, output):
-    first, last = case["origins"]
+    first, end_row = int(case["origins"][0]), case["end_row"]
     prefix = SequenceCollection(
         (
             SequenceSegment(
@@ -123,12 +136,13 @@ def run_case(case, factory, output):
     fit = factory(prefix)
     initialization_s = time.perf_counter() - started
     predictions, one, update_s = [], [], []
-    for row in range(first, last + 1):
+    origin_rows = set(case["origins"].tolist())
+    for row in range(first, end_row + 1):
         model = fit.session.model
         h = model.history_steps
         past = case["states"][row - h : row + 1]
         inputs = case["commands"][row - h : row]
-        if row in (first, last):
+        if row in origin_rows:
             forecast = np.asarray(
                 fit.session.predict(
                     past,
@@ -142,7 +156,7 @@ def run_case(case, factory, output):
                 "invalid conditional forecast",
             )
             predictions.append(forecast)
-        if row == last:
+        if row == end_row:
             break
         step = np.asarray(
             fit.session.predict(past, inputs, case["commands"][row : row + 1])
@@ -173,9 +187,12 @@ def run_case(case, factory, output):
 def verify_case(case, output, result):
     saved = arrays(output / f"{case['name']}.npz")
     require(np.array_equal(saved["origins"], case["origins"]), "origin mismatch")
-    require(saved["forecast"].shape == (2, case["horizon"], 15), "forecast shape")
     require(
-        saved["one"].shape == (case["origins"][1] - case["origins"][0], 15),
+        saved["forecast"].shape == (len(case["origins"]), case["horizon"], 15),
+        "forecast shape",
+    )
+    require(
+        saved["one"].shape == (case["end_row"] - case["origins"][0], 15),
         "one-step shape",
     )
     require(result["candidate"] == scores(case, saved["forecast"], saved["one"]),
@@ -193,22 +210,26 @@ def verify_case(case, output, result):
 
 def table(cases, results):
     lines = [
-        "| Case | First 250 ms rate: candidate / direct / full (rad/s) | First velocity: candidate / direct / full (m/s) | Next 250 ms rate: candidate / direct / full (rad/s) | Warm update (ms) |",
-        "| --- | ---: | ---: | ---: | ---: |",
+        "Errors are candidate / direct / full. Rate is rad/s; velocity is m/s.",
+        "",
+        "| Case | Origins | First rate | 250 ms rate RMSE | 250 ms velocity RMSE | Worst rate | Init s / warm ms |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in cases:
         result = results[name]
-        candidate = result["candidate"]["origins"]
-        direct = result["direct"]["origins"]
-        full = result["full"]["origins"]
-        def value(arm, origin, field):
-            return arm[str(origin)]["250"][field]
+        arms = [result[arm] for arm in ("candidate", "direct", "full")]
+
+        def triple(selector, values=arms):
+            return " / ".join(f"{selector(arm):.3f}" for arm in values)
+
         lines.append(
             f"| {name} | "
-            f"{value(candidate, 0, 'body_rate_rmse_rad_s'):.3f} / {value(direct, 0, 'body_rate_rmse_rad_s'):.3f} / {value(full, 0, 'body_rate_rmse_rad_s'):.3f} | "
-            f"{value(candidate, 0, 'velocity_rmse_m_s'):.3f} / {value(direct, 0, 'velocity_rmse_m_s'):.3f} / {value(full, 0, 'velocity_rmse_m_s'):.3f} | "
-            f"{value(candidate, 1, 'body_rate_rmse_rad_s'):.3f} / {value(direct, 1, 'body_rate_rmse_rad_s'):.3f} / {value(full, 1, 'body_rate_rmse_rad_s'):.3f} | "
-            f"{result['warm_update_median_s'] * 1000:.2f} |"
+            f"{len(arms[0]['origins'])} | "
+            f"{triple(lambda arm: arm['origins']['0']['250']['body_rate_rmse_rad_s'])} | "
+            f"{triple(lambda arm: arm['horizons']['250']['body_rate_rmse_rad_s'])} | "
+            f"{triple(lambda arm: arm['horizons']['250']['velocity_rmse_m_s'])} | "
+            f"{triple(lambda arm: arm['worst_250_rate_rad_s'])} | "
+            f"{result['initialization_s']:.2f} / {result['warm_update_median_s'] * 1000:.2f} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -222,7 +243,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("run", "verify"))
     parser.add_argument("--candidate", help="module:factory with session.predict and observe")
-    parser.add_argument("--suite", choices=("smoke", "full"), default="smoke")
+    parser.add_argument("--suite", choices=("smoke", "full"), default="full")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--manifest-sha256")
     args = parser.parse_args()
@@ -232,7 +253,21 @@ def main():
         authenticate_sources(spec)
         summary = read(args.output / "summary.json")
         for name in summary["cases"]:
-            verify_case(source_case(spec, name), args.output, summary["results"][name])
+            verify_case(
+                source_case(spec, name, summary["suite"]),
+                args.output,
+                summary["results"][name],
+            )
+        require(
+            summary["total_updates"]
+            == sum(value["updates"] for value in summary["results"].values()),
+            "total update count mismatch",
+        )
+        require(
+            summary["total_origins"]
+            == sum(len(value["candidate"]["origins"]) for value in summary["results"].values()),
+            "total origin count mismatch",
+        )
         require((args.output / "table.md").read_text() == table(summary["cases"], summary["results"]), "table mismatch")
         print("Verified saved forecasts, controls, scores and table without fitting.")
         return
@@ -255,13 +290,21 @@ def main():
         git_head=subprocess.check_output([GIT, "rev-parse", "HEAD"], text=True).strip(),
     ))
     try:
-        results = {name: run_case(source_case(spec, name), factory, args.output)
-                   for name in cases}
-        summary = dict(suite=args.suite, cases=cases, results=results)
+        case_data = {name: source_case(spec, name, args.suite) for name in cases}
+        results = {
+            name: run_case(case_data[name], factory, args.output) for name in cases
+        }
+        summary = dict(
+            suite=args.suite,
+            cases=cases,
+            total_updates=sum(value["updates"] for value in results.values()),
+            total_origins=sum(len(value["candidate"]["origins"]) for value in results.values()),
+            results=results,
+        )
         write(args.output / "summary.json", summary)
         (args.output / "table.md").write_text(table(cases, results))
         for name in cases:
-            verify_case(source_case(spec, name), args.output, results[name])
+            verify_case(case_data[name], args.output, results[name])
     except BaseException as error:
         write(args.output / "failure.json", dict(error=repr(error)))
         raise

@@ -8,22 +8,24 @@ loading, causal update order, origins, scoring, controls, timing, artifact
 format and the compact table. A model change should no longer copy an
 evaluator.
 
-Run the four-case smoke screen first: both fixed-wing recordings, the hard
-quad and a gentle paired quad. It is meant to find obvious failures quickly.
-Run all eight cases only when that screen is promising. Both suites use the
-same [frozen source roster](online-readout-benchmark.json), identical first
-and next conditional origins, and physical 50–250 ms scores. The table shows
-candidate, prior direct readout and historical full learner side by side;
-full-learner one-step scores are not invented when that control is absent.
+The default command runs the complete known-recording suite: all eight cases,
+4,187 causal updates and 263 previously frozen forecast origins through the
+end of each stream. This includes late flight conditions and the quad
+configuration change. The table keeps first-origin error visible beside
+all-origin 250 ms velocity/rate RMSE, worst body-rate error and update time.
+All five physical horizons, orientation and native one-step scores remain in
+the saved summary. Candidate, prior direct readout and historical full learner
+are shown side by side; full-learner one-step scores are not invented when that
+control is absent. The optional four-case smoke screen still uses two early
+origins to find obvious failures quickly.
 
 ```sh
 ./.venv/bin/python scripts/benchmark_online_readout.py run \
   --candidate candidate_module:Candidate \
-  --suite smoke \
-  --output artifacts/example-smoke
+  --output artifacts/example-full
 
 ./.venv/bin/python scripts/benchmark_online_readout.py verify \
-  --output artifacts/example-smoke \
+  --output artifacts/example-full \
   --manifest-sha256 HASH_PRINTED_BY_RUN
 ```
 
@@ -35,13 +37,12 @@ traced. Commit the candidate before using a full result for an engineering
 decision. A separate candidate-specific unit test is warranted only for a
 new derivative, causality or numerical claim.
 
-The runner was validated by fitting the archived physical SO(3) direct
-readout through both suites. All eight conditional forecast arrays and every
-one-step prediction exactly matched the prior authenticated evaluation; both
-new packs independently verified. The [validation index](online-readout-benchmark-validation.json)
-holds their hashes.
+The original two-origin runner was validated against the archived physical
+SO(3) direct readout. The expanded full-stream runner has its own [validation
+index](online-readout-benchmark-validation.json); its forecasts and one-step
+streams are checked against the same archived evaluation.
 
 This benchmark uses known recordings and a fresh but nonzero causal prefix;
-it is not held-out-vehicle, full-stream or live Throw evidence. The runner
-itself has no model-family branch. Broader qualification remains a separate
-step after a fast model idea survives this screen.
+it is not held-out-vehicle, counterfactual command-response or live Throw
+evidence. The runner itself has no model-family branch. Broader qualification
+remains a separate step after a fast model idea survives this screen.
