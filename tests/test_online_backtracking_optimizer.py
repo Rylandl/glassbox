@@ -116,7 +116,7 @@ def test_report_is_independent_and_session_resume_preserves_bounded_evidence(tmp
     path = tmp_path / "session.npz"
     session.save(path)
     meta, arrays = load_arrays(path)
-    assert meta["format"] == "glassbox-online-accumulator-v1"
+    assert meta["format"] == "glassbox-online-temporal-v1"
     assert meta["last_proposal"] == session.report["last_proposal"]
     assert not any("proposal" in key for key in arrays)
     resumed = OnlineFit.load(path)

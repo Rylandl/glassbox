@@ -60,6 +60,7 @@ def model_fixture(*, active):
         ):
             norms[name] = np.exp(rng.normal(0, 0.2, norms[name].shape))
         norms["body_mean"] = rng.normal(0, 0.1, 9)
+    norms["nonlinear_scale"] = norms["feature_scale"].copy()
     return VehicleSequenceModel(0.05, 5, delay, params, norms)
 
 
