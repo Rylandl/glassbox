@@ -1,0 +1,27 @@
+{
+  "id": "paired-quad-sampling-v2",
+  "gap": "Collect a long enough physically paired 10/50 ms quad trajectory after the pinned 20 Hz Throw pilot contacted the floor at 1.95 s in v1.",
+  "previous_attempt": {
+    "artifact": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-sampling-v1",
+    "manifest_sha256": "b5d476f3b2b4f035efd1ac19dd2931e8dc0b9a637108d22e0a4271190a948f27",
+    "qualification": "Two common 250 ms origins only; preserve but do not use as the main schedule comparison."
+  },
+  "source": {
+    "repository": "/Users/ryland/projects/glassbox-throw",
+    "commit": "9bd74c18988008f85938ce2fef170820d55fa2f2",
+    "crazyflow_version": "0.3.2",
+    "plant": "glassbox_throw.plant.CrazyflowPlant(cf21B_500, 500 Hz simulation, 100 Hz observation, CPU, rng_seed 0), unchanged simulator geometry and mass"
+  },
+  "collection": {
+    "initial": "Canonical13 state position [0,0,10] m, zero world velocity, identity body-to-world attitude, zero body rate; applied motors initialized at the plant's own hover thrust fraction. No prior fitted learner.",
+    "duration_s": 10.0,
+    "policy_period_s": 0.05,
+    "observation_period_s": 0.01,
+    "pilot": "One deterministic simulator-informed behavior pilot, never a Glassbox learner input: desired roll=0.12 sin(0.9t), pitch=0.10 sin(1.3t+0.3), yaw=0.08 sin(0.5t) rad; desired height=10+0.5 sin(0.7t) m. At each 50 ms boundary compute R and body rate from the latest observation. Set attitude acceleration alpha=-25*vee((Rd.T R-R.T Rd)/2)-8*omega rad/s²; torque=J alpha+omega cross (J omega). Set vertical acceleration az=1.8*(z_ref-z)-1.7*vz and total thrust=m*(9.81+az)/max(R[2,2],0.5). Map total thrust and XYZ torques to four motor thrusts using the simulator's mass, inertia, arm and mixing matrix; linearize yaw torque/thrust at hover RPM. Clip each normalized motor fraction to [0,1]. These known parameters generate only behavior data and are hidden from every Glassbox evaluation arm.",
+    "hold": "Issue one command at each 50 ms boundary and hold it for five consecutive 10 ms CrazyflowPlant steps; record every true intermediate state, time, actual held command and applied motor fraction.",
+    "stopping": "Exactly 10 s unless nonfinite simulation or altitude below 0.2 m. Preserve the sole attempt even if it fails; no outcome-driven trajectory or gain sweep."
+  },
+  "paired_tapes": "Fine tape is every 10 ms sample. Coarse tape is exact fine states/timestamps at indices 0,5,10,... and the identical held command for each five-step block. Require bitwise state identity at shared indices, constant command within each block, and absolute time-grid mismatch below 1e-7 s.",
+  "evaluation": "Use the unchanged v1 evaluation contract: three fresh same-episode arms per schedule, common 0.5–1.25 s elapsed prefix, causal updates, physical 50–250 ms scores at common 0.25 s origins, full timing/startup accounting and independent saved-data verification. This one trajectory diagnoses sample schedule, not broad generality. Never expose simulator parameters, mixing or applied motors to the Glassbox learner.",
+  "budget": {"collection_trajectories": 1, "maximum_wall_s_collection": 120, "maximum_wall_s_evaluation": 900, "maximum_updates_per_arm_at_10ms": 875}
+}
