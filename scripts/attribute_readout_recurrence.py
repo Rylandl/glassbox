@@ -47,7 +47,7 @@ def authenticate(root, expected):
     root = Path(root)
     assert digest(root / "manifest.json") == expected, root
     manifest = read(root / "manifest.json")
-    files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file() and p.name != "manifest.json"}
+    files = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file() and p != root / "manifest.json"}
     assert files == set(manifest["files"]), root
     for name, wanted in manifest["files"].items():
         assert digest(root / name) == wanted, root / name
@@ -363,7 +363,7 @@ def seal(output):
         "format": "glassbox-readout-attribution-v1",
         "files": {
             str(path.relative_to(output)): digest(path)
-            for path in sorted(output.rglob("*")) if path.is_file() and path.name != "manifest.json"
+            for path in sorted(output.rglob("*")) if path.is_file() and path != output / "manifest.json"
         },
     })
     return digest(output / "manifest.json")
