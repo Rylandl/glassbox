@@ -46,7 +46,9 @@ class PositiveDampingHybrid:
         self.commands = np.array(segment.inputs, copy=True)
         self.applied = [self.commands[0].copy()]
         self.dt = float(segment.dt_s)
-        self.tau = 0.05
+        # A fixed slow memory plus the current issued command spans prompt and
+        # delayed responses; the episode determines their respective effects.
+        self.tau = 8.0 * self.dt
         for command in self.commands:
             self.applied.append(self.filter_step(self.applied[-1], command))
         self.fit_rate()
@@ -65,7 +67,9 @@ class PositiveDampingHybrid:
         target = (rate[rows + 1] - rate[rows]) / self.dt
         coefficients = []
         for axis in range(3):
-            design = np.column_stack((np.ones(count), midpoint, -rate[rows, axis]))
+            design = np.column_stack(
+                (np.ones(count), command, midpoint, -rate[rows, axis])
+            )
             fit = np.linalg.lstsq(design, target[:, axis], rcond=None)[0]
             if fit[-1] < 0:
                 fit = np.r_[
@@ -80,7 +84,12 @@ class PositiveDampingHybrid:
         m = len(command)
 
         def acceleration(value, effect):
-            return matrix[:, 0] + matrix[:, 1 : m + 1] @ effect - matrix[:, -1] * value
+            return (
+                matrix[:, 0]
+                + matrix[:, 1 : m + 1] @ command
+                + matrix[:, m + 1 : 2 * m + 1] @ effect
+                - matrix[:, -1] * value
+            )
 
         half = rate + 0.5 * self.dt * acceleration(rate, applied)
         effect_half = command + (applied - command) * np.exp(-0.5 * self.dt / self.tau)
