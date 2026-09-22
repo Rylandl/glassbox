@@ -74,8 +74,10 @@ recurrent memory; there is no vehicle-family selector or smaller-model option.
 
 Across six known quad/fixed-wing streams and 3,137 causal updates, it improves
 aggregate prediction error **4.11% versus v8**, while reducing quad median/p95
-update time **47.63% / 49.76%**. Quad updates still take roughly 40 ms against
-10 ms observations, so real-time fitting remains unqualified.
+update time **47.63% / 49.76%**. A subsequent projection-reuse optimization reduces
+whole-update snapshot medians a further **19.17% for quads / 4.85% for fixed wings**,
+to roughly **32 ms / 8 ms**, without shrinking the model. These are separate
+benchmarks; real-time fitting remains unqualified against 10 ms quad observations.
 
 With equal fresh fitting budgets, aggregate offline forecast/command-response
 errors improve **8.29% / 9.78%** versus v8. The unchanged Dart task misses by **3.67 mm
@@ -86,8 +88,9 @@ performance. Closing that fitting-pipeline gap is distinct from choosing the
 memory architecture.
 
 See [the migration evidence](docs/accumulator-migration.md) for the offline
-forecast/response comparisons and adoption decision, [status](docs/status.md) for
-remaining gaps, and [the network review](docs/network-review.md) for the next
+forecast/response comparisons, [projection-reuse evidence](docs/history-projection-reuse.md)
+for the speedup and retained numerical/tail differences, [status](docs/status.md)
+for remaining gaps, and [the network review](docs/network-review.md) for the next
 optimization. Generalization, independent error coverage and live closed-loop
 identification remain limited.
 

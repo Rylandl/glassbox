@@ -60,14 +60,22 @@ PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 uv run python \
   scripts/qualify_accumulator.py verify --index docs/accumulator-migration.json
 ```
 
-Replay current predictions without fitting:
+The subsequent [projection-reuse comparison](docs/history-projection-reuse.md)
+checks saved-model predictions, derivatives and whole-update snapshots without
+refitting. Its report includes the saved-data verification command and records
+strict numerical flags separately from the adoption decision.
+
+For the migration's historical bitwise prediction replay, use source `6e29c4b`
+and run without fitting:
 
 ```bash
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 uv run python \
   scripts/qualify_accumulator.py replay --index docs/accumulator-migration.json
 ```
 
-Exact replay uses the recorded CPU/arm64 runtime: CPython 3.12.12,
+The projection refactor changes floating-point grouping, so current source does
+not promise bitwise reproduction of the migration's predictions. Historical exact
+replay uses the recorded CPU/arm64 runtime: CPython 3.12.12,
 JAX/jaxlib 0.11.1, NumPy 2.5.3 and SciPy 1.18.1, with ambient JAX float32 and
 float64 fitting. Ordinary tests cover supported installations; bitwise replay
 on other runtimes is not promised.

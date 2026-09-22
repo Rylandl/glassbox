@@ -11,11 +11,11 @@ vehicle-family, layout, mass or inertia inputs. The public API remains
 | --- | --- |
 | Architecture | Shared gravity, rigid-body mechanics and frames; linear, quadratic and nonlinear acceleration heads; all 100 ms lag inputs; eight stable accumulators with learned time constants. No catalog or consumer tuning option. |
 | Online accuracy | Six known streams / 3,137 causal updates: equal-family velocity/rate error improves **4.11% versus v8**, rate **4.01%**, velocity **4.22%**, worst-decile **5.33%**. All frozen online accuracy/speed checks pass. |
-| Runtime | Quad median/p95 update time falls **47.63% / 49.76%**; fixed-wing **16.60% / 16.01%**. Quad updates are roughly 40 ms against 10 ms observations; real-time fitting remains unqualified. |
+| Runtime | Accumulator migration reduced quad median/p95 update time **47.63% / 49.76%** versus v8. The subsequent history-projection refactor reduces snapshot medians a further **19.17% for quads / 4.85% for fixed wings**: about **32 ms / 8 ms**. These are separate comparisons, not a combined trajectory benchmark. Real-time fitting remains unqualified. |
 | Offline accuracy | Across the full known flight query set, forecast/response errors improve **8.29% / 9.78% versus fresh equal-budget v8**, and **6.19% / 2.23% versus deployed v8 revisions**. Cascade velocity response remains worse than the deployed revision. All frozen aggregate/derivative checks pass. |
 | Dart | Same controller, task and fitting budget: accumulator **3.669 mm**, fresh v8 **3.597 mm**. Both pass attitude/speed checks with finite derivatives and miss the strict 1 mm target. Historical **0.720 mm** used a separately refined v8 revision; it is not current accumulator performance. |
 | Model size | 10,130 → **8,714** parameters at four commands / 10 ms; 3,399 → **3,103** at three commands / 50 ms. Dimensions follow recordings, not vehicle type. |
-| Derivatives and persistence | All 60 finite-difference directions pass across three arms. The maintained model exactly replays the saved offline forecasts without fitting. 471 full-suite tests, five added harness tests, and 25 installed-wheel checks pass. A redundant repeat was interrupted after 94 passes; it adds no completion claim. Old v8 archives require their historical source or a new fit. |
+| Derivatives and persistence | Migration passed all 60 finite-difference directions and exact offline replay, with 471 full-suite, five added harness and 25 installed-wheel checks. The projection refactor passes all 18 saved-model prediction/JVP/VJP comparisons and 32 focused tests. Accumulator archives remain compatible, but regrouped arithmetic changes rounding and fitted weights; strict post-update tolerances fail on some snapshots. Old v8 archives require historical source or a new fit. |
 | Calibration and scope | Offline envelopes use development data that also select the fit. Independent coverage, long-horizon accuracy, broad configuration generalization and current-model closed-loop online recovery remain open. |
 
 ## Adoption decision
@@ -34,15 +34,22 @@ initialization diagnosis remain historical evidence, not maintained alternatives
 The correction preserves the original current-feature projection scale; changing
 matrix size must not silently strengthen the initialization again.
 
+The [history-projection refactor](history-projection-reuse.md) is also adopted.
+It preserves model capacity and reduces equal-family whole-update snapshot
+median cost by 12.30%. All update acceptance decisions match. The largest
+post-update differences are 0.0000126 m/s and 0.0000963 rad/s; strict numerical
+flags and one slower latency tail remain reported. These are acceptable tradeoffs
+for the measured gain, not reasons to launch another fitting sweep.
+
 ## Next iteration
 
-**Reuse history projections across acceleration-head integration stages.**
-The [network review](network-review.md) identifies repeated work that can be
-removed without dropping lag inputs or shrinking the nonlinear head. Freeze a
-focused saved-revision prediction/derivative comparison and whole-update timing;
-then test that one algebraic refactor. Do not launch another offline fitting
-sweep merely to measure an unchanged function.
+**Parallelize the observed command-filter history calculation.** Its current
+sequential scan has fixed exponential coefficients during a prediction. Test a
+stable parallel prefix or convolution while preserving the first-command initial
+condition and derivatives through learned time constants. Freeze a focused
+comparison of saved predictions, derivatives and complete update cost before
+implementation. The [network review](network-review.md) explains the motivation.
 
-The remaining linear command-filter scan and solver conditioning are subsequent
-opportunities. Reproducing the refined offline fit, reducing fixed-wing residuals,
-calibration and live recovery remain separate improvement work.
+Solver conditioning is the following opportunity. Reproducing the refined offline
+fit, reducing fixed-wing residuals, calibration and live recovery remain separate
+improvement work.

@@ -10,6 +10,8 @@
   comparisons, deployed-model evidence and the adoption decision.
 - [Network review](network-review.md): parameter inventory and the next
   opportunities to remove repeated computation.
+- [History projection reuse](history-projection-reuse.md): adopted computation
+  change, whole-update timings and numerical differences.
 - [Historical v8 online fitting](online-fitting.md): causal quad/fixed-wing results, bounded backtracking,
   verification and remaining accuracy/runtime gaps.
 - [Online cost profile](online-cost-profile.md): native update timings, retained

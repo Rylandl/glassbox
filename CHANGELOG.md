@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+Reuse the centered history projection across acceleration integration stages.
+Model capacity, saved accumulator archives and fitting settings remain unchanged.
+Whole-update snapshot medians improve 19.17% for quads and 4.85% for fixed wings;
+strict post-update numerical flags and one tail regression remain documented in
+[the comparison](docs/history-projection-reuse.md).
+
 Replace nonlinear recurrent memory with eight learned stable accumulators. The
 same fit/predict/update workflow, shared mechanics and full lag inputs remain.
 Recorded history is reduced in parallel; quad online update time falls roughly

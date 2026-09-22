@@ -85,7 +85,7 @@ no unsuccessful cells were discarded.
 All **60 numerical derivative directions** across the three arms pass centered
 finite-difference checks on both simulators and held-out Dart queries. This
 establishes mathematical derivative fidelity at those queries, not physical
-control-response accuracy everywhere. The maintained package exactly replays all
+control-response accuracy everywhere. The migration source exactly replays all
 17 saved forecast/availability arrays for its three revisions, without fitting
 or optimizer calls.
 
@@ -143,12 +143,14 @@ additional offline/model-binding tests and all 25 installed-wheel lifecycle
 checks passed afterward. Ruff passes. A redundant full-suite repeat was stopped
 after 94 passes to release compute; it is recorded as interrupted, not completed.
 
-Current package source matches the qualified accumulator source. Model and
-streaming-session archive formats have changed. Historical v8 archives cannot
+The migration package matched the qualified accumulator source. Its model and
+streaming-session archive formats changed. Historical v8 archives cannot
 be converted by relabeling metadata; use their historical checkout or refit.
 The live external Dart launcher was not rewritten: qualification uses the
 preserved controller snapshot and Glassbox's maintained motion adapter.
 
-The next iteration is the focused computation-reuse experiment described in
-[the network review](network-review.md), not another architecture sweep or an
-attempt to make every recorded benchmark cell improve.
+The subsequent [projection-reuse change](history-projection-reuse.md) preserves
+accumulator archives and model capacity while changing floating-point grouping.
+Use migration source `6e29c4b` for the historical bitwise replay; the new comparison
+reports numerical differences explicitly. The [network review](network-review.md)
+records the next computation opportunity.
