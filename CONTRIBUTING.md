@@ -1,9 +1,9 @@
 # Contributing
 
 Read [the charter](docs/charter.md) and [current status](docs/status.md) before
-starting an iteration. Glassbox maintains one learner and one fixed recipe.
-Fitted weights vary by configuration; consumer flags and vehicle-family branches
-do not select different dynamics implementations.
+starting an iteration. Glassbox maintains one generic learner and one fixed
+recipe. Fitted weights vary by configuration; consumer flags and vehicle-family
+branches do not select different dynamics implementations.
 
 ## Development
 
@@ -16,259 +16,118 @@ uv build
 ```
 
 Tests exercise analytic motion, recording boundaries, gradients, persistence,
-immutable updates and forecast scoring. Lifecycle tests use explicitly shortened
-internal training budgets; they do not claim accuracy for a production fit. CI
-also installs the wheel into a separate environment and runs the CLI, evaluation
-and learner tests outside the checkout.
+immutable updates and forecast scoring. Lifecycle tests use shortened internal
+training budgets; they do not establish production-fit accuracy. CI also tests
+the installed wheel's CLI, forecast and learner lifecycle outside the checkout.
 
-## Evaluation and changes
+## Decide with evidence
 
-Work on one named gap. Freeze and commit the evaluation protocol before fitting
-or collecting new results. Use held-out recordings and report physical errors,
-large-error cases and all attempted conditions. Model accuracy, envelope coverage,
-computable derivatives and controller task success are separate claims.
+Work on one named gap. Commit the measurement contract before fitting or
+collecting results. Distinguish model accuracy, calibration, mathematical
+derivatives, controller outcomes and runtime. Compare changed architectures
+under matched fitting conditions; retain deployed revisions as a separate
+practical reference.
 
-For a behavior-preserving change, replay saved inputs against their saved outputs
-before replacing the implementation. Verify that an altered artifact is rejected.
-Record numerical results and remaining limits in the current status and the
-iteration's report. Historical verdicts are not rewritten after a policy decision
-or a later success.
+Preserve frozen outcomes and every attempted condition. Interpret regressions
+in the overall decision: generality, accuracy, runtime and maintainability all
+matter. An isolated loss is not automatically a veto. Broken contracts, invalid
+numerics and substantial consistent capability losses need resolution. Explain
+what a comparison actually establishes before adding another experiment.
 
-Keep active code small: delete superseded implementations, interfaces, tests and
-one-off experiment tooling. Preserve the evidence needed to support current claims
-and the recordings needed for the next iteration before deleting their obsolete
-containers. Git retains committed history.
+For an algebraic refactor, first use saved inputs to compare predictions,
+derivatives and genuine update snapshots. Measure the whole update; component
+compiler timings are not additive CPU shares. Refit or rerun a consumer only
+when changed behavior or unresolved evidence warrants it.
 
-## Replay the adopted baseline
+Delete superseded implementations instead of retaining compatibility branches.
+Preserve current evidence and useful recordings; Git holds historical source.
+Controllers, simulators and telemetry conversion belong to their own projects.
 
-The local `artifacts/baseline` directory contains the three adopted models,
-retained recordings and saved evaluation inputs/outputs. It is deliberately
-outside Git and the Python distribution. For another checkout, copy this whole
-directory from the preserved evidence pack; its manifest must match the hash in
-[docs/baseline.json](docs/baseline.json).
+## Verify the accumulator evidence
+
+The current [migration index](docs/accumulator-migration.json) identifies the
+saved fitted revisions, online comparison, offline predictions and Dart trials.
+Evidence packs are outside Git and the Python distribution. Keep their recorded
+paths, or update paths in a local copy of the index without changing authorities.
+Do not alter payloads or their manifests.
+
+The saved-data verification authenticates the fit pack and evaluation packs,
+recomputes physical errors, and checks saved finite-difference evidence without
+fitting or calling a model:
 
 ```bash
-env -u JAX_ENABLE_X64 SCIPY_ARRAY_API=1 uv run python \
-  scripts/verify_baseline.py artifacts/baseline --dart-root /path/to/dart
+PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 uv run python \
+  scripts/qualify_accumulator.py verify --index docs/accumulator-migration.json
 ```
 
-Exact replay requires the recorded runtime: CPython 3.12.12, JAX 0.11.1,
-NumPy 2.5.3 and SciPy 1.18.1, on CPU/arm64 with JAX default32. The verifier
-checks runtime and payload hashes before predictions. A different supported
-installation can run the ordinary tests; bitwise baseline equivalence across
-other backends or versions has not been established.
+Replay current predictions without fitting:
 
-The optional Dart path supplies the unchanged external objective and contact
-scorer; their source hashes are checked. A complete run reproduces all 12,768
-saved flight arrays, 40 selected Dart trajectories and 4,144 objective/gradient
-evaluations without fitting, optimizing or simulating. Omitting `--dart-root`
-still checks the models, flight arrays, selected trajectories and independent
-contact reconstruction, but reports `complete: false` and zero gradient replays.
-The result is a preservation check on existing evidence, not a fresh flight trial.
+```bash
+env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 uv run python \
+  scripts/qualify_accumulator.py replay --index docs/accumulator-migration.json
+```
 
-## Reproduce Dart precision
+Exact replay uses the recorded CPU/arm64 runtime: CPython 3.12.12,
+JAX/jaxlib 0.11.1, NumPy 2.5.3 and SciPy 1.18.1, with ambient JAX float32 and
+float64 fitting. Ordinary tests cover supported installations; bitwise replay
+on other runtimes is not promised.
 
-The preserved `artifacts/dart-precision-v1/dart-original` snapshot supplies the
-old objective for the baseline verifier after Dart's live objective changes.
-The winning consumer is `artifacts/dart-precision-v1/dart-lateral`. The evidence
-pack and its identities are described in [the precision result](docs/dart-precision.md).
-Use the same pinned runtime as the baseline, with Dart/Crazyflow installed.
-The scripts import Glassbox from this checkout and require a clean Git commit.
+The online comparison also has an independent saved-array audit:
 
-A fresh nominal run uses the one retained frozen controller protocol:
+```bash
+PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 uv run python \
+  scripts/screen_accumulator.py verify \
+  --output artifacts/accumulator-migration-v1/online \
+  --manifest-sha256 65be54facc67666bdc2a60d55e414b5b47574eed85523dd09c9efc04fac73024
+```
+
+Its paired timings used exclusive alternating blocks; the offline fits and Dart
+trials ran alongside other work and do not support a latency comparison.
+
+## Reproduce experiments deliberately
+
+The migration report records scientific commits and protocols. Use those
+checkouts to reproduce a historical fit or trial, with a fresh output directory.
+The six-fit comparison intentionally imports v8 from a separate historical
+checkout; the maintained package contains only the accumulator. A benchmark
+protocol is an internal measurement contract, not a product tuning interface.
+
+The current Dart runner defaults to the model-bound accumulator protocol and
+uses the preserved external controller snapshot:
 
 ```bash
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
   scripts/run_dart.py artifacts/baseline \
   --dart-root artifacts/dart-precision-v1/dart-lateral \
-  --output artifacts/dart-precision-reproduction
+  --output artifacts/accumulator-dart-reproduction
 ```
 
-The output directory must not exist. This performs controller optimization and
-native simulation with the existing learned model; it does not fit a model.
-Compare the issued commands, native states and numerical scores with
-`native-lateral`, rather than runtime-dependent journal/manifest bytes.
-The original scientific run used commit `ddbefa793f4b0be0e19f6e996130612a749298b8`.
-Earlier protocols and the completed attribution tool remain in their recorded
-Git commits, not as maintained alternatives.
+This runs optimization and native simulation with the saved revision, not a fit.
+The fresh accumulator trial missed by 3.67 mm; it did not meet the strict 1 mm
+benchmark. The 0.720 mm result belongs to a different, historically refined v8
+revision. Do not present it as current accumulator performance.
 
-The arithmetic-precision audit independently replays the **preserved winning
-command tape**, without model or controller calls. Its supplemental protocol
-pins that exact trial and does not automatically certify a new run:
+## Historical evidence
 
-```bash
-env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
-  scripts/audit_dart_resolution.py artifacts/baseline \
-  artifacts/dart-precision-v1/native-lateral \
-  --dart-root artifacts/dart-precision-v1/dart-lateral \
-  --protocol docs/harness/dart-lateral-precision-v1.json \
-  --trial-manifest-sha256 e44c9794c859cbefa1290a4dbdfac45176be8004ffc5b429ff01ffcda61eaa91 \
-  --output artifacts/dart-resolution-reproduction
-```
-
-The original float32 convergence failure remains in
-`artifacts/dart-precision-v1/lateral-resolution-audit`. A fresh trial, target or
-control change requires a new prospective measurement contract.
-
-## Reproduce streaming fitting
-
-The active [v8 bounded-solver comparison](docs/harness/online-fit-v8.json) reuses
-the exact sealed v1 collection and two known Cascade recordings. It refuses
-changed inputs and compares against adopted v6 on all 3,137 rows. The old Throw
-controller collected issued commands and observations; it is not the candidate
-or a matched-input accuracy comparator.
-
-Commit source and choose a new output directory. With the preserved packs:
-
-```bash
-env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
-  scripts/evaluate_online.py run artifacts/online-fit-v1/collection \
-  --collection-sha256 276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4 \
-  --protocol docs/harness/online-fit-v8.json \
-  --reference artifacts/online-fit-v6/evaluation \
-  --output artifacts/online-fit-v8-reproduction
-```
-
-Verify errors, first-acceptable step decisions and the causal journal without
-fitting, using the evaluation manifest hash printed by the run. The authenticated
-v6 reference pack, including its v4/v2 references, is verified too:
-
-```bash
-PYTHONPATH=src:scripts python scripts/evaluate_online.py verify \
-  artifacts/online-fit-v8-reproduction \
-  --manifest-sha256 EVALUATION_MANIFEST_SHA256
-python scripts/verify_online_v8.py artifacts/online-fit-v8-reproduction \
-  EVALUATION_MANIFEST_SHA256 --output independent-audit.json
-```
-
-The second verifier uses independent NumPy/SciPy arithmetic with no Glassbox/JAX
-imports or model/optimizer calls. Its scalar decision audit does not independently
-regenerate each trial loss. [The current result](docs/online-fitting.json) pins
-the scientific source (`899e0d9`), runtime and measured artifact authority.
-
-The [saved-session cost profile](docs/harness/online-cost-profile-v1.json) keeps
-all fifteen package files unchanged. It replays genuine next observations on
-fresh disposable sessions and probes final retained caches without inventing a
-next observation. Run it alone, after committing its harness, in the pinned
-runtime and with a new output directory:
-
-```bash
-env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
-  scripts/profile_online_cost.py artifacts/online-fit-v8/evaluation \
-  --output artifacts/online-cost-profile-reproduction
-python scripts/verify_online_cost.py artifacts/online-cost-profile-reproduction \
-  --manifest-sha256 PROFILE_MANIFEST_SHA256 --source-root .
-```
-
-The second command uses saved arrays and source, with no learner or JAX imports.
-Omit `--source-root` to audit the sealed pack after moving on to another source
-revision; supply the recorded checkout to additionally check its complete bound
-source inventory. Component prefixes and cached derivative actions are diagnostic,
-nonadditive compiler scopes. Only the nested observe/snapshot times are additive;
-repeated fixed snapshots do not establish real-time trajectory performance.
-Finite numerical qualification failures are retained while collecting the fixed
-roster; a completed but unqualified profile exits unsuccessfully and preserves
-its failed checks. See [the profile result](docs/online-cost-profile.md).
-
-Historical source-bound trace, reconstruction, head and backtracking tools must
-run from their recorded scientific checkouts, including their `verify` commands:
-they authenticate the complete original source inventory. Their commands below
-are relative to those checkouts. The current `evaluate_online.py verify` instead
-checks saved arrays and supports sealed historical packs without loading their
-old learners. Current v8 fitting uses the single maintained implementation.
-
-The rejected v5 solver-consistency experiment is reproducible from source
-`5db9059`, using its frozen `online-fit-v5.json` protocol and the v4 evaluation
-as `--reference`. Current verification still audits its sealed pack and nested
-v4/v2 references with zero fits; current runs use the maintained v8 fitter.
-See [the failed primary result](docs/online-fit-v5.json).
-
-The rejected [v7 domain experiment](docs/online-fit-v7.md) is reproducible from
-source `3ca9498`, with protocol `online-fit-v7.json` and the adopted v6 evaluation
-as `--reference`. Current saved-array verification preserves its v7 domain
-arithmetic and 23 causal captures without loading or maintaining a v7 learner.
-The separate diagnostic driver in its checks directory invokes the unchanged
-snapshot diagnostics from that committed source after authenticating the v7
-pack; its sealed result authority is in [the index](docs/online-fit-v7.json).
-
-The preceding v4 result is reproducible from source `8053938`; its sealed pack
-is the historical v6 primary comparator. V6 scientific source `2e465a4` uses
-`online-fit-v6.json` against v4; its saved results are now the v8 primary comparator.
-
-The v2 optimizer result is reproducible from source `a43d2dc`; its sealed pack
-supplies the v4 primary comparator. The failed coordinate-only v3 run is
-reproducible from source `492a521` and retains its original verdict. The original v1 procedure and native
-collection are reproducible from source
-commit `ecf488e`, using the original Throw virtualenv for `collect_throw.py` and
-the current-runtime dependencies for fitting. Do not run the new optimizer under
-the old candidate protocol. A fresh collection requires its own frozen input
-contract. These replays establish neither candidate-controlled recovery nor
-blind generalization across platforms.
-
-## Reproduce the causal fixed-wing diagnosis
-
-The historical [v2 trace](docs/harness/online-causal-trace-v2.json) uses adopted v6
-and recovers 23 snapshots across all 450 fixed-wing updates. Source `7dee1b4`
-reproduces it with the commands below, replacing the input with
-`artifacts/online-fit-v6/evaluation` and explicitly passing
-`--protocol docs/harness/online-causal-trace-v2.json` to `run`. Its read-only
-verification also checks angular head increments and physical Jacobian blocks.
-See [the result](docs/online-angular-response.md).
-
-The [frozen causal trace](docs/harness/online-causal-trace-v1.json) diagnoses the
-working v4 fitter on its authenticated saved fixed-wing inputs. It replays all
-450 updates to recover the exact contemporaneous model state at 20 declared
-origins; this is a diagnostic replay, not a new candidate or blind evaluation.
-Use source `5648d13` for this historical v4 replay and choose an output
-directory that does not exist:
-
-```bash
-env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
-  scripts/trace_online.py run artifacts/online-fit-v4/evaluation \
-  --output artifacts/online-causal-trace-reproduction
-```
-
-Use the same pinned runtime as the original online evaluation. Verification
-loads the captured sessions, checks their causal caches and original predictions,
-and recomputes every integration diagnostic **without optimizer updates**:
-
-```bash
-env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
-  scripts/trace_online.py verify artifacts/online-causal-trace-reproduction \
-  --manifest-sha256 TRACE_MANIFEST_SHA256
-```
-
-The scientific source is `5648d13`. The learner source inventory must match the
-authenticated v4 binding exactly; future changes require the recorded source
-checkout for replay. See [the findings](docs/online-causal-trace.md).
-
-## Reproduce physical-head support diagnosis
-
-From frozen source `724fc02` and the authenticated causal-trace pack:
-
-```bash
-env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
-  scripts/diagnose_online_support.py \
-  --reference artifacts/online-causal-trace-v1/diagnosis \
-  --output artifacts/online-response-support-reproduction
-```
-
-This performs no fits: it transforms saved coefficients and features, computes
-support/nullspace diagnostics, and crosses two observed histories/current commands
-under identical weights. Counterfactual pairs have no truth score. See
-[the bounded interpretation and authority](docs/online-response-support.md).
+`artifacts/baseline` and [its index](docs/baseline.json) preserve the old v8
+models, recordings and exact replay evidence. Those model/session archives are
+not compatible with the accumulator. Use source `7b118d6` for the old
+`verify_baseline.py` model replay and the source revisions recorded in
+[online evidence](docs/online-fitting.md), [cost profiling](docs/online-cost-profile.md)
+and [Dart precision](docs/dart-precision.md) for their experiments. Saved-data
+verification can still audit historical outcomes without maintaining old dynamics
+inside the package.
 
 ## Package boundaries
 
-- `learner.py` owns fit, predict, update and saved model revisions.
-- `_dynamics.py` implements the shared motion formulation and fitting arithmetic.
-- `online.py` owns causal streaming ingestion, bounded replay and persistent fitting state.
-- `recordings.py` owns timing, segment boundaries and extraction.
-- `io/recordings.py` stores and loads recording archives.
-- `workflows/forecast.py` scores independent recordings without learning.
-- `cli/` exposes only fit and evaluate.
+- `learner.py`: fit, predict, update and immutable saved revisions.
+- `_dynamics.py`: shared mechanics, learned acceleration and memory.
+- `online.py`: causal streaming ingestion, bounded replay and fitting state.
+- `recordings.py`: timing, segment boundaries and window extraction.
+- `io/recordings.py`: recording archive persistence.
+- `workflows/forecast.py`: independent evaluation without learning.
+- `cli/`: fit and evaluate only.
 
-Examples and documentation use the public model API. Keep telemetry meaning and
-coordinate conversion at the application boundary; never silently invent absent
-units, frames, timing or command semantics. Controllers and simulators belong to
-their own projects.
+Applications own signal meaning, frames, units and clock alignment. Do not infer
+absent telemetry semantics or silently substitute actuator states for issued
+commands.

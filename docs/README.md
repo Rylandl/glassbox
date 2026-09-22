@@ -6,7 +6,11 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
-- [Online fitting](online-fitting.md): causal quad/fixed-wing results, bounded backtracking,
+- [Accumulator migration](accumulator-migration.md): matched architecture
+  comparisons, deployed-model evidence and the adoption decision.
+- [Network review](network-review.md): parameter inventory and the next
+  opportunities to remove repeated computation.
+- [Historical v8 online fitting](online-fitting.md): causal quad/fixed-wing results, bounded backtracking,
   verification and remaining accuracy/runtime gaps.
 - [Online cost profile](online-cost-profile.md): native update timings, retained
   diagnostic failures and the next derivative-cost experiment.

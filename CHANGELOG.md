@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Replace nonlinear recurrent memory with eight learned stable accumulators. The
+same fit/predict/update workflow, shared mechanics and full lag inputs remain.
+Recorded history is reduced in parallel; quad online update time falls roughly
+by half on the known paired benchmark, with slightly better aggregate accuracy.
+Model and online-session archive formats change; refit old revisions or use
+their historical checkout. No legacy dynamics implementation or model selector
+is retained. See [migration evidence](docs/accumulator-migration.md).
+
 Adopt the supported shared-physics learner as Glassbox's single public dynamics
 implementation. The API is `fit(recordings)`, `model.predict(...)`, immutable
 `model.update(recordings)` and fingerprinted save/load. Recordings describe

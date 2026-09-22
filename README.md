@@ -67,27 +67,29 @@ not a quick test or physical validation.
 
 ## Current evidence
 
-The supported shared-physics learner is the single maintained implementation. Its
-saved Dart revision now reaches **0.720 mm nominal contact miss** through a
-radius-aware lateral objective and 10 ms feedback, with **0.93° axis error** and
-all **9,874 objective/gradient evaluations finite**. The learned model is unchanged.
-Fine-grid float64 replay confirms **0.756 mm** with submicrometer convergence;
-the original float32 convergence failure remains documented. This is one known
-seeded simulated task, not broad control reliability or real-time qualification.
-See [the full precision result](docs/dart-precision.md), including every attempt.
+The accumulator is the single maintained dynamics formulation. It retains shared
+rigid-body physics, all 100 ms lag inputs, a nonlinear acceleration head and
+learned memory time constants. A parallel history reduction replaces nonlinear
+recurrent memory; there is no vehicle-family selector or smaller-model option.
 
-The streaming fitter reduces aggregate one-step velocity/rate error **41.76%
-against adopted v6** across four quad and two fixed-wing tapes (87.73% versus
-frozen startup fits). All twelve primary case/metric comparisons improve, along
-with tail and angular aggregates. Quad update p95 is now 78–93 ms against 10 ms
-observations; fixed-wing accuracy remains worse than the no-fit kinematic
-baseline. Live controller adoption is unqualified. See
-[the online result](docs/online-fitting.md).
+Across six known quad/fixed-wing streams and 3,137 causal updates, it improves
+aggregate prediction error **4.11% versus v8**, while reducing quad median/p95
+update time **47.63% / 49.76%**. Quad updates still take roughly 40 ms against
+10 ms observations, so real-time fitting remains unqualified.
 
-Forecast and response errors across Crazyflow and Cascade remain improvement
-work, including wind cases and longer horizons. Error-envelope calibration and
-physical derivative accuracy remain limited. See [status](docs/status.md) for the
-measured gaps and [the learner contract](docs/learner.md) for model scope.
+With equal fresh fitting budgets, aggregate offline forecast/command-response
+errors improve **8.29% / 9.78%** versus v8. The unchanged Dart task misses by **3.67 mm
+with the accumulator and 3.60 mm with v8**. Both retain valid gradients and pass
+attitude/speed limits; both miss the strict 1 mm target. The historical **0.720 mm**
+result used a separately refined v8 revision and is not current accumulator
+performance. Closing that fitting-pipeline gap is distinct from choosing the
+memory architecture.
+
+See [the migration evidence](docs/accumulator-migration.md) for the offline
+forecast/response comparisons and adoption decision, [status](docs/status.md) for
+remaining gaps, and [the network review](docs/network-review.md) for the next
+optimization. Generalization, independent error coverage and live closed-loop
+identification remain limited.
 
 [Development guide](CONTRIBUTING.md) · [Documentation](docs/README.md) ·
 [Apache-2.0 license](LICENSE)

@@ -79,6 +79,20 @@ precision. Fitting uses float64. Mathematical derivatives and finite optimizer
 callbacks do not establish physical command-response fidelity. Means beyond
 `horizon_steps` are recursive extrapolations, without calibrated error envelopes.
 
+## Dynamics structure
+
+Shared gravity, frame transforms and rigid-body integration surround one learned
+acceleration model. The model combines a linear head, quadratic current-feature
+head and 32-unit nonlinear head. It retains the preceding 100 ms of sampled
+feature differences and eight bounded latent accumulators with learned positive
+time constants. Issued-command filters have learned time constants as well.
+
+The accumulators use a nonlinear drive of observed motion and commands, followed
+by stable exponential accumulation. Recorded history can be reduced in parallel;
+future memory advances once per observation interval. All parameters are learned
+per configuration, with command count inferred from the recordings. There are
+no hardcoded actuator roles or vehicle-family equations.
+
 ## Evidence and persistence
 
 `model.contract` describes signals and timing; `model.report` contains fitting,
@@ -92,10 +106,15 @@ uses development windows that also select the checkpoint; coverage on untouched
 recordings and shifts remains unqualified. These widths are not a safety bound.
 No envelope is extrapolated beyond the fitting horizon.
 
-The adopted saved revisions retain their fitting caches and usable predictions,
-but do not carry newly measured calibration for the supported formulation.
+Fresh offline revisions carry development-selected calibration; this is not
+independent coverage evidence. Streaming snapshots have no calibrated envelope.
 `envelope` raises an explicit error when calibration is unavailable. Do not treat
 absent uncertainty as zero uncertainty.
+
+The accumulator changes the saved model and streaming-session formats. Historical
+v8 archives require their recorded source checkout or a new fit; relabeling an
+old archive does not convert its dynamics. The public fit/predict/update workflow
+and recording semantics remain the same.
 
 ## Update and evaluate
 
