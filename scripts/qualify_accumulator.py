@@ -525,7 +525,7 @@ def verify(output, authorities):
     authenticate(baseline, spec["baseline"]["manifest_sha256"])
     summaries = {}
     require(
-        set(authorities) == {"baseline", "candidate", "incumbent"},
+        set(authorities) == set(spec["arms"]),
         "evaluation roster differs",
     )
     for arm, authority in authorities.items():
@@ -617,18 +617,19 @@ def verify(output, authorities):
                 )
             )
         summaries[arm] = dict(saved, derivatives=derivative)
+    references = [arm for arm in spec["arms"] if arm != "candidate"]
     result = dict(
         arms=summaries,
         comparisons={
             arm: compare(summaries["candidate"]["flights"], summaries[arm]["flights"])
-            for arm in ("baseline", "incumbent")
+            for arm in references
         },
         adopted=False,
     )
     result["checks"] = qualification_checks(result, spec)
     result["qualified"] = result["checks"]["derivatives"] and all(
         all(result["checks"][reference].values())
-        for reference in ("baseline", "incumbent")
+        for reference in references
     )
     return result
 
