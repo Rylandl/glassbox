@@ -1,0 +1,79 @@
+{
+  "id": "history-projection-reuse-v1",
+  "gap": "Remove repeated acceleration-head history projection without changing model capacity or fitting recipe.",
+  "intervention": "Combine linear and nonlinear input projections; reuse the start-of-sample centered history/memory projection across midpoint stages. Apply current-feature differences through the equivalent effective current weight. No parameter, initializer, normalization, integration, memory or optimizer changes.",
+  "parent": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/accumulator-migration-v1/online",
+    "manifest_sha256": "65be54facc67666bdc2a60d55e414b5b47574eed85523dd09c9efc04fac73024"
+  },
+  "fits": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/accumulator-migration-v1/offline-fits",
+    "manifest_sha256": "c248b4117bac2e6ca2bdfbd535ce450bb0fb7534e033f7588cec2e0d3799a80f"
+  },
+  "tapes": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+    "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"
+  },
+  "package_files": {
+    "src/glassbox/__init__.py": "ae2fc12240545a6c074649af99f93a41b2dc01d6614407006853104b67c0fac8",
+    "src/glassbox/_dynamics.py": "d27521f4604e7a2291a1d08d1e346b37cdb26b2bc54bfeb6c8663eede4f6cdcf",
+    "src/glassbox/_learner_arrays.py": "c7e33df1421b50b49ea24c65230360a231a9b72772536118a876e986a8e0d4c9",
+    "src/glassbox/_training.py": "68893a05e827686ea1883ec2e4c06d37c16995bbf68301d28393e7716a65f6be",
+    "src/glassbox/cli/__init__.py": "ee0147e8e574e5cd4187140b4aa19c4a338f48d492cbfbf8f8a57f5c81a08653",
+    "src/glassbox/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/glassbox/core/dynamics.py": "1bcb06a181e92ad91b3ade450138febd4f1c8a26c1dc4759ad2013605f59c57c",
+    "src/glassbox/core/geometry.py": "5398de6edeba68ff1dc1fea6064e509d31725f96c2d1368cbd87f058b9808cbb",
+    "src/glassbox/io/__init__.py": "5aaadf824431df13d997bcaa6bfed760989798991b7a71ca481a635ec0d732a3",
+    "src/glassbox/io/recordings.py": "ca030fd10c0619d14b423eed141e0071ad8c80d73d406bd7625e04d9ce9386bd",
+    "src/glassbox/learner.py": "3233483db85e7962f9ca7a712c2b276b172e4ab4162097bceb34fbf4ac689066",
+    "src/glassbox/online.py": "c1eaddeb4a20970b1931663aff83662978d71e5afe37cf8742999617eb2b1ba0",
+    "src/glassbox/recordings.py": "9e7f1ef7acab0ccd4f4e3a71458593d714497870083d42b660b2100eac462f9d",
+    "src/glassbox/workflows/__init__.py": "f3661c537b77d811e0140b64ca7884b5cfe1edc2f7a39607cef33bd1fa759e82",
+    "src/glassbox/workflows/forecast.py": "2671a257a59b591963d21690ac3e4c53e111f2e5a60d9a5d7adddddbe8141a9b"
+  },
+  "cases": [
+    "quad-arm-115",
+    "quad-arm-125",
+    "quad-arm-135",
+    "quad-change",
+    "fixedwing-80",
+    "fixedwing-81"
+  ],
+  "capture_offsets": [
+    0,
+    32
+  ],
+  "capture": "Replay unchanged baseline from its saved initial session to offsets 0 and32; verify every consumed transition against the authenticated original accumulator journal. Save the same baseline snapshots for both workers. No initializations or new offline fits.",
+  "offline_queries": "First8 retained development windows from each of the three saved candidate fits, full cached250ms horizon, both float32 andfloat64. Compare predictions, unit-direction combined parameter/future-command JVP and normalized-cotangent VJP; seed917 per model/precision. Dynamic traced parameters, no refitting.",
+  "timing": {
+    "warmups": 3,
+    "blocks": 5,
+    "repeats_per_block": 5,
+    "scope": "Entire public observe plus immutable model snapshot and synchronization, from freshly loaded identical saved sessions; load/save/hash/prediction outside timed call. All25 retained timings per point. Two processes alternate exclusive blocks; warmup/qualification blocks also exclusive. No concurrent tests/fits. Record every interval and first-call/warmup timing separately.",
+    "roster": "12 genuine next-observation points,6 cases at initial and32-updates. No fabricated final observation. Repeated snapshots are latency diagnostics, not a new streaming trajectory or real-time qualification."
+  },
+  "tolerance": {
+    "float32_prediction": {
+      "rtol": 2e-05,
+      "atol": 2e-05
+    },
+    "float64_prediction": {
+      "rtol": 1e-09,
+      "atol": 1e-09
+    },
+    "float32_derivative": {
+      "rtol": 0.0002,
+      "atol": 0.0002
+    },
+    "float64_derivative": {
+      "rtol": 1e-07,
+      "atol": 1e-08
+    },
+    "post_parameters": {
+      "rtol": 1e-06,
+      "atol": 1e-08
+    }
+  },
+  "decision": "Interpret numerical tolerances as equivalence diagnostics, not automatic vetoes on harmless rounding. Require finite states/derivatives, unchanged archive/API/parameter identities, and inspect any changed step decision or substantial prediction difference. Recommend adoption for at least5% geometric-mean whole-update median reduction with no family slower by more than5%; otherwise reject extra complexity unless other concrete value appears. Preserve all attempts and raw timing values. No threshold adjustment after results.",
+  "verification": "Authenticate original packs and new sealed captures/workers. Recompute comparisons and timing summaries from saved arrays without model or optimizer calls. Re-run focused analytic model/online tests. Broaden only if actual differences warrant it."
+}
