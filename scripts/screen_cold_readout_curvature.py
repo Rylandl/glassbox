@@ -321,6 +321,19 @@ def score(data, dt):
                 ("all", 0, None),
                 ("first16", 0, 16),
                 ("after16", 16, None),
+                *(
+                    [("first100", 0, 100), ("after100", 100, None)]
+                    if len(data["row"]) > 100
+                    else []
+                ),
+                *(
+                    [
+                        ("pre4s", 0, int(np.searchsorted(data["time_s"], 4.0))),
+                        ("post4s", int(np.searchsorted(data["time_s"], 4.0)), None),
+                    ]
+                    if "time_s" in data and data["time_s"][0] < 4 <= data["time_s"][-1]
+                    else []
+                ),
             ]
         }
         result[name]["conditional"] = {
@@ -360,14 +373,18 @@ def run_case(parent, output, name, spec, started):
     baseline = OnlineFit(prefix)
     initial_times["baseline"] = time.perf_counter() - tick
     tick = time.perf_counter()
-    raw = RawReadout(prefix)
-    initial_times["raw"] = time.perf_counter() - tick
+    raw = RawReadout(prefix) if "raw" in UPDATING else None
+    if raw is not None:
+        initial_times["raw"] = time.perf_counter() - tick
     tick = time.perf_counter()
     candidate = CurvedReadout(prefix)
     initial_times["candidate"] = time.perf_counter() - tick
     frozen = baseline.model
+    sessions = {"baseline": baseline, "candidate": candidate.session}
+    if raw is not None:
+        sessions["raw"] = raw.session
     for key, value in frozen.arrays().items():
-        for session in (raw.session, candidate.session):
+        for session in sessions.values():
             exact(value, session.model.arrays()[key], "same fresh initialization")
     checkpoint(output / "initial.npz", **frozen.arrays())
     frozen_predict = jax.jit(lambda x, u, future: frozen.rollout(x, u, future))
@@ -376,6 +393,7 @@ def run_case(parent, output, name, spec, started):
         key: []
         for key in (
             "row",
+            "time_s",
             "truth",
             "origin",
             *ARMS,
@@ -384,8 +402,7 @@ def run_case(parent, output, name, spec, started):
             "conditional_rows",
             "conditional_truth",
             *(arm + "_conditional" for arm in ARMS),
-            "raw_phi",
-            "raw_target",
+            *(("raw_phi", "raw_target") if raw is not None else ()),
             "phi",
             "target",
             "mean",
@@ -405,11 +422,8 @@ def run_case(parent, output, name, spec, started):
                 commands[row : row + 1],
             )
             # Only currently available history/issued command enters the one-step prediction.
-            for arm, session in [
-                ("baseline", baseline),
-                ("raw", raw.session),
-                ("candidate", candidate.session),
-            ]:
+            for arm in UPDATING:
+                session = sessions[arm]
                 tick = time.perf_counter()
                 value = np.asarray(session.predict(x, u, future))[0]
                 data[arm + "_predict_s"].append(time.perf_counter() - tick)
@@ -419,11 +433,8 @@ def run_case(parent, output, name, spec, started):
             if offset % 16 == 0 and row + horizon <= len(commands):
                 data["conditional_rows"].append(row)
                 future = commands[row : row + horizon]
-                for arm, session in [
-                    ("baseline", baseline),
-                    ("raw", raw.session),
-                    ("candidate", candidate.session),
-                ]:
+                for arm in UPDATING:
+                    session = sessions[arm]
                     value = np.asarray(session.predict(x, u, future))
                     require(np.isfinite(value).all(), "nonfinite conditional forecast")
                     data[arm + "_conditional"].append(value)
@@ -434,6 +445,7 @@ def run_case(parent, output, name, spec, started):
             # Reveal the next observation only after every prediction above.
             following = states[row + 1]
             data["row"].append(row)
+            data["time_s"].append(tape["time_s"][row])
             data["truth"].append(following)
             data["origin"].append(states[row])
             shift = offset % len(UPDATING)
@@ -467,11 +479,12 @@ def run_case(parent, output, name, spec, started):
         data = {k: np.asarray(v) for k, v in data.items()}
         checkpoint(output / "predictions.npz", **data)
         checkpoint(output / "baseline-final.npz", **baseline.model.arrays())
-        checkpoint(
-            output / "raw-final.npz",
-            **raw.session.model.arrays(),
-            inverse=np.asarray(raw.inverse),
-        )
+        if raw is not None:
+            checkpoint(
+                output / "raw-final.npz",
+                **raw.session.model.arrays(),
+                inverse=np.asarray(raw.inverse),
+            )
         checkpoint(
             output / "candidate-final.npz",
             **candidate.session.model.arrays(),
@@ -571,37 +584,66 @@ def saved_coefficients(values):
 
 def verify_case(output, previous, parent, name, info, data, initial, final):
     old = arrays(previous / name / "predictions.npz")
-    for arm, old_arm in (
-        ("baseline", "baseline"),
-        ("raw", "candidate"),
-        ("frozen", "frozen"),
-    ):
-        for suffix in ("", "_conditional"):
-            exact(
-                data[arm + suffix], old[old_arm + suffix], "control prediction replay"
+    if "raw" not in UPDATING:
+        count = len(old["row"])
+        for key in (
+            "row",
+            "truth",
+            "baseline",
+            "candidate",
+            "frozen",
+            "phi",
+            "target",
+            "penalty",
+            "mean",
+        ):
+            exact(data[key][:count], old[key], "short prefix replay " + key)
+        query_count = len(old["conditional_rows"])
+        for key in (
+            "conditional_rows",
+            "conditional_truth",
+            "baseline_conditional",
+            "candidate_conditional",
+            "frozen_conditional",
+        ):
+            exact(data[key][:query_count], old[key], "short conditional replay " + key)
+        before = arrays(previous / name / "initial.npz")
+        for key in initial:
+            exact(initial[key], before[key], "same initialization")
+    else:
+        for arm, old_arm in (
+            ("baseline", "baseline"),
+            ("raw", "candidate"),
+            ("frozen", "frozen"),
+        ):
+            for suffix in ("", "_conditional"):
+                exact(
+                    data[arm + suffix],
+                    old[old_arm + suffix],
+                    "control prediction replay",
+                )
+        for key in ("phi", "target"):
+            exact(data["raw_" + key], old[key], "raw measurement replay")
+            np.testing.assert_allclose(
+                data[key], data["raw_" + key], rtol=2e-12, atol=1e-10
             )
-    for key in ("phi", "target"):
-        exact(data["raw_" + key], old[key], "raw measurement replay")
-        np.testing.assert_allclose(
-            data[key], data["raw_" + key], rtol=2e-12, atol=1e-10
-        )
-    for filename, old_filename in (
-        ("initial.npz", "initial.npz"),
-        ("baseline-final.npz", "baseline-final.npz"),
-        ("raw-final.npz", "candidate-final.npz"),
-    ):
-        before, after = (
-            arrays(previous / name / old_filename),
-            arrays(output / name / filename),
-        )
-        require(set(before) == set(after), "control model keys differ")
-        for key in before:
-            exact(after[key], before[key], "control model replay")
+        for filename, old_filename in (
+            ("initial.npz", "initial.npz"),
+            ("baseline-final.npz", "baseline-final.npz"),
+            ("raw-final.npz", "candidate-final.npz"),
+        ):
+            before, after = (
+                arrays(previous / name / old_filename),
+                arrays(output / name / filename),
+            )
+            require(set(before) == set(after), "control model keys differ")
+            for key in before:
+                exact(after[key], before[key], "control model replay")
     tape = arrays(parent / "inputs" / (name + ".npz"))
     states, commands = observed(tape["states"]), tape["commands"]
     start = saved_coefficients(initial)
     gram, rhs = info["ridge"] * np.eye(len(start)), info["ridge"] * start
-    maximum_error = 0.0
+    maximum_error = componentwise_error = 0.0
     for n, row in enumerate(data["row"]):
         penalty = numpy_penalty(initial, info, states, commands, row)
         np.testing.assert_allclose(data["penalty"][n], penalty, rtol=2e-12, atol=1e-10)
@@ -616,6 +658,12 @@ def verify_case(output, previous, parent, name, info, data, initial, final):
         )
         require(backward <= 1e-10, "regularized normal equations not solved")
         maximum_error = max(maximum_error, float(backward))
+        componentwise = np.max(
+            np.abs(system @ mean - rhs)
+            / np.maximum(np.abs(system) @ np.abs(mean) + np.abs(rhs), 1e-300)
+        )
+        require(componentwise <= 1e-10, "componentwise normal-equation error")
+        componentwise_error = max(componentwise_error, float(componentwise))
     np.testing.assert_allclose(final["gram"], gram, rtol=2e-12, atol=1e-8)
     np.testing.assert_allclose(final["rhs"], rhs, rtol=2e-12, atol=1e-8)
     exact(saved_coefficients(final), data["mean"][-1], "final readout")
@@ -648,10 +696,17 @@ def verify_case(output, previous, parent, name, info, data, initial, final):
 
     return dict(
         maximum_normal_equation_backward_error=maximum_error,
+        maximum_componentwise_backward_error=componentwise_error,
         final_penalized_objective={
             "initial": objective(start),
-            "raw": objective(
-                saved_coefficients(arrays(output / name / "raw-final.npz"))
+            **(
+                {
+                    "raw": objective(
+                        saved_coefficients(arrays(output / name / "raw-final.npz"))
+                    )
+                }
+                if "raw" in UPDATING
+                else {}
             ),
             "candidate": objective(data["mean"][-1]),
         },
@@ -696,7 +751,7 @@ def verify(output, authority):
         )
         s = info["scores"]
         ratios = {}
-        for phase in ("all", "first16", "after16"):
+        for phase in (k for k in s["candidate"] if k != "conditional"):
             ratios[phase] = {
                 k: s["candidate"][phase][k] / max(s["baseline"][phase][k], 1e-9)
                 for k in s["candidate"][phase]
@@ -736,23 +791,31 @@ def verify(output, authority):
                 count=len(data["row"]),
                 scores=s,
                 diagnosis=diagnosis,
-                primary_to_raw=geometric(
-                    [
-                        s["candidate"]["all"][k] / max(s["raw"]["all"][k], 1e-9)
-                        for k in ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
-                    ]
-                ),
-                horizon250_to_raw=geometric(
-                    [
-                        s["candidate"]["conditional"][str(round(0.25 / info["dt_s"]))][
-                            k
-                        ]
-                        / max(
-                            s["raw"]["conditional"][str(round(0.25 / info["dt_s"]))][k],
-                            1e-9,
-                        )
-                        for k in ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
-                    ]
+                **(
+                    dict(
+                        primary_to_raw=geometric(
+                            [
+                                s["candidate"]["all"][k] / max(s["raw"]["all"][k], 1e-9)
+                                for k in ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
+                            ]
+                        ),
+                        horizon250_to_raw=geometric(
+                            [
+                                s["candidate"]["conditional"][
+                                    str(round(0.25 / info["dt_s"]))
+                                ][k]
+                                / max(
+                                    s["raw"]["conditional"][
+                                        str(round(0.25 / info["dt_s"]))
+                                    ][k],
+                                    1e-9,
+                                )
+                                for k in ("velocity_rmse_m_s", "body_rate_rmse_rad_s")
+                            ]
+                        ),
+                    )
+                    if "raw" in UPDATING
+                    else {}
                 ),
                 ratios=ratios,
                 timing=times,
@@ -771,8 +834,7 @@ def verify(output, authority):
                 "primary",
                 "horizon250",
                 "median_ratio",
-                "primary_to_raw",
-                "horizon250_to_raw",
+                *(("primary_to_raw", "horizon250_to_raw") if "raw" in UPDATING else ()),
             )
         }
         for f in ("quad", "fixedwing")
@@ -793,11 +855,21 @@ def verify(output, authority):
 
 
 def main():
+    global PROTOCOL, ARMS, UPDATING
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("run", "verify"))
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--manifest-sha256")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run the separately frozen full-recording qualification",
+    )
     args = parser.parse_args()
+    if args.full:
+        PROTOCOL = ROOT / "docs/harness/cold-readout-curvature-full-v1.json"
+        ARMS = ("baseline", "candidate", "frozen")
+        UPDATING = ARMS[:-1]
     if args.mode == "verify":
         result = verify(args.output, args.manifest_sha256)
         write(args.output.parent / "verified.json", result)
