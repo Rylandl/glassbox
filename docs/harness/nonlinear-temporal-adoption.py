@@ -98,7 +98,12 @@ def main():
     )
     revision_authority = seal(output, "glassbox-temporal-finalized-revisions-v1")
 
+    return dict(revisions_manifest_sha256=revision_authority, replayed_arrays=count + 1)
+
+
+def compare_prior():
     # Supplemental, post-hoc comparison: do not replace frozen candidate results.
+    protocol = read(ROOT / "offline-evaluation/candidate/protocol.json")
     online_spec = read(ROOT / "online/candidate/protocol.json")
     authenticate(ROOT / "online", protocol["online_evidence"]["manifest_sha256"])
     for key in ("parent", "initial_sessions"):
@@ -123,7 +128,11 @@ def main():
                     read(folder / "case.json"),
                 )
                 previous = arrays(location / name / "predictions.npz")
-                exact(data["row"], previous["row"], "same online rows")
+                exact(
+                    data["row"],
+                    previous["origin" if reference == "v8" else "row"],
+                    "same online rows",
+                )
                 exact(data["truth"], previous["truth"], "same online truth")
                 info["reference_parameters"] = info["parameters"]
                 cases.append(summarize(data, info, previous[prediction_key]))
@@ -145,8 +154,8 @@ def main():
             comparisons=comparisons,
         ),
     )
-    print(dict(revisions_manifest_sha256=revision_authority, replayed_arrays=count + 1))
 
 
 if __name__ == "__main__":
-    main()
+    print(main())
+    compare_prior()
