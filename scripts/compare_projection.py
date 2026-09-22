@@ -362,10 +362,12 @@ def verify(output, authority):
                 median_s=float(np.median(times)), p95_s=float(np.quantile(times, 0.95))
             )
         decisions = {
-            arm: {
-                k: record["report"][k]
-                for k in ("accepted_proposals", "objective_calls")
-            }
+            arm: dict(
+                accepted_proposals=record["report"]["accepted_proposals"],
+                objective_calls=record["report"]["objective_calls"],
+                selected_alpha=record["report"]["last_proposal"]["selected_alpha"],
+                damping=record["report"]["damping"],
+            )
             for arm, record in records.items()
         }
         rows.append(

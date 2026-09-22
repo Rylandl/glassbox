@@ -52,6 +52,64 @@ def inputs(model, horizon=4, *, omega=None):
     )
 
 
+@pytest.mark.parametrize("x64", [False, True])
+@pytest.mark.parametrize("commands,delay", [(1, 2), (4, 10)])
+def test_centered_projection_preserves_head_and_all_input_derivatives(
+    x64, commands, delay
+):
+    with jax.enable_x64(x64):
+        rng = np.random.default_rng(73)
+        model = constant_model(commands, history=delay + 1, delay=delay)
+        params = {k: rng.normal(size=v.shape) * 0.05 for k, v in model.params.items()}
+        norms = {k: v.copy() for k, v in model.norms.items()}
+        width = 9 + 2 * commands
+        norms["feature_scale"][width : (delay + 1) * width] = 0.001
+        norms["quadratic_scale"][:] = 1000
+        anchor = rng.uniform(-32, 32, size=(2, width))
+        current = anchor + rng.normal(size=anchor.shape) * 0.003
+        history = anchor[:, None] + rng.normal(size=(2, delay, width)) * 0.001
+        hidden = rng.normal(size=(2, 2))
+        value = jax.tree.map(jnp.asarray, (params, current, anchor, history, hidden))
+        tangent = jax.tree.map(
+            lambda x: jnp.asarray(rng.normal(size=x.shape) * 0.01, dtype=x.dtype), value
+        )
+
+        def direct(value):
+            p, b, _, past, h = value
+            z = core.sampled_features(b, past, h) / norms["feature_scale"]
+            linear, nonlinear = z @ p["linear"], z @ p["w1"]
+            acceleration = (
+                linear
+                + (core.quadratic_features(b) / norms["quadratic_scale"])
+                @ p["quadratic"]
+                + p["bias"]
+                + jnp.tanh(nonlinear + p["b1"]) @ p["w2"]
+            ) * norms["output_scale"]
+            return jnp.concatenate((acceleration, linear, nonlinear), axis=-1)
+
+        def reused(value):
+            p, b, start, past, h = value
+            base, effective = core._prepare_head(p, norms, start, past, h)
+            projection = base + (b - start) @ effective
+            acceleration = core._acceleration(p, norms, b, projection)
+            return jnp.concatenate((acceleration, projection), axis=-1)
+
+        direct, reused = jax.jit(direct), jax.jit(reused)
+        expected, expected_jvp = jax.jvp(direct, (value,), (tangent,))
+        actual, actual_jvp = jax.jvp(reused, (value,), (tangent,))
+        cotangent = jnp.asarray(rng.normal(size=actual.shape), dtype=actual.dtype)
+        cotangent /= jnp.linalg.norm(cotangent)
+        expected_vjp = jax.vjp(direct, value)[1](cotangent)
+        actual_vjp = jax.vjp(reused, value)[1](cotangent)
+        tolerance = 1e-10 if x64 else 2e-4
+        for a, b in zip(
+            jax.tree.leaves((actual, actual_jvp, actual_vjp)),
+            jax.tree.leaves((expected, expected_jvp, expected_vjp)),
+            strict=True,
+        ):
+            np.testing.assert_allclose(a, b, rtol=tolerance, atol=tolerance)
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_rotation_exp_zero_and_derivatives(dtype):
     with jax.enable_x64(dtype is np.float64):

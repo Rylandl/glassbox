@@ -170,13 +170,35 @@ def quadratic_features(current, xp=jnp):
     return current[..., i] * current[..., j]
 
 
+def _prepare_head(params, norms, anchor, history, hidden):
+    """Project history once, centered to retain small lag differences."""
+    weights = jnp.concatenate((params["linear"], params["w1"]), axis=-1)
+    base = (
+        sampled_features(anchor, history, hidden) / norms["feature_scale"]
+    ) @ weights
+    current_width, delay = anchor.shape[-1], history.shape[-2]
+    scaled = (
+        weights[: (delay + 1) * current_width]
+        / norms["feature_scale"][: (delay + 1) * current_width, None]
+    )
+    effective = scaled[:current_width] - scaled[current_width:].reshape(
+        delay, current_width, -1
+    ).sum(axis=0)
+    return base, effective
+
+
+def _acceleration(params, norms, current, projection):
+    q = quadratic_features(current) / norms["quadratic_scale"]
+    acceleration = projection[..., :6] + q @ params["quadratic"] + params["bias"]
+    acceleration += jnp.tanh(projection[..., 6:] + params["b1"]) @ params["w2"]
+    return acceleration * norms["output_scale"]
+
+
 def _head(params, norms, states, commands, filtered, history, hidden):
     b = current_features(states, commands, filtered, norms)
     z = sampled_features(b, history, hidden) / norms["feature_scale"]
-    q = quadratic_features(b) / norms["quadratic_scale"]
-    acceleration = z @ params["linear"] + q @ params["quadratic"] + params["bias"]
-    acceleration += jnp.tanh(z @ params["w1"] + params["b1"]) @ params["w2"]
-    return acceleration * norms["output_scale"], b, z
+    projection = z @ jnp.concatenate((params["linear"], params["w1"]), axis=-1)
+    return _acceleration(params, norms, b, projection), b, z
 
 
 def physical_step(params, norms, states, commands, filtered, history, hidden, dt_s):
@@ -186,12 +208,18 @@ def physical_step(params, norms, states, commands, filtered, history, hidden, dt
     tau = time_constants(params)
     gravity = jnp.asarray(GRAVITY, dtype=states.dtype)
     start_features = current_features(states, commands, filtered, norms)
+    base, effective = _prepare_head(params, norms, start_features, history, hidden)
+
+    def acceleration(state, applied):
+        current = current_features(state, commands, applied, norms)
+        projection = base + (current - start_features) @ effective
+        return _acceleration(params, norms, current, projection)
 
     def substep(_, carry):
         state, applied = carry
         v, omega = state[..., :3], state[..., 3:6]
         rotation = state[..., 6:].reshape((*state.shape[:-1], 3, 3))
-        first, _, _ = _head(params, norms, state, commands, applied, history, hidden)
+        first = acceleration(state, applied)
         world_first = gravity + jnp.einsum("...ij,...j->...i", rotation, first[..., :3])
         rotation_half = rotation @ rotation_exp(0.5 * duration * omega)
         velocity_half = v + 0.5 * duration * world_first
@@ -201,9 +229,7 @@ def physical_step(params, norms, states, commands, filtered, history, hidden, dt
             (velocity_half, omega_half, rotation_half.reshape((*state.shape[:-1], 9))),
             -1,
         )
-        middle, _, _ = _head(
-            params, norms, state_half, commands, applied_half, history, hidden
-        )
+        middle = acceleration(state_half, applied_half)
         velocity_next = v + duration * (
             gravity + jnp.einsum("...ij,...j->...i", rotation_half, middle[..., :3])
         )
