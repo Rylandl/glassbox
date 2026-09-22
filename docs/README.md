@@ -8,6 +8,8 @@
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
 - [Cold-start readout screen](cold-readout.md): rejected fast linear estimator,
   preserved speed/accuracy evidence and the next isolated experiment.
+- [Readout structural screen](readout-structure.md): learned gravity-path
+  ablation, its fixed-wing gains, quad losses and next representation gap.
 - [Nonlinear temporal compression](nonlinear-temporal.md): adopted smaller model,
   matched learning comparison, known losses and current archive identities.
 - [Accumulator migration](accumulator-migration.md): matched architecture
