@@ -62,20 +62,42 @@ no immediate recovery or successful catch was tested. Full results, every case,
 startup costs and limitations remain in the report. No broad offline fitting
 or controller campaign followed this clear loss.
 
+## Follow-up: feature freezing isolated
+
+The [matched recursive-loss screen](cold-readout-rollout.md) completed another
+**382 updates per arm**. Both arms retain current reconditioning, quadratic
+curvature regularization, trust/backtracking and 16-PCG; only the candidate's
+readout weights learn. All baseline predictions and final model arrays reproduce
+the earlier screen exactly. Fresh episode initialization remains identical.
+
+Quad one-step/250 ms accuracy is effectively unchanged. Fixed-wing one-step error
+is **26.55% higher**, but 250 ms error is only **12.01% higher**, versus the raw
+RLS experiment's **278.16×**. This rules out an inevitable blow-up from the frozen
+feature representation on these recordings. It does not isolate which restored
+objective/regularization/safeguard component matters most, nor prove a universal
+fixed feature representation. Both arms accepted every proposal.
+
+Updates are **17.92% faster for quads / 13.84% faster for fixed wings**, an
+aggregate **15.90%** saving. Keep the full learner: this diagnostic does not
+capture the raw estimator's major speed benefit, and freezing still costs
+accuracy. No model option or experimental optimizer remains in production.
+The [index](cold-readout-rollout.json) records physical scores, exact replay,
+work counts, 37 passing tests and retained historical experiment source.
+
 ## Next iteration
 
-**Isolate readout-only adaptation under the existing recursive objective.** Keep
-current reconditioning, curvature prior, trust/backtracking and the 16-PCG budget;
-freeze only the feature/filter/accumulator functions after fresh episode
-initialization. Compare the full learner with this trainable-subset ablation on
-the same bounded causal roster. This separates loss/safeguards from the need to
-learn nonlinear features before another estimator design. Count every update
-operation and initialization observation; inspect one-step and 250 ms forecasts.
-Freeze the actual protocol and implementation before running it.
+**Isolate generic curvature regularization in the fast measured-increment
+readout.** Hold the raw RLS feature basis and measurement model fixed, add the
+existing physical quadratic-curvature penalty with explicit objective/scale
+accounting, and compare against raw RLS and the full learner on the same short
+causal roster. Freeze the actual protocol before implementation and fitting.
+This tests a missing structural constraint before adding feature capacity.
+A recursive acceptance check is a separate subsequent experiment if needed.
 
 No fleet-trained features, class priors, reused normalizers or fitted revisions
-may enter either arm. Representation changes, if needed, must learn from the
-same episode. No pretraining-based rescue. Solver conditioning, earlier usable
-predictions, calibrated uncertainty and controller recovery remain separate gaps;
-controllers stay in Dart/Throw. User direction is to move quickly and stop
-unpromising candidates before broad qualification.
+may enter any arm. Every learned quantity must come from that episode. Family
+and sample interval remain confounded (10/50 ms), as do initialization sample
+counts and elapsed time across 64 updates; don't call the loss an intrinsic
+fixed-wing incompatibility. Earlier usable predictions, calibrated uncertainty
+and controller recovery remain separate gaps; controllers stay in Dart/Throw.
+Move quickly and stop unpromising candidates before broad qualification.

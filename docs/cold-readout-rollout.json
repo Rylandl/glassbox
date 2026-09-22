@@ -1,0 +1,211 @@
+{
+  "adopted": false,
+  "cases": [
+    {
+      "count": 64,
+      "family": "quad",
+      "horizon250": 1.0002196273717143,
+      "id": "quad-arm-115",
+      "median_ratio": 0.8200108582041412,
+      "primary": 0.9944938896796078,
+      "timing": {
+        "baseline": {
+          "compute_s": 5.499919462483376,
+          "first_update_s": 2.681596958078444,
+          "median_s": 0.034218041924759746,
+          "p95_s": 0.03725811231415719
+        },
+        "candidate": {
+          "compute_s": 3.675006876466796,
+          "first_update_s": 1.8437727079726756,
+          "median_s": 0.02805916592478752,
+          "p95_s": 0.030238463077694178
+        }
+      }
+    },
+    {
+      "count": 64,
+      "family": "quad",
+      "horizon250": 0.9972961238700543,
+      "id": "quad-arm-125",
+      "median_ratio": 0.8218603140247216,
+      "primary": 1.0029931291965795,
+      "timing": {
+        "baseline": {
+          "compute_s": 2.2472675796598196,
+          "first_update_s": 0.034732667030766606,
+          "median_s": 0.03409029194153845,
+          "p95_s": 0.03512270816136152
+        },
+        "candidate": {
+          "compute_s": 1.8444570847786963,
+          "first_update_s": 0.028475583996623755,
+          "median_s": 0.02801745804026723,
+          "p95_s": 0.02880645834375173
+        }
+      }
+    },
+    {
+      "count": 62,
+      "family": "quad",
+      "horizon250": 1.0005694003864556,
+      "id": "quad-arm-135",
+      "median_ratio": 0.8191321785400625,
+      "primary": 1.001202984085355,
+      "timing": {
+        "baseline": {
+          "compute_s": 2.190270834369585,
+          "first_update_s": 0.034460957860574126,
+          "median_s": 0.03409441700205207,
+          "p95_s": 0.03639937494881451
+        },
+        "candidate": {
+          "compute_s": 1.847817532485351,
+          "first_update_s": 0.028052874840795994,
+          "median_s": 0.027927834074944258,
+          "p95_s": 0.029194540809839964
+        }
+      }
+    },
+    {
+      "count": 64,
+      "family": "quad",
+      "horizon250": 0.9972961238700543,
+      "id": "quad-change",
+      "median_ratio": 0.8223367488385073,
+      "primary": 1.0029931291965795,
+      "timing": {
+        "baseline": {
+          "compute_s": 2.2464807459618896,
+          "first_update_s": 0.03450091602280736,
+          "median_s": 0.03406795812770724,
+          "p95_s": 0.03470485419966281
+        },
+        "candidate": {
+          "compute_s": 1.840059004491195,
+          "first_update_s": 0.027848541969433427,
+          "median_s": 0.028015333926305175,
+          "p95_s": 0.028526587435044347
+        }
+      }
+    },
+    {
+      "count": 64,
+      "family": "fixedwing",
+      "horizon250": 1.0685231093833647,
+      "id": "fixedwing-80",
+      "median_ratio": 0.86241351630589,
+      "primary": 1.1989129771853335,
+      "timing": {
+        "baseline": {
+          "compute_s": 3.0567624976392835,
+          "first_update_s": 2.216825457988307,
+          "median_s": 0.007722415961325169,
+          "p95_s": 0.008174254070036113
+        },
+        "candidate": {
+          "compute_s": 2.0685784588567913,
+          "first_update_s": 1.6063116670120507,
+          "median_s": 0.006659915903583169,
+          "p95_s": 0.006895666779018939
+        }
+      }
+    },
+    {
+      "count": 64,
+      "family": "fixedwing",
+      "horizon250": 1.1740660443409274,
+      "id": "fixedwing-81",
+      "median_ratio": 0.8608443043425308,
+      "primary": 1.3357947854914605,
+      "timing": {
+        "baseline": {
+          "compute_s": 0.5481095428112894,
+          "first_update_s": 0.008239750051870942,
+          "median_s": 0.007725166855379939,
+          "p95_s": 0.007990758144296705
+        },
+        "candidate": {
+          "compute_s": 0.467838081298396,
+          "first_update_s": 0.006847625132650137,
+          "median_s": 0.0066501658875495195,
+          "p95_s": 0.006852028938010335
+        }
+      }
+    }
+  ],
+  "decision": "Diagnostic only; keep the full learner. Restored recursive objective/conditioning/regularization/safeguards avoid the catastrophic fixed-wing loss with frozen features. Remaining 26.5% fixed-wing one-step loss and 15.9% aggregate time saving do not justify permanent freezing. Next isolate generic curvature regularization in the fast increment estimator.",
+  "id": "cold-readout-rollout-v1",
+  "protocol": "docs/harness/cold-readout-rollout-v1.json",
+  "saved_data": {
+    "logs/masked-jvp.log": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-rollout-v1/logs/masked-jvp.log",
+      "sha256": "f3e461e5a35f8a5325b689002b911fe2b1f8e3107a761286b10ef43210f1984f"
+    },
+    "logs/run.log": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-rollout-v1/logs/run.log",
+      "sha256": "67be44abeba4154e9c016c13d2eafdd6a17301faa3e9ab6707bcc26e7cd1a302"
+    },
+    "logs/tests.log": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-rollout-v1/logs/tests.log",
+      "sha256": "b9141fa3a0b480b0d0938dd9e2ad8e7895d6855ab5d1d31c59a716489d24bb99"
+    },
+    "logs/verify.log": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-rollout-v1/logs/verify.log",
+      "sha256": "6a859634e17a69f575f2689f69c8832542291fcdde6ae5138d16078815249574"
+    },
+    "verified.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-rollout-v1/verified.json",
+      "sha256": "7c19e66a80bf88d028190e5bb64ed35a0a9c6f7f0a0fd0287cbd855ef61ce65d"
+    }
+  },
+  "scope": {
+    "additional_masked_jvp_check": true,
+    "baseline_exact_replay": true,
+    "cases": 6,
+    "frozen_feature_functions": true,
+    "new_controller_trials": 0,
+    "new_offline_fits": 0,
+    "pretrained_weights": false,
+    "quad_change_prefix_duplicates_quad_arm_125": true,
+    "tests_passed": 37,
+    "updates_per_arm": 382
+  },
+  "screen": {
+    "manifest_sha256": "6c70804ed7dae2286560c3774eb8309db428b55cd86e712ab40ad0e0eee1ef22",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-rollout-v1/screen"
+  },
+  "source": {
+    "baseline": "6ac8b93",
+    "experiment_and_verifier": "05437fc",
+    "protocol": "81a2d57"
+  },
+  "summary": {
+    "adopted": false,
+    "aggregate": {
+      "horizon250": 1.057713307074306,
+      "median_ratio": 0.8409839423446899,
+      "primary": 1.125179659340819
+    },
+    "baseline_exact_replay": true,
+    "checks": {
+      "families": true,
+      "forecast250": true,
+      "one_step": true,
+      "speed": false
+    },
+    "families": {
+      "fixedwing": {
+        "horizon250": 1.120052097145751,
+        "median_ratio": 0.8616285530899842,
+        "primary": 1.2655045251527988
+      },
+      "quad": {
+        "horizon250": 0.9988441098525821,
+        "median_ratio": 0.8208339762479465,
+        "primary": 1.000414649360072
+      }
+    },
+    "frozen_feature_functions": true
+  }
+}

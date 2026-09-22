@@ -245,7 +245,7 @@ def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
     return ravel_pytree(diagonal)[0]
 
 
-@partial(jax.jit, static_argnames=("delay", "dt_s", "readout_only"))
+@partial(jax.jit, static_argnames=("delay", "dt_s"))
 def _proposal(
     params,
     norms,
@@ -257,7 +257,6 @@ def _proposal(
     delay,
     dt_s,
     conditioning_finite=True,
-    readout_only=False,
 ):
     """Sixteen PCG iterations and first-acceptable bounded exact-loss backtracking.
 
@@ -265,19 +264,9 @@ def _proposal(
     weights include the role weight and 1/(horizon*3); each group's IRLS factor
     and the measured prior domain stay fixed throughout the proposal.
     """
-    trainable = (
-        {k: v for k, v in params.items() if k in ("linear", "quadratic", "bias", "w2")}
-        if readout_only
-        else params
-    )
-    flat, unpack_trainable = ravel_pytree(trainable)
-    unpack = (
-        (lambda value: dict(params, **unpack_trainable(value)))
-        if readout_only
-        else unpack_trainable
-    )
+    flat, unpack = ravel_pytree(params)
     prior = _curvature_diagonal(
-        trainable, norms, data, scale, weights, delay=delay, dt_s=dt_s
+        params, norms, data, scale, weights, delay=delay, dt_s=dt_s
     )
     preconditioner = damping + prior
     raw, push = jax.linearize(
@@ -593,9 +582,6 @@ class OnlineFit:
     This session has no calibrated error envelope or control-readiness claim.
     """
 
-    def _propose(self, *args, **kwargs):
-        return _proposal(*args, **kwargs)
-
     def __init__(self, prefix):
         contract = _contract(prefix)
         if len(prefix.segments) != 1:
@@ -777,7 +763,7 @@ class OnlineFit:
                 delay=self._model.delay_steps,
                 dt_s=self._model.dt_s,
             )
-            proposal, current, trial, predicted, finite, evidence = self._propose(
+            proposal, current, trial, predicted, finite, evidence = _proposal(
                 params,
                 norms,
                 data,

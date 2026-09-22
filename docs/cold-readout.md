@@ -85,6 +85,10 @@ learn before spending time designing a new estimator. Fresh episode
 initialization remains mandatory. If promising, investigate accelerating that
 trajectory-aware update; no pretrained core or catalog is introduced.
 
+The matched recursive-objective follow-up is now [complete](cold-readout-rollout.md):
+it avoids the catastrophic fixed-wing forecast failure with frozen features,
+while leaving a smaller accuracy loss. See [status](status.md) for the next gap.
+
 ## Startup and limits
 
 The original Throw code explicitly tumbles unpowered for one second, then
