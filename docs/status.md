@@ -18,6 +18,31 @@ controllers and simulators remain external.
 | Scope | Rigid-body motion across recorded quad/fixed-wing configurations. Broad airframe, articulated-system and arbitrary-system readiness remain unproved. No current-learner online closed-loop recovery trial has run. |
 | Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All **15 maintained package files remain byte-identical to adopted v8**; its exact baseline replay remains applicable. The maintained implementation has 464 passing tests. The separate accumulator candidate passes 471 tests but is not adopted. |
 
+## Migration in progress
+
+The user requested completion of accumulator validation and migration, followed
+by a review of the remaining network structure. Qualification runs in
+`codex/accumulator-migration` at `/private/tmp/glassbox-accumulator-migration`.
+No production implementation has been replaced yet.
+
+The corrected-initialization online qualification **passes every frozen accuracy
+and speed check** on all six streams / 3,137 updates. Equal-family primary error
+improves **4.11%**, body-rate error **4.01%**, velocity **4.22%**, and worst-decile
+error **5.33%**. Quad median/p95 update time improve **47.63% / 49.76%**;
+fixed-wing median/p95 improve **16.60% / 16.01%**. Baseline predictions and updates
+reproduce adopted v8 exactly. Source `76f06f9`, protocol `dbc254d`, sealed pack
+`artifacts/accumulator-migration-v1/online`, authority
+`65be54facc67666bdc2a60d55e414b5b47574eed85523dd09c9efc04fac73024`.
+All 471 package/harness tests pass.
+
+Offline qualification is frozen in `45834a3`: six full-budget fits, fresh v8 and
+corrected accumulator for Dart/Crazyflow/Cascade, with exactly matching saved
+training/development caches. Compare both fresh fits and the deployed incumbent
+against every saved flight forecast/response query, held-out Dart recordings and
+numerical command derivatives. Fits are running under
+`artifacts/accumulator-migration-v1/offline-fits`; no offline outcome or adoption
+is claimed. Unchanged nominal Dart and native precision checks remain pending.
+
 ## Latest completed iteration
 
 **Fixed-wing angular diagnosis — initialization and solver budget dominate the
