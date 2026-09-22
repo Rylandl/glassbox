@@ -1,0 +1,13 @@
+{
+  "id": "online-readout-benchmark-v1",
+  "sources": {
+    "recordings": {"path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation", "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"},
+    "direct": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-physical-so3-v1/evaluation", "manifest_sha256": "ca3852b87698a14b1f2baf1ec88bedecc4e17dd12210c2594efd7511e10da57b"},
+    "full": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-sensitivity-v1/evaluation", "manifest_sha256": "fa60c00844222c05b6102f4fdd4652c3a878e76c392131505969ed3d7f8b2781"},
+    "paired_recording": {"path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-sampling-v2", "manifest_sha256": "44192c3ad160adb2de9faf7702c1bf1de7f51e3c0293a8de98bb32ecb4b0fdd6"},
+    "paired_full": {"path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-evaluation-v2", "manifest_sha256": "4357898cd02c88113d9c27eab180720f181fe8d0b791429c92ed31feeea46f25"}
+  },
+  "full_cases": ["fixedwing-80", "fixedwing-81", "quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change", "paired-quad-fine", "paired-quad-coarse"],
+  "smoke_cases": ["fixedwing-80", "fixedwing-81", "quad-arm-135", "paired-quad-fine"],
+  "origin": "Use the first and next previously frozen direct-readout conditional origins for each recording. Each candidate is fitted fresh on the identical causal prefix, updated only to the next origin, and scored at 50,100,150,200,250 ms. The early smoke subset diagnoses failures; only the full eight-case suite supports a broad known-recording comparison. Neither is a held-out-vehicle or controller test."
+}

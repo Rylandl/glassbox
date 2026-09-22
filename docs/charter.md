@@ -79,8 +79,10 @@ isolated regression a veto.
 
 1. Read [status.md](status.md), choose one named gap, and work in an isolated
    worktree. User direction can change priorities or adoption policy.
-2. Freeze the measurement and acceptance contract before implementation or
-   fitting. Commit completed scientific code before executing an experiment.
+2. Reuse a frozen measurement contract and runner for quick candidate screens;
+   do not rebuild evaluation plumbing for each model idea. Label exploratory
+   smoke runs as such and record exact source hashes. Commit completed
+   scientific code before a full result is used for an engineering decision.
 3. Prefer shared physical structure. Never introduce a catalog, system-specific
    branch, hidden simulator information or consumer tuning option.
 4. Keep fitting, derivative fidelity, calibration and task success as distinct

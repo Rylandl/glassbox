@@ -41,12 +41,11 @@ count/history parameterization or test comparable aerodynamic excitation.
 
 ## Next iteration
 
-Target **a lean, reusable benchmark loop** before another architecture idea.
-The last model change was small but required copying and editing more than
-500 lines of one-off evaluation code; the actual eight-case fit took seconds.
-Keep a fixed compact physical-result table and one shared runner. Use a small
-diagnostic subset for rapid failure and run the broader frozen suite for a
-promising candidate. Preserve causal timing and source identity without
-rebuilding the harness each time. Then return to one elegant recursive model,
-not a stack of guards or candidate branches. A fresh held-out condition and a
-separate Throw controller trial remain necessary for broader claims.
+The [shared readout benchmark](benchmarking.md) now owns source loading,
+causal updates, scoring, controls, timing, a compact table and saved-data
+verification. Try the four-case smoke subset before the full eight known
+recordings; candidate changes no longer need a copied evaluator. Next target
+one structural simplification of the fast readout's recursive vector field,
+then run the shared benchmark. Do not stack correction guards or candidate
+branches. A fresh held-out condition and a separate Throw controller trial
+remain necessary for broader claims.
