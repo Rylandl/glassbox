@@ -188,3 +188,48 @@ def test_snapshot_reuse_is_forwarded_before_any_diagnostic_work(monkeypatch, tmp
             tmp_path / "out",
             replay,
         )
+
+
+def test_instantaneous_rate_jacobian_analytic_and_nonlinear_fd():
+    from diagnose_readout_feedback import rate_jacobian
+
+    model = constant_model()
+    model.params.update({k: v.copy() for k, v in model.params.items()})
+    model.params["linear"][3:6, 3:6] = np.diag([-100.0, -3.0, 5.0])
+    past, issued, future = inputs(model)
+    with jax.enable_x64(True):
+        c = carry_from(
+            model.params,
+            model.norms,
+            jnp.asarray(past),
+            jnp.asarray(issued),
+            delay=2,
+            dt_s=0.05,
+        )
+        actual = rate_jacobian(model.params, model.norms, c, jnp.asarray(future[0]))
+        np.testing.assert_allclose(actual, np.diag([-100.0, -3.0, 5.0]), atol=1e-12)
+        model, past, issued, future = setup_model()
+        c = carry_from(
+            model.params,
+            model.norms,
+            jnp.asarray(past),
+            jnp.asarray(issued),
+            delay=2,
+            dt_s=0.05,
+        )
+        actual = np.asarray(
+            rate_jacobian(model.params, model.norms, c, jnp.asarray(future[0]))
+        )
+        finite = []
+        for axis in range(3):
+
+            def value(delta, axis=axis):
+                state = c[0].at[0, axis + 3].add(delta)
+                return core._head(
+                    model.params, model.norms, state, jnp.asarray(future[:1]), *c[1:]
+                )[0][0, 3:]
+
+            finite.append(np.asarray((value(1e-6) - value(-1e-6)) / 2e-6))
+        np.testing.assert_allclose(
+            actual, np.stack(finite, axis=1), atol=1e-9, rtol=1e-9
+        )
