@@ -9,5 +9,5 @@
   },
   "full_cases": ["fixedwing-80", "fixedwing-81", "quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change", "paired-quad-fine", "paired-quad-coarse"],
   "smoke_cases": ["fixedwing-80", "fixedwing-81", "quad-arm-135", "paired-quad-fine"],
-  "origin": "Use the first and next previously frozen direct-readout conditional origins for each recording. Each candidate is fitted fresh on the identical causal prefix, updated only to the next origin, and scored at 50,100,150,200,250 ms. The early smoke subset diagnoses failures; only the full eight-case suite supports a broad known-recording comparison. Neither is a held-out-vehicle or controller test."
+  "origin": "Fit each candidate fresh on the identical causal prefix. Smoke uses the first two previously frozen conditional origins of its four cases. Full replays every available observation through the last complete control origin in all eight cases (4,187 updates and 263 conditional origins), scoring 50,100,150,200,250 ms and every native one-step prediction. Full includes late flight conditions and the quad configuration change. The same issued command sequence is used for truth and predictions; these are not counterfactual interventions, held-out vehicles or controller trials."
 }
