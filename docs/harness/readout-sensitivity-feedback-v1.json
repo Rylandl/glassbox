@@ -1,0 +1,10 @@
+{
+  "id": "readout-sensitivity-feedback-v1",
+  "purpose": "Declared posthoc, no-fit interpretation of the fixed-strength sensitivity experiment: did instantaneous angular feedback decrease, rather than merely aggregate forecast error?",
+  "source": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-sensitivity-v1/evaluation", "manifest_sha256": "fa60c00844222c05b6102f4fdd4652c3a878e76c392131505969ed3d7f8b2781"},
+  "cases": ["fixedwing-80", "fixedwing-81"],
+  "roster": "All14 saved conditional origins and all five measured forecast states per origin, initial queries included; candidate and curvature readout coefficients fixed at origin.",
+  "measurement": "Reconstruct shared frozen feature map from same-episode initial arrays. Reconstruct origin readout from initial coefficients or saved mean immediately preceding query. Compute physical3x3 derivative of angular acceleration with respect to current body rate, holding other state and latent coordinates fixed. Use independently verified NumPy feature derivative, exact supported-motion derivative and prefix input/output scales. Save every Jacobian and spectral summary. No candidate fitting or hyperparameter changes; this partial block is not a full-recursion stability certificate.",
+  "budget": {"fits":0,"wall_limit_s":120},
+  "verification": "Authenticate sources; commit analysis code before execution. Compare physical derivative at initial and later measured points against JAX autodiff. Save payloads and source binding. Recompute eigenvalue summaries from saved matrices without fitting."
+}
