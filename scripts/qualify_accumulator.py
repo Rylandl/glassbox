@@ -483,16 +483,64 @@ def compare(candidate, reference):
     return dict(rows=rows, families=families, aggregate=totals)
 
 
+def qualification_checks(result, spec):
+    limits = spec["checks"]
+    checks = {
+        "derivatives": all(
+            d["passed"] for arm in result["arms"].values() for d in arm["derivatives"]
+        )
+    }
+    for reference, comparison in result["comparisons"].items():
+        aggregate = comparison["aggregate"]
+        checks[reference] = {
+            "forecast_primary": aggregate["factual"]["primary"]
+            <= limits["forecast_primary_ratio_max"],
+            "response_primary": aggregate["response"]["primary"]
+            <= limits["response_primary_ratio_max"],
+            "each_family_primary": all(
+                geometric([scores["primary"] for scores in family.values()])
+                <= limits["each_family_primary_ratio_max"]
+                for family in comparison["families"].values()
+            ),
+            **{
+                label: geometric([scores[metric] for scores in aggregate.values()])
+                <= limits[limit]
+                for label, metric, limit in (
+                    ("rate", "body_rate_rmse_rad_s", "aggregate_rate_ratio_max"),
+                    (
+                        "orientation",
+                        "orientation_rmse_rad",
+                        "aggregate_orientation_ratio_max",
+                    ),
+                    ("tail", "tail", "aggregate_tail_ratio_max"),
+                )
+            },
+        }
+    return checks
+
+
 def verify(output, authorities):
     spec = read(PROTOCOL)
     baseline = Path(spec["baseline"]["path"])
     authenticate(baseline, spec["baseline"]["manifest_sha256"])
     summaries = {}
+    require(
+        set(authorities) == {"baseline", "candidate", "incumbent"},
+        "evaluation roster differs",
+    )
     for arm, authority in authorities.items():
         folder = output / arm
         authenticate(folder, authority)
         require(read(folder / "protocol.json") == spec, "evaluation protocol differs")
         saved = read(folder / "result.json")
+        require(saved["arm"] == arm, "evaluation arm differs")
+        require(
+            read(folder / "binding.json")["model_source"]["files"]
+            == spec["model_package_files"][
+                "candidate" if arm == "candidate" else "baseline"
+            ],
+            "evaluation source differs",
+        )
         predictions = {
             c: arrays(folder / f"{c}.npz")
             for c in read(baseline / "flights/spec.json")["cohorts"]
@@ -531,8 +579,29 @@ def verify(output, authorities):
             "Dart metrics differ",
         )
         derivative = []
+        expected_files = {
+            c + "-derivatives.npz"
+            for c in read(baseline / "flights/spec.json")["cohorts"]
+        } | {"dart-derivatives.npz"}
+        require(
+            {p.name for p in folder.glob("*-derivatives.npz")} == expected_files,
+            "derivative roster differs",
+        )
         for path in sorted(folder.glob("*-derivatives.npz")):
             a = arrays(path)
+            if path.name == "dart-derivatives.npz":
+                expected_rows = np.array([0, 1, 6, 7])
+            else:
+                cohort = path.name.removesuffix("-derivatives.npz")
+                source = arrays(baseline / "flights" / f"{cohort}.npz")
+                expected_rows = np.flatnonzero(
+                    (
+                        command_lengths(source, "future_inputs")
+                        == source["future_inputs"].shape[1]
+                    )
+                    & np.isfinite(source["target"]).all((1, 2))
+                )[:4]
+            exact(a["row"], expected_rows, "derivative query identity")
             require(
                 all(np.isfinite(v).all() for v in a.values()), "nonfinite derivative"
             )
@@ -556,24 +625,77 @@ def verify(output, authorities):
         },
         adopted=False,
     )
+    result["checks"] = qualification_checks(result, spec)
+    result["qualified"] = result["checks"]["derivatives"] and all(
+        all(result["checks"][reference].values())
+        for reference in ("baseline", "incumbent")
+    )
     return result
+
+
+def replay(index):
+    """Replay the qualified candidate's saved forecasts without fitting."""
+    import jax
+    from verify_baseline import runtime_check
+
+    from glassbox import LearnedDynamics
+
+    spec = read(PROTOCOL)
+    baseline = Path(spec["baseline"]["path"])
+    authenticate(baseline, spec["baseline"]["manifest_sha256"])
+    runtime_check(read(baseline / "dart/spec.json")["runtime"])
+    fits = Path(index["fits"]["path"])
+    authenticate(fits, index["fits"]["manifest_sha256"])
+    evaluation = Path(index["evaluation"]["path"])
+    folder = evaluation / "candidate"
+    authenticate(folder, index["evaluation"]["authorities"]["candidate"])
+    require(read(folder / "protocol.json") == spec, "replay protocol differs")
+    models = {}
+    identities = read(folder / "models.json")
+    for name in spec["models"]:
+        models[name] = LearnedDynamics.load(fits / "candidate" / name / "model.npz")
+        require(
+            models[name].fingerprint() == identities[name]["fingerprint"],
+            "replay revision differs",
+        )
+    count = 0
+    for cohort, contract in read(baseline / "flights/spec.json")["cohorts"].items():
+        data = arrays(baseline / "flights" / f"{cohort}.npz")
+        actual = predict_queries(models[contract["simulator"]], data)
+        expected = arrays(folder / f"{cohort}.npz")
+        for key in actual:
+            exact(actual[key], expected[key], cohort + "/" + key)
+            count += 1
+    data, _ = dart_queries(baseline)
+    actual = np.asarray(
+        jax.jit(models["dart"].predict)(
+            data["past_states"], data["past_inputs"], data["future_inputs"]
+        )
+    )
+    exact(actual, arrays(folder / "dart-heldout.npz")["prediction"], "Dart forecasts")
+    return dict(
+        replayed_arrays=count + 1, models=3, fits=0, optimizer_calls=0, exact=True
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("fit", "evaluate", "verify"))
+    parser.add_argument("mode", choices=("fit", "evaluate", "verify", "replay"))
     parser.add_argument("--arm", choices=("baseline", "candidate", "incumbent"))
     parser.add_argument("--model", choices=("dart", "crazyflow", "cascade"))
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--fit-root", type=Path)
     parser.add_argument("--authorities", type=Path)
+    parser.add_argument("--index", type=Path)
     args = parser.parse_args()
     if args.mode == "fit":
         fit_one(args.model, args.arm, args.output)
     elif args.mode == "evaluate":
         evaluate(args.arm, args.fit_root, args.output)
-    else:
+    elif args.mode == "verify":
         print(json.dumps(verify(args.output, read(args.authorities)), indent=2))
+    else:
+        print(json.dumps(replay(read(args.index)), indent=2))
 
 
 if __name__ == "__main__":
