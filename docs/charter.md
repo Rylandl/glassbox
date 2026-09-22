@@ -35,6 +35,13 @@ response-tail losses, long-horizon errors and calibration limits remain measured
 improvement work. One nominal control success does not establish a reliability
 percentage, real-time operation or arbitrary-system readiness.
 
+On 2026-09-22 the user clarified that evaluation must inform an overall engineering
+decision, not make every regression a veto. Preserve and report frozen outcomes,
+but weigh generality, accuracy, runtime and maintainability together. Broken
+contracts, invalid numerical behavior and substantial consistent capability losses
+need resolution; an isolated benchmark loss can become follow-up work. Distinguish
+architecture changes from fitting provenance before attributing a regression.
+
 ## Definition of done
 
 | Criterion | Required evidence |
