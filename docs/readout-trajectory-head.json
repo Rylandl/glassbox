@@ -1,0 +1,17 @@
+{
+  "gap": "causal physical trajectory correction, including the initial prefix",
+  "protocol_commits": ["2701622", "a85842a", "f486c0c"],
+  "source_commits": ["592a5b9", "f3b0343"],
+  "incomplete_attempt": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/readout-trajectory-head-v1/screen",
+    "manifest_sha256": "de2be34013282f18a3f4b48d55133a461f1dc35d6bcb77148ec73ac35e15340d",
+    "status": "stopped after first case by saved-key shape collision in evaluator"
+  },
+  "completed_screen": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/readout-trajectory-head-v1/screen-corrected",
+    "manifest_sha256": "4951cc9a9925b4ee6d7874d31576cfbc654f6848a63fab56346334f365f81064",
+    "status": "complete and independently verified without fitting",
+    "candidate_fits": 8,
+    "candidate_updates": 126
+  }
+}
