@@ -1,0 +1,30 @@
+{
+  "id": "readout-trajectory-path-screen-v1",
+  "gap": "Does fitting a completed physical trajectory at five checkpoints retain the fixed-wing cold-start gain while avoiding the endpoint-only correction's hard-quad 250 ms divergence?",
+  "source": {
+    "maintained_learner_commit": "0c86b1b",
+    "previous_readout_source_commit": "f3b0343",
+    "recordings": {"path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation", "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"},
+    "previous_evaluation": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-physical-so3-v1/evaluation", "manifest_sha256": "ca3852b87698a14b1f2baf1ec88bedecc4e17dd12210c2594efd7511e10da57b"},
+    "previous_controls": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-sensitivity-v1/evaluation", "manifest_sha256": "fa60c00844222c05b6102f4fdd4652c3a878e76c392131505969ed3d7f8b2781"},
+    "paired_recording": {"path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-sampling-v2", "manifest_sha256": "44192c3ad160adb2de9faf7702c1bf1de7f51e3c0293a8de98bb32ecb4b0fdd6"},
+    "paired_evaluation": {"path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-evaluation-v2", "manifest_sha256": "4357898cd02c88113d9c27eab180720f181fe8d0b791429c92ed31feeea46f25"},
+    "endpoint_screen": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-trajectory-head-v1/screen-corrected", "manifest_sha256": "4951cc9a9925b4ee6d7874d31576cfbc654f6848a63fab56346334f365f81064"}
+  },
+  "cases": ["fixedwing-80", "fixedwing-81", "quad-arm-115", "quad-arm-125", "quad-arm-135", "quad-change", "paired-quad-fine", "paired-quad-coarse"],
+  "roster": "One fresh candidate fit per case. Reuse authenticated physical SO(3) direct, endpoint-only trajectory and full-learner predictions as fixed controls; require exact initial direct model arrays and update designs to match previous runs. Correct the prefix once from its last completed 250 ms path, score the first origin, then assimilate exactly 16, 25 or 5 observations to the next previously frozen origin as in the endpoint screen: 126 candidate updates total. Score 50,100,150,200,250 ms at both origins and each native one-step forecast in between. Future issued commands enter scoring only.",
+  "algorithm": {
+    "base": "Identical physical SO(3) direct readout, fresh per-episode prefix, fixed feature/filter/memory parameters, physical integrator and online direct solve to the endpoint screen. No pretrained fleet features, vehicle metadata, system branch or consumer setting.",
+    "causal_window": "After the prefix and each observation, use exactly the most recent completed 250 ms trajectory plus the required preceding 0.5 s context. Never access a state after the correction time.",
+    "residual": "Use the single completed rollout, but stack physical residuals at elapsed 50,100,150,200,250 ms. At each checkpoint use world velocity difference in m/s, body-rate difference in rad/s and nine rotation-matrix differences divided by sqrt(2). Scale every 15-vector by 1/sqrt(5), for a fixed 75-vector with equal total weight to five physical checkpoints. No learned or vehicle-specific scale.",
+    "linearization": "Differentiate the 75-vector with JAX reverse AD with respect to all P-by-6 direct readout coefficients at direct M. Whiten columns by c_j=1/sqrt(max(1,G_jj)) repeated across six outputs. Compute z=-(Jc).T[(Jc)(Jc).T+I_75]^-1 r, cap ||z||_2 at 1, and delta=c*z. One Gauss-Newton linearization and one strength only.",
+    "acceptance": "Try multipliers 1,1/2,1/4,1/8 in order on delta and accept the first finite actual completed-path residual norm strictly below the uncorrected direct solution; otherwise retain direct M. Recompute from direct M after every observation rather than accumulating previous corrections.",
+    "timing": "Count fresh construction, first compilation/prefix correction, first forecast and complete observe/direct-solve/Jacobian/dual/backtracking/snapshot updates in one CPU process. Report warm median, p95 and total; previous control timings are historical separate runs. Stop on nonfinite values."
+  },
+  "evaluation": {
+    "metrics": "Save and report per-case first/next-origin physical velocity, body-rate and SO(3) errors at all five horizons, every native one-step score, and comparisons to direct, endpoint-only and full controls. Report absolute first-origin hard-quad 250 ms rate/velocity and fixed-wing 250 ms rate/velocity separately; do not conceal any loss in aggregates.",
+    "decision": "The path objective is promising if it retains substantial first-origin fixed-wing 250 ms rate improvements over direct on both recordings while reducing the hard-quad first-origin 250 ms rate error relative to the endpoint-only screen. A hard-quad error above direct 102.74 rad/s is a remaining structural failure, even if below endpoint-only 163.72 rad/s. Consider absolute velocity, orientation, second origin, update time and maintainability before any promotion. No automatic production adoption or controller claim.",
+    "stopping": "One fixed path objective and strength; at most 126 post-prefix candidate updates, eight fits, one planned attempt, 600 s wall limit. Preserve incomplete pack on a numerical, provenance or harness failure; correct only harness defects before any rerun."
+  },
+  "verification": "Commit this protocol before implementation and complete scientific code before fit. Unit-check the 75-by-6P Jacobian against directional finite differences, dual solution and trust cap, five checkpoint indices for 10 and 50 ms, and duplicate observation rejection. Authenticate sources and pack; save every r,J,c,z,delta, accepted multiplier, actual trial norms, models, predictions, truth and timing. Independently recompute scores, acceptance and dual algebra without fitting, reject modified artifacts, and delete completed one-off code after reporting."
+}
