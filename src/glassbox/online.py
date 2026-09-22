@@ -24,7 +24,8 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-fit-v6"
+_FORMAT = "glassbox-online-fit-v8"
+_STEP_SCALES = (1.0, 0.5, 0.25, 0.125, 0.0625)
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
@@ -33,7 +34,12 @@ _RECIPE = dict(
     recent_windows=32,
     batch_size=64,
     proposals=1,
-    cg_iterations=4,
+    cg_iterations=16,
+    backtracking=dict(
+        scales=list(_STEP_SCALES),
+        selection="first finite trial with lower exact loss and gain ratio at least 0.1",
+        residual_evaluations="one current plus attempted trials only",
+    ),
     preconditioner="damping plus exact quadratic-prior diagonal",
     huber_delta=1.0,
     loss=dict(
@@ -230,8 +236,19 @@ def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
 
 
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
-def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
-    """Four matrix-free preconditioned CG iterations with a fixed curvature prior.
+def _proposal(
+    params,
+    norms,
+    data,
+    scale,
+    weights,
+    damping,
+    *,
+    delay,
+    dt_s,
+    conditioning_finite=True,
+):
+    """Sixteen PCG iterations and first-acceptable bounded exact-loss backtracking.
 
     Each physical group's normalized norm sets its Huber threshold. Residual
     weights include the role weight and 1/(horizon*3); each group's IRLS factor
@@ -281,7 +298,7 @@ def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
     initial_finite &= jnp.all(preconditioner > 0)
     delta, _, _, _, finite = jax.lax.fori_loop(
         0,
-        4,
+        16,
         cg_step,
         (
             jnp.zeros_like(flat),
@@ -295,33 +312,205 @@ def _proposal(params, norms, data, scale, weights, damping, *, delay, dt_s):
     radius = jnp.maximum(1.0, 0.5 * jnp.linalg.norm(root_weight * raw))
     shrink = jnp.minimum(1.0, radius / jnp.maximum(jnp.linalg.norm(linearized), 1e-30))
     delta, linearized = delta * shrink, linearized * shrink
-    predicted = -jnp.vdot(gradient, delta) - 0.5 * (
+    linear_decrease = -jnp.vdot(gradient, delta)
+    quadratic_cost = 0.5 * (
         jnp.sum(irls * linearized**2) + jnp.vdot(delta, prior * delta)
     )
-    trial = flat + delta
-    proposal = unpack(trial)
-    trial_raw = _residual(proposal, norms, data, scale, delay, dt_s)
     current_loss = jnp.sum(weight * _huber(raw)) + 0.5 * jnp.vdot(flat, prior * flat)
-    trial_loss = jnp.sum(weight * _huber(trial_raw)) + 0.5 * jnp.vdot(
-        trial, prior * trial
-    )
-    finite &= jnp.all(
+    direction_finite = finite & jnp.all(
         jnp.stack(
             [
-                jnp.all(jnp.isfinite(v))
-                for v in (
-                    trial,
+                jnp.all(jnp.isfinite(value))
+                for value in (
+                    flat,
                     raw,
-                    trial_raw,
                     gradient,
-                    predicted,
+                    delta,
+                    linearized,
+                    radius,
+                    shrink,
+                    linear_decrease,
+                    quadratic_cost,
                     current_loss,
-                    trial_loss,
                 )
             ]
         )
     )
-    return proposal, current_loss, trial_loss, predicted, finite
+    scales = jnp.asarray(_STEP_SCALES, dtype=flat.dtype)
+
+    def pending(carry):
+        index, accepted, *_ = carry
+        return (index < len(_STEP_SCALES)) & ~accepted
+
+    def attempt(carry):
+        index, _, _, _, _, _, losses, predictions, finite_trials = carry
+        alpha = scales[index]
+        trial = flat + alpha * delta
+        trial_raw = _residual(unpack(trial), norms, data, scale, delay, dt_s)
+        loss = jnp.sum(weight * _huber(trial_raw)) + 0.5 * jnp.vdot(
+            trial, prior * trial
+        )
+        predicted = alpha * linear_decrease - alpha**2 * quadratic_cost
+        trial_finite = jnp.all(
+            jnp.stack(
+                [
+                    jnp.all(jnp.isfinite(value))
+                    for value in (trial, trial_raw, loss, predicted)
+                ]
+            )
+        )
+        gain = jnp.where(predicted > 0, (current_loss - loss) / predicted, -jnp.inf)
+        accepted = conditioning_finite & direction_finite & trial_finite
+        accepted &= (loss < current_loss) & (predicted > 0) & (gain >= 0.1)
+        return (
+            index + 1,
+            accepted,
+            trial,
+            loss,
+            predicted,
+            trial_finite,
+            losses.at[index].set(loss),
+            predictions.at[index].set(predicted),
+            finite_trials.at[index].set(trial_finite),
+        )
+
+    (
+        count,
+        accepted,
+        trial,
+        trial_loss,
+        predicted,
+        trial_finite,
+        losses,
+        predictions,
+        valid,
+    ) = jax.lax.while_loop(
+        pending,
+        attempt,
+        (
+            jnp.asarray(0),
+            jnp.asarray(False),
+            flat,
+            current_loss,
+            jnp.asarray(0.0, dtype=flat.dtype),
+            jnp.asarray(False),
+            jnp.full((len(_STEP_SCALES),), jnp.nan, dtype=flat.dtype),
+            jnp.full((len(_STEP_SCALES),), jnp.nan, dtype=flat.dtype),
+            jnp.zeros((len(_STEP_SCALES),), dtype=bool),
+        ),
+    )
+    evidence = dict(
+        direction_finite=direction_finite,
+        trust_shrink=shrink,
+        trial_evaluations=count,
+        trial_losses=losses,
+        trial_predicted=predictions,
+        trial_finite=valid,
+        selected_alpha=jnp.where(accepted, scales[count - 1], 0.0),
+    )
+    finite = conditioning_finite & direction_finite & trial_finite
+    return unpack(trial), current_loss, trial_loss, predicted, finite, evidence
+
+
+def _proposal_report(current, conditioning_finite, evidence):
+    """Keep only the bounded scalar decision record, using null for nonfinite data."""
+
+    def number(value):
+        value = float(value)
+        return value if np.isfinite(value) else None
+
+    evidence = jax.tree.map(np.asarray, evidence)
+    count = int(evidence["trial_evaluations"])
+    return dict(
+        current_loss=number(current),
+        conditioning_finite=bool(conditioning_finite),
+        direction_finite=bool(evidence["direction_finite"]),
+        trust_shrink=number(evidence["trust_shrink"]),
+        trials=[
+            dict(
+                alpha=alpha,
+                loss=number(evidence["trial_losses"][index]),
+                predicted_reduction=number(evidence["trial_predicted"][index]),
+                finite=bool(evidence["trial_finite"][index]),
+            )
+            for index, alpha in enumerate(_STEP_SCALES[:count])
+        ],
+        selected_alpha=float(evidence["selected_alpha"]),
+        trial_evaluations=count,
+    )
+
+
+def _validate_proposal_report(report):
+    """Validate the saved scalar decision without rerunning the model or optimizer."""
+
+    def number(value):
+        return type(value) is float and np.isfinite(value)
+
+    if (
+        not isinstance(report, dict)
+        or set(report)
+        != {
+            "current_loss",
+            "conditioning_finite",
+            "direction_finite",
+            "trust_shrink",
+            "trials",
+            "selected_alpha",
+            "trial_evaluations",
+        }
+        or any(
+            type(report[key]) is not bool
+            for key in ("conditioning_finite", "direction_finite")
+        )
+        or type(report["trial_evaluations"]) is not int
+        or not 1 <= report["trial_evaluations"] <= len(_STEP_SCALES)
+        or not isinstance(report["trials"], list)
+        or len(report["trials"]) != report["trial_evaluations"]
+        or not number(report["selected_alpha"])
+    ):
+        raise ValueError("invalid online proposal evidence")
+    current, shrink = report["current_loss"], report["trust_shrink"]
+    if (
+        (current is not None and (not number(current) or current < 0))
+        or (shrink is not None and (not number(shrink) or not 0 <= shrink <= 1))
+        or (report["direction_finite"] and (current is None or shrink is None))
+    ):
+        raise ValueError("invalid online proposal direction evidence")
+    selected = 0.0
+    for index, trial in enumerate(report["trials"]):
+        if (
+            not isinstance(trial, dict)
+            or set(trial) != {"alpha", "loss", "predicted_reduction", "finite"}
+            or not number(trial["alpha"])
+            or trial["alpha"] != _STEP_SCALES[index]
+            or type(trial["finite"]) is not bool
+            or any(
+                value is not None and not number(value)
+                for value in (trial["loss"], trial["predicted_reduction"])
+            )
+            or (trial["loss"] is not None and trial["loss"] < 0)
+            or (
+                trial["finite"]
+                and (trial["loss"] is None or trial["predicted_reduction"] is None)
+            )
+        ):
+            raise ValueError("invalid online backtracking trial evidence")
+        eligible = (
+            report["conditioning_finite"]
+            and report["direction_finite"]
+            and trial["finite"]
+        )
+        if eligible and trial["predicted_reduction"] > 0 and trial["loss"] < current:
+            gain = (current - trial["loss"]) / trial["predicted_reduction"]
+            if gain >= 0.1:
+                if index != len(report["trials"]) - 1:
+                    raise ValueError("online backtracking continued after acceptance")
+                selected = trial["alpha"]
+    if report["selected_alpha"] != selected or (
+        not selected and len(report["trials"]) != len(_STEP_SCALES)
+    ):
+        raise ValueError("online backtracking decision differs from trial evidence")
+    return bool(selected)
 
 
 def _full_cache(bootstrap, recent):
@@ -416,6 +605,7 @@ class OnlineFit:
         self._cursor = self._initial_cursor
         self._initial_count, self._horizon = count, horizon
         self._damping = 1.0
+        self._last_proposal = None
         self._counts = dict(
             conditioning_calls=0,
             optimizer_steps=0,
@@ -454,6 +644,7 @@ class OnlineFit:
             training_horizon_steps=self._horizon,
             **self._counts,
             damping=self._damping,
+            last_proposal=copy.deepcopy(self._last_proposal),
             envelope=dict(available=False),
         )
 
@@ -562,7 +753,7 @@ class OnlineFit:
                 delay=self._model.delay_steps,
                 dt_s=self._model.dt_s,
             )
-            proposal, current, trial, predicted, finite = _proposal(
+            proposal, current, trial, predicted, finite, evidence = _proposal(
                 params,
                 norms,
                 data,
@@ -571,6 +762,7 @@ class OnlineFit:
                 jnp.asarray(self._damping),
                 delay=self._model.delay_steps,
                 dt_s=self._model.dt_s,
+                conditioning_finite=conditioning_finite,
             )
             finite = (
                 bool(conditioning_finite)
@@ -603,13 +795,15 @@ class OnlineFit:
         counts["conditioning_calls"] += 1
         counts["optimizer_steps"] += 1
         counts["gradient_calls"] += 1
-        counts["objective_calls"] += 2
-        counts["cg_iterations"] += 4
-        counts["curvature_calls"] += 4
+        last_proposal = _proposal_report(current, conditioning_finite, evidence)
+        counts["objective_calls"] += 1 + last_proposal["trial_evaluations"]
+        counts["cg_iterations"] += 16
+        counts["curvature_calls"] += 16
         counts["accepted_proposals"] += int(accepted)
         self._model, self._damping = model, damping
         self._states, self._inputs, self._recent = states, inputs, recent
         self._counts, self._cursor = counts, self.cursor + 1
+        self._last_proposal = last_proposal
 
     def _metadata(self):
         return dict(
@@ -623,6 +817,7 @@ class OnlineFit:
             horizon=self._horizon,
             counts=self._counts.copy(),
             damping=self._damping,
+            last_proposal=copy.deepcopy(self._last_proposal),
         )
 
     def _arrays(self):
@@ -639,6 +834,7 @@ class OnlineFit:
         return array_fingerprint(self._metadata(), self._arrays())
 
     def save(self, path):
+        self._validate()
         save_arrays(path, self._metadata(), self._arrays())
 
     @classmethod
@@ -659,6 +855,7 @@ class OnlineFit:
                     "horizon",
                     "counts",
                     "damping",
+                    "last_proposal",
                 }
                 or meta["format"] != _FORMAT
                 or meta["recipe"] != _RECIPE
@@ -677,6 +874,7 @@ class OnlineFit:
                 "horizon",
                 "counts",
                 "damping",
+                "last_proposal",
             ):
                 setattr(obj, "_" + key, copy.deepcopy(meta[key]))
             obj._scale, obj._states, obj._inputs = (
@@ -735,22 +933,42 @@ class OnlineFit:
             conditioning_calls=observations,
             optimizer_steps=observations,
             gradient_calls=observations,
-            objective_calls=2 * observations,
-            cg_iterations=4 * observations,
-            curvature_calls=4 * observations,
+            cg_iterations=16 * observations,
+            curvature_calls=16 * observations,
         )
         if (
             not isinstance(self._counts, dict)
-            or set(self._counts) != {*expected, "accepted_proposals"}
+            or set(self._counts) != {*expected, "objective_calls", "accepted_proposals"}
             or any(type(v) is not int or v < 0 for v in self._counts.values())
             or any(self._counts[k] != v for k, v in expected.items())
             or self._counts["accepted_proposals"] > observations
+            or not 2 * observations
+            <= self._counts["objective_calls"]
+            <= 6 * observations
             or type(self._damping) is not float
             or not np.isfinite(self._damping)
             or not 1e-8 <= self._damping <= 1e8
             or (not observations and self._damping != 1.0)
         ):
             raise ValueError("invalid online optimizer accounting or damping")
+        if not observations:
+            if self._last_proposal is not None:
+                raise ValueError("unobserved online session has proposal evidence")
+        else:
+            accepted = _validate_proposal_report(self._last_proposal)
+            previous_calls = (
+                self._counts["objective_calls"]
+                - 1
+                - self._last_proposal["trial_evaluations"]
+            )
+            previous_accepted = self._counts["accepted_proposals"] - int(accepted)
+            if not (
+                2 * (observations - 1) <= previous_calls <= 6 * (observations - 1)
+                and 0 <= previous_accepted <= observations - 1
+            ):
+                raise ValueError(
+                    "online final proposal differs from optimizer accounting"
+                )
         if any(
             v.dtype != np.dtype("float64") or not np.isfinite(v).all()
             for v in self._arrays().values()

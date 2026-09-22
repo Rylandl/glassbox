@@ -19,7 +19,7 @@ from run_dart import ROOT, Journal, write
 from scipy.spatial.transform import Rotation
 from verify_baseline import arrays, digest, exact, observed, read, require
 
-PROTOCOL = ROOT / "docs/harness/online-fit-v6.json"
+PROTOCOL = ROOT / "docs/harness/online-fit-v8.json"
 
 COUNTERS = (
     "observations",
@@ -31,6 +31,133 @@ COUNTERS = (
     "curvature_calls",
     "conditioning_calls",
 )
+BACKTRACKING_ALPHAS = (1.0, 0.5, 0.25, 0.125, 0.0625)
+
+
+def proposal_decision(record):
+    """Replay a saved scalar decision with NumPy only, never a learner call."""
+    require(
+        isinstance(record, dict)
+        and set(record)
+        == {
+            "current_loss",
+            "conditioning_finite",
+            "direction_finite",
+            "trust_shrink",
+            "trials",
+            "selected_alpha",
+            "trial_evaluations",
+        },
+        "proposal evidence schema differs",
+    )
+
+    def numeric(value):
+        return type(value) in (float, int) and np.isfinite(value)
+
+    def optional(value):
+        return value is None or numeric(value)
+
+    current, shrink = record["current_loss"], record["trust_shrink"]
+    require(
+        optional(current)
+        and optional(shrink)
+        and (current is None or current >= 0)
+        and type(record["conditioning_finite"]) is bool
+        and type(record["direction_finite"]) is bool
+        and (shrink is None or 0 <= shrink <= 1),
+        "proposal header differs",
+    )
+    require(
+        not record["direction_finite"] or (numeric(current) and numeric(shrink)),
+        "finite proposal header differs",
+    )
+    trials = record["trials"]
+    require(
+        isinstance(trials, list)
+        and 1 <= len(trials) <= 5
+        and type(record["trial_evaluations"]) is int
+        and record["trial_evaluations"] == len(trials)
+        and numeric(record["selected_alpha"]),
+        "proposal trial count differs",
+    )
+    accepted, gain = False, -np.inf
+    for index, trial in enumerate(trials):
+        require(
+            isinstance(trial, dict)
+            and set(trial) == {"alpha", "loss", "predicted_reduction", "finite"}
+            and numeric(trial["alpha"])
+            and trial["alpha"] == BACKTRACKING_ALPHAS[index]
+            and optional(trial["loss"])
+            and (trial["loss"] is None or trial["loss"] >= 0)
+            and optional(trial["predicted_reduction"])
+            and type(trial["finite"]) is bool,
+            "proposal trial evidence differs",
+        )
+        loss, predicted = trial["loss"], trial["predicted_reduction"]
+        require(
+            not trial["finite"] or (numeric(loss) and numeric(predicted)),
+            "finite trial evidence differs",
+        )
+        eligible = (
+            record["conditioning_finite"]
+            and record["direction_finite"]
+            and trial["finite"]
+            and predicted > 0
+        )
+        if eligible:
+            with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+                gain = float(np.float64(current - loss) / predicted)
+        else:
+            gain = -np.inf
+        accepted = bool(eligible and loss < current and gain >= 0.1)
+        require(not accepted or index == len(trials) - 1, "trial followed acceptance")
+    require(
+        (accepted and record["selected_alpha"] == trials[-1]["alpha"])
+        or (not accepted and len(trials) == 5 and record["selected_alpha"] == 0),
+        "first acceptable proposal selection differs",
+    )
+    return dict(accepted=accepted, gain=gain, trial_evaluations=len(trials))
+
+
+def proposal_transition(before, after):
+    """Validate one saved observation's work, acceptance and damping decision."""
+    result = proposal_decision(after["last_proposal"])
+    require(
+        after["objective_calls"] - before["objective_calls"]
+        == 1 + result["trial_evaluations"]
+        and after["accepted_proposals"] - before["accepted_proposals"]
+        == int(result["accepted"]),
+        "backtracking observation accounting differs",
+    )
+    damping = before["damping"]
+    if not result["accepted"] or result["gain"] < 0.25:
+        damping *= 4.0
+    elif result["gain"] > 0.75:
+        damping *= 0.5
+    require(
+        after["damping"] == float(np.clip(damping, 1e-8, 1e8)),
+        "backtracking damping differs",
+    )
+    return result
+
+
+def work_summary(data):
+    mask = data["assimilated"]
+    trials, alpha = data["trial_evaluations"][mask], data["selected_alpha"][mask]
+    count = int(mask.sum())
+    return dict(
+        observations=count,
+        scheduled_cg_iterations=16 * count,
+        gradient_calls=count,
+        current_objective_calls=count,
+        trial_objective_calls=int(trials.sum()),
+        total_objective_calls=count + int(trials.sum()),
+        trial_count_histogram={str(n): int((trials == n).sum()) for n in range(1, 6)},
+        selected_alpha_histogram={
+            str(value): int((alpha == value).sum())
+            for value in (0.0, *BACKTRACKING_ALPHAS)
+        },
+    )
 
 
 def fingerprint(model):
@@ -174,6 +301,7 @@ def summarize(data, info, reference=None, protocol=None, stream=None):
         "online-fit-v5",
         "online-fit-v6",
         "online-fit-v7",
+        "online-fit-v8",
     ):
         require(stream is not None, "prospective diagnostics require observed origins")
         origins = observed(stream["states"][data["origin"]])
@@ -201,10 +329,16 @@ def summarize(data, info, reference=None, protocol=None, stream=None):
             if a is not None and b is not None
             else None
         )
-    if protocol is not None and protocol["id"] in ("online-fit-v6", "online-fit-v7"):
+    if protocol is not None and protocol["id"] in (
+        "online-fit-v6",
+        "online-fit-v7",
+        "online-fit-v8",
+    ):
         result["endpoint_objectives"] = info.get("endpoint_objectives")
-    if protocol is not None and protocol["id"] == "online-fit-v7":
+    if protocol is not None and protocol["id"] in ("online-fit-v7", "online-fit-v8"):
         result["causal_captures"] = info.get("causal_captures", [])
+    if protocol is not None and protocol["id"] == "online-fit-v8":
+        result["work"] = work_summary(data)
     return result
 
 
@@ -300,6 +434,7 @@ def aggregate(cases, protocol=None):
         "online-fit-v5",
         "online-fit-v6",
         "online-fit-v7",
+        "online-fit-v8",
     )
     comparison = comparison_aggregate(cases, "reference_ratios" if paired else "ratios")
     total, families = comparison["aggregate_ratio"], comparison["families"]
@@ -339,7 +474,12 @@ def aggregate(cases, protocol=None):
             + protocol["comparison"]["reference"]["protocol_id"],
             frozen_comparison=comparison_aggregate(cases, "ratios"),
         )
-    if protocol["id"] in ("online-fit-v5", "online-fit-v6", "online-fit-v7"):
+    if protocol["id"] in (
+        "online-fit-v5",
+        "online-fit-v6",
+        "online-fit-v7",
+        "online-fit-v8",
+    ):
         robustness = {}
         for family in ("quad", "fixedwing"):
             selected = [case for case in cases if case["family"] == family]
@@ -377,6 +517,25 @@ def aggregate(cases, protocol=None):
             and ratios["orientation"] <= 1
             and ratios["rotation_rate"] < 1
         )
+    if protocol["id"] == "online-fit-v8":
+        scalar = (
+            "observations",
+            "scheduled_cg_iterations",
+            "gradient_calls",
+            "current_objective_calls",
+            "trial_objective_calls",
+            "total_objective_calls",
+        )
+        result["work"] = {
+            key: sum(case["work"][key] for case in cases) for key in scalar
+        }
+        for key, bins in (
+            ("trial_count_histogram", [str(n) for n in range(1, 6)]),
+            ("selected_alpha_histogram", [str(a) for a in (0.0, *BACKTRACKING_ALPHAS)]),
+        ):
+            result["work"][key] = {
+                value: sum(case["work"][key][value] for case in cases) for value in bins
+            }
     return result
 
 
@@ -392,6 +551,7 @@ def counter_names(protocol):
             "online-fit-v5",
             "online-fit-v6",
             "online-fit-v7",
+            "online-fit-v8",
         )
         else COUNTERS[:7]
     )
@@ -410,6 +570,7 @@ def dynamic_normalizers(protocol):
                 "online-fit-v5",
                 "online-fit-v6",
                 "online-fit-v7",
+                "online-fit-v8",
             )
             else []
         ),
@@ -500,6 +661,7 @@ def reference_contract(reference, protocol):
             "online-fit-v5": "online-fit-v4",
             "online-fit-v6": "online-fit-v4",
             "online-fit-v7": "online-fit-v6",
+            "online-fit-v8": "online-fit-v6",
         }.get(protocol["id"]),
         "reference protocol contract differs",
     )
@@ -516,7 +678,7 @@ def reference_contract(reference, protocol):
     return result
 
 
-def make_data(rows, times, commands):
+def make_data(rows, times, commands, protocol=None):
     n, m = len(rows), commands.shape[1]
     data = dict(
         origin=rows,
@@ -546,11 +708,16 @@ def make_data(rows, times, commands):
             for when in ("before", "after")
         }
     )
+    if protocol is not None and protocol["id"] == "online-fit-v8":
+        data.update(
+            trial_evaluations=np.full(n, -1, np.int64),
+            selected_alpha=np.full(n, np.nan, np.float64),
+        )
     return data
 
 
 def capture_origins(protocol, case_id):
-    if protocol["id"] != "online-fit-v7":
+    if protocol["id"] not in ("online-fit-v7", "online-fit-v8"):
         return []
     chosen = protocol["causal_captures"]["origins"].get(case_id, [])
     require(chosen == sorted(set(chosen)), "capture declaration differs")
@@ -703,7 +870,7 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
     stream = arrays(source)
     x, u, times = stream["states"], stream["commands"], stream["time_s"]
     rows = np.arange(first, max(first, len(u)), dtype=np.int64)
-    data = make_data(rows, times, u)
+    data = make_data(rows, times, u, protocol)
     info = dict(
         info,
         prefix=dict(start_row=begin, next_command_row=first, dt_s=dt),
@@ -711,7 +878,7 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
     )
     journal, online, frozen = Journal(output), None, None
     captures = capture_origins(protocol, info["id"])
-    if protocol["id"] == "online-fit-v7":
+    if protocol["id"] in ("online-fit-v7", "online-fit-v8"):
         info["causal_captures"] = []
 
     def save():
@@ -894,6 +1061,11 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
             data["model_after"][i] = fingerprint(updated)
             for key in counters:
                 data[key + "_after"][i] = online.report[key]
+            if protocol["id"] == "online-fit-v8":
+                proposal_transition(before, online.report)
+                decision = online.report["last_proposal"]
+                data["trial_evaluations"][i] = decision["trial_evaluations"]
+                data["selected_alpha"][i] = decision["selected_alpha"]
             body = np.r_[truth[6:].reshape(3, 3).T @ truth[:3], truth[3:6]]
             norm = initial.norms
             data["motion_support_ratio"][i] = np.abs(
@@ -923,7 +1095,7 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
                     ),
                     flush=True,
                 )
-        if protocol["id"] == "online-fit-v7":
+        if protocol["id"] in ("online-fit-v7", "online-fit-v8"):
             require(
                 info["causal_captures"] == captures, "missing successful causal capture"
             )
@@ -943,7 +1115,10 @@ def evaluate_case(source, output, info, protocol=None, reference=None):
                     info[name + "_final_report"] = learner.report
                 except Exception as error:
                     info.update(status="failed", final_save_error=repr(error))
-        if protocol["id"] in ("online-fit-v6", "online-fit-v7") and online is not None:
+        if (
+            protocol["id"] in ("online-fit-v6", "online-fit-v7", "online-fit-v8")
+            and online is not None
+        ):
             try:
                 info["endpoint_objectives"] = save_endpoint_diagnostics(output)
             except Exception as error:
@@ -963,7 +1138,12 @@ def endpoint_objective(meta, values, predictions):
     """Independent NumPy arithmetic from one saved cache/model endpoint."""
     norms = {key[5:]: value for key, value in values.items() if key.startswith("norm_")}
     require(
-        meta["format"] in ("glassbox-online-fit-v6", "glassbox-online-fit-v7"),
+        meta["format"]
+        in (
+            "glassbox-online-fit-v6",
+            "glassbox-online-fit-v7",
+            "glassbox-online-fit-v8",
+        ),
         "unsupported endpoint session format",
     )
     envelope = meta["format"] == "glassbox-online-fit-v7"
@@ -1166,7 +1346,7 @@ def run(collection, authority, output, protocol=PROTOCOL, reference=None):
     try:
         p = read(protocol)
         require(
-            p["id"] == "online-fit-v6",
+            p["id"] == "online-fit-v8",
             "unsupported candidate protocol for current learner",
         )
         require(
@@ -1310,6 +1490,34 @@ def accounting(report, count, protocol):
             and 1e-8 <= report["damping"] <= 1e8,
             "curvature accounting differs",
         )
+    if protocol["id"] == "online-fit-v8":
+        require(
+            protocol["candidate"]["cg_iterations"] == 16
+            and tuple(protocol["candidate"]["backtracking_alphas"])
+            == BACKTRACKING_ALPHAS
+            and report["cg_iterations"] == report["curvature_calls"] == 16 * count
+            and type(report["objective_calls"]) is int
+            and type(report["accepted_proposals"]) is int
+            and 0 <= report["accepted_proposals"] <= count
+            and 2 * count <= report["objective_calls"] <= 6 * count
+            and 1e-8 <= report["damping"] <= 1e8,
+            "backtracking curvature accounting differs",
+        )
+        if count:
+            last = proposal_decision(report["last_proposal"])
+            previous_calls = report["objective_calls"] - 1 - last["trial_evaluations"]
+            require(
+                2 * (count - 1) <= previous_calls <= 6 * (count - 1)
+                and 0
+                <= report["accepted_proposals"] - int(last["accepted"])
+                <= count - 1,
+                "last proposal objective accounting differs",
+            )
+        else:
+            require(
+                report["last_proposal"] is None and report["damping"] == 1.0,
+                "initial proposal evidence differs",
+            )
 
     if protocol["id"] in (
         "online-fit-v3",
@@ -1317,6 +1525,7 @@ def accounting(report, count, protocol):
         "online-fit-v5",
         "online-fit-v6",
         "online-fit-v7",
+        "online-fit-v8",
     ):
         require(
             report["conditioning_calls"] == count, "conditioning accounting differs"
@@ -1339,7 +1548,12 @@ def session_arrays(path, info, count, endpoint, protocol, report=None):
         "session endpoint differs",
     )
     accounting(
-        dict(meta["counts"], observations=count, damping=meta.get("damping")),
+        dict(
+            meta["counts"],
+            observations=count,
+            damping=meta.get("damping"),
+            last_proposal=meta.get("last_proposal"),
+        ),
         count,
         protocol,
     )
@@ -1358,6 +1572,17 @@ def session_arrays(path, info, count, endpoint, protocol, report=None):
         )
         if "damping" in meta:
             require(report["damping"] == meta["damping"], "saved damping differs")
+        if protocol["id"] == "online-fit-v8":
+            require(
+                report["last_proposal"] == meta["last_proposal"],
+                "saved proposal evidence differs",
+            )
+    if protocol["id"] == "online-fit-v8":
+        require(
+            meta["recipe"]["cg_iterations"] == 16
+            and tuple(meta["recipe"]["backtracking"]["scales"]) == BACKTRACKING_ALPHAS,
+            "saved backtracking recipe differs",
+        )
     return values
 
 
@@ -1373,7 +1598,20 @@ def verify_journal(case, data, stream, info, protocol=None):
             info["status"] == "failed" and not data["assimilated"].any(),
             "missing normalization archive",
         )
-    previous_accepted = 0
+    backtracking = protocol["id"] == "online-fit-v8"
+    if backtracking:
+        n = len(data["origin"])
+        require(
+            data["trial_evaluations"].shape == data["selected_alpha"].shape == (n,)
+            and data["trial_evaluations"].dtype == np.int64
+            and data["selected_alpha"].dtype == np.float64
+            and np.all(data["trial_evaluations"][~data["assimilated"]] == -1)
+            and np.isnan(data["selected_alpha"][~data["assimilated"]]).all(),
+            "backtracking row inventory differs",
+        )
+    previous_accepted, previous_proposal = 0, None
+    previous_report = None
+    before = None
     position, phase, offset = 0, "predicted", 0
     with (
         (case / "arrays.bin").open("rb") as binary,
@@ -1424,6 +1662,21 @@ def verify_journal(case, data, stream, info, protocol=None):
                     "before cursor/counters differ",
                 )
                 accounting(event["report"], position, protocol)
+                if backtracking:
+                    require(
+                        event["report"]["last_proposal"] == previous_proposal,
+                        "proposal evidence chain differs",
+                    )
+                    if previous_report is not None:
+                        require(
+                            all(
+                                event["report"][key] == previous_report[key]
+                                for key in (*counters, "damping", "cursor")
+                            ),
+                            "backtracking report chain differs",
+                        )
+                    before = event["report"]
+                    previous_report = before
                 phase = "revealed"
             elif phase == "revealed":
                 exact(
@@ -1467,6 +1720,23 @@ def verify_journal(case, data, stream, info, protocol=None):
                     "assimilation accounting differs",
                 )
                 accounting(event["report"], position + 1, protocol)
+                if backtracking:
+                    result = proposal_transition(before, event["report"])
+                    previous_proposal = event["report"]["last_proposal"]
+                    require(
+                        data["trial_evaluations"][position]
+                        == result["trial_evaluations"]
+                        and data["selected_alpha"][position]
+                        == previous_proposal["selected_alpha"],
+                        "saved backtracking row differs",
+                    )
+                    require(
+                        result["accepted"]
+                        or data["model_before"][position]
+                        == data["model_after"][position],
+                        "rejected proposal changed model",
+                    )
+                    previous_report = event["report"]
                 phase, position = "predicted", position + 1
         require(
             offset == (case / "arrays.bin").stat().st_size, "unreferenced journal bytes"
@@ -1478,6 +1748,14 @@ def verify_journal(case, data, stream, info, protocol=None):
     require(
         position == int(data["assimilated"].sum()), "journal assimilation count differs"
     )
+    if backtracking and previous_report is not None:
+        require(
+            all(
+                info["online_final_report"][key] == previous_report[key]
+                for key in (*counters, "damping", "cursor", "last_proposal")
+            ),
+            "final backtracking report differs",
+        )
     if info["status"] == "complete":
         require(
             phase == "predicted" and position == len(data["origin"]),
@@ -1500,6 +1778,7 @@ def verify(output, authority):
         "online-fit-v5",
         "online-fit-v6",
         "online-fit-v7",
+        "online-fit-v8",
     ):
         reference = output / "reference"
         reference_contract(reference, protocol)
@@ -1564,6 +1843,7 @@ def verify(output, authority):
                 "online-fit-v5",
                 "online-fit-v6",
                 "online-fit-v7",
+                "online-fit-v8",
             ):
                 norm = arrays(case / "normalization.npz")
                 for key, value in norm.items():
@@ -1608,7 +1888,7 @@ def verify(output, authority):
                             final[key],
                             "fixed normalization/frozen session",
                         )
-        if protocol["id"] in ("online-fit-v6", "online-fit-v7"):
+        if protocol["id"] in ("online-fit-v6", "online-fit-v7", "online-fit-v8"):
             if info.get("endpoint_objectives") is not None:
                 require(
                     verify_endpoint_diagnostics(case) == info["endpoint_objectives"],
@@ -1619,7 +1899,7 @@ def verify(output, authority):
                     info["status"] == "failed",
                     "missing successful endpoint diagnostics",
                 )
-        if protocol["id"] == "online-fit-v7":
+        if protocol["id"] in ("online-fit-v7", "online-fit-v8"):
             verify_causal_captures(case, data, stream, info, protocol)
         for arm in ("candidate", "frozen", "kinematic"):
             error, angles = residuals(data[arm], data["truth"])
@@ -1634,7 +1914,10 @@ def verify(output, authority):
         ),
         "aggregate differs",
     )
-    if protocol["id"] == "online-fit-v7" and report["all_cases_complete"]:
+    if (
+        protocol["id"] in ("online-fit-v7", "online-fit-v8")
+        and report["all_cases_complete"]
+    ):
         require(
             sum(len(row["causal_captures"]) for row in results) == 23,
             "successful evaluation requires all23 captures",

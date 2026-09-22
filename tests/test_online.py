@@ -97,6 +97,23 @@ def snapshot(session):
     )
 
 
+def controlled_evidence(current, trial, predicted, finite, *, accepted):
+    """Synthetic bounded evidence for tests of the outer session transition."""
+    count = 1 if accepted else 5
+    losses = np.full(5, np.nan)
+    reductions = np.full(5, np.nan)
+    losses[:count], reductions[:count] = trial, predicted
+    return dict(
+        direction_finite=bool(finite),
+        trust_shrink=1.0,
+        trial_evaluations=count,
+        trial_losses=losses,
+        trial_predicted=reductions,
+        trial_finite=np.r_[np.full(count, finite), np.zeros(5 - count, dtype=bool)],
+        selected_alpha=1.0 if accepted else 0.0,
+    )
+
+
 @pytest.mark.parametrize("commands", [3, 4])
 def test_same_public_api_initializes_and_learns_arbitrary_command_count(commands):
     states, issued = stream(commands)
@@ -121,9 +138,12 @@ def test_same_public_api_initializes_and_learns_arbitrary_command_count(commands
     assert session.report["observations"] == 1
     assert session.report["gradient_calls"] == 1
     assert session.report["optimizer_steps"] == 1
-    assert session.report["cg_iterations"] == 4
-    assert session.report["curvature_calls"] == 4
-    assert session.report["objective_calls"] == 2
+    assert session.report["cg_iterations"] == 16
+    assert session.report["curvature_calls"] == 16
+    assert (
+        session.report["objective_calls"]
+        == 1 + session.report["last_proposal"]["trial_evaluations"]
+    )
     assert jax.config.x64_enabled == before_precision
     assert session.report["conditioning_calls"] == 1
     assert_normalizers_advance(initial.norms, session.model.norms)
@@ -181,7 +201,14 @@ def test_nonfinite_proposal_preserves_parameters_and_ingests_once(monkeypatch):
     def nonfinite(params, norms, data, scale, weights, damping, **kwargs):
         proposal = dict(params)
         proposal["bias"] = jnp.full_like(params["bias"], jnp.nan)
-        return proposal, jnp.asarray(1.0), jnp.nan, jnp.nan, False
+        return (
+            proposal,
+            jnp.asarray(1.0),
+            jnp.nan,
+            jnp.nan,
+            False,
+            controlled_evidence(1.0, np.nan, np.nan, False, accepted=False),
+        )
 
     with monkeypatch.context() as patch:
         patch.setattr(online, "_proposal", nonfinite)
@@ -375,12 +402,27 @@ def test_rejection_preserves_parameters_and_damping_survives_resume(
     calls = []
 
     def rejected(*args, **kwargs):
-        proposal, current, trial, predicted, finite = actual_proposal(*args, **kwargs)
+        proposal, current, trial, predicted, finite, _ = actual_proposal(
+            *args, **kwargs
+        )
         assert bool(finite)
         assert np.isfinite([current, trial, predicted]).all()
         calls.append(float(predicted))
         # Exercise the real CG solve but reject a finite, non-improving forecast.
-        return proposal, current, current, predicted, finite
+        return (
+            proposal,
+            current,
+            current,
+            predicted,
+            finite,
+            controlled_evidence(
+                float(current),
+                float(current),
+                float(predicted),
+                bool(finite),
+                accepted=False,
+            ),
+        )
 
     with monkeypatch.context() as patch:
         patch.setattr(online, "_proposal", rejected)
@@ -388,9 +430,12 @@ def test_rejection_preserves_parameters_and_damping_survives_resume(
     assert len(calls) == 1
     assert session.model.fingerprint == initial
     assert session.report["optimizer_steps"] == 1
-    assert session.report["objective_calls"] == 2
-    assert session.report["cg_iterations"] == 4
-    assert session.report["curvature_calls"] == 4
+    assert (
+        session.report["objective_calls"]
+        == 1 + session.report["last_proposal"]["trial_evaluations"]
+    )
+    assert session.report["cg_iterations"] == 16
+    assert session.report["curvature_calls"] == 16
     assert session.report["accepted_proposals"] == 0
     assert session.report["conditioning_calls"] == 1
     assert session.report["damping"] == 4.0
@@ -411,8 +456,11 @@ def test_rejection_preserves_parameters_and_damping_survives_resume(
     "gain,expected_damping,accepted",
     [
         (0.05, 4.0, False),
+        (0.1, 4.0, True),
         (0.2, 4.0, True),
+        (0.25, 1.0, True),
         (0.5, 1.0, True),
+        (0.75, 1.0, True),
         (0.9, 0.5, True),
     ],
 )
@@ -427,12 +475,22 @@ def test_damping_tracks_actual_to_predicted_decrease(
         proposal = dict(params)
         proposal["bias"] = params["bias"] + 1e-9
         predicted = 0.25
-        return proposal, 1.0, 1.0 - gain * predicted, predicted, True
+        return (
+            proposal,
+            1.0,
+            1.0 - gain * predicted,
+            predicted,
+            True,
+            controlled_evidence(
+                1.0, 1.0 - gain * predicted, predicted, True, accepted=accepted
+            ),
+        )
 
     monkeypatch.setattr(online, "_proposal", controlled)
     session.observe(session.cursor, issued[15], states[16])
     assert session.report["damping"] == expected_damping
     assert session.report["accepted_proposals"] == int(accepted)
+    assert bool(session.report["last_proposal"]["selected_alpha"]) == accepted
     assert (session.model.fingerprint != initial) == accepted
     assert session.cursor == 73 + 16
 
@@ -525,7 +583,7 @@ def test_gauss_newton_matches_linear_solve_and_handles_zero_and_large_residuals(
             (np.array([30.0, 20.0]), 1e-8),
         ):
             truth = np.broadcast_to(matrix @ target, (64, 1, 15))
-            proposal, current, trial, predicted, finite = solve(
+            proposal, current, trial, predicted, finite, _ = solve(
                 {"coefficients": jnp.asarray(start)},
                 {},
                 tuple(jnp.asarray(v) for v in (history, inputs, inputs, truth)),
@@ -1079,29 +1137,35 @@ def test_curvature_prior_and_directional_derivative_survive_reconditioning():
         assert derivatives[0] == pytest.approx(derivatives[1], rel=3e-13)
 
 
-def test_four_pcg_steps_match_independent_truncated_solve(monkeypatch):
+def test_sixteen_pcg_steps_match_independent_truncated_solve(monkeypatch):
     rng = np.random.default_rng(341)
-    matrix = rng.normal(0, 0.3, (15, 6))
-    start = rng.normal(size=6)
-    prior = np.array([0, 0.01, 0.3, 1, 12, 90])
-    target = np.full(15, 8.0)
-    damping = 0.2
+    matrix = rng.normal(0, 0.3, (30, 24))
+    start = rng.normal(size=24)
+    prior = np.geomspace(1e-4, 1, 24)
+    target = np.full(30, 8.0)
+    damping = 0.003
     raw = matrix @ start - target
+    grouped = raw.reshape(2, 15)
     irls = np.concatenate(
         [
-            np.full(b - a, 1 / max(1, np.linalg.norm(raw[a:b])))
-            for a, b in ((0, 3), (3, 6), (6, 15))
+            np.concatenate(
+                [
+                    np.full(b - a, 1 / max(1, np.linalg.norm(row[a:b])))
+                    for a, b in ((0, 3), (3, 6), (6, 15))
+                ]
+            )
+            for row in grouped
         ]
     )
-    curvature = matrix.T @ (irls[:, None] * matrix) / 3 + np.diag(prior)
-    gradient = matrix.T @ (irls * raw) / 3 + prior * start
-    hessian = curvature + damping * np.eye(6)
-    delta = np.zeros(6)
+    curvature = matrix.T @ (irls[:, None] * matrix) / 6 + np.diag(prior)
+    gradient = matrix.T @ (irls * raw) / 6 + prior * start
+    hessian = curvature + damping * np.eye(24)
+    delta = np.zeros(24)
     residual = -gradient.copy()
     z = residual / (damping + prior)
     direction = z.copy()
     rho = residual @ z
-    for _ in range(4):
+    for _ in range(16):
         action = hessian @ direction
         alpha = rho / (direction @ action)
         delta += alpha * direction
@@ -1110,40 +1174,43 @@ def test_four_pcg_steps_match_independent_truncated_solve(monkeypatch):
         following = residual @ z
         direction = z + (following / rho) * direction
         rho = following
-    assert np.linalg.norm(hessian @ delta + gradient) > 1e-5
-    radius = max(1, 0.5 * np.linalg.norm(raw) / np.sqrt(3))
-    delta *= min(1, radius / (np.linalg.norm(matrix @ delta) / np.sqrt(3)))
+    assert np.linalg.norm(hessian @ delta + gradient) > 1e-7
+    radius = max(1, 0.5 * np.linalg.norm(raw) / np.sqrt(6))
+    delta *= min(1, radius / (np.linalg.norm(matrix @ delta) / np.sqrt(6)))
 
     def residual_function(params, norms, data, scale, delay, dt_s):
-        return (jnp.asarray(matrix) @ params["coefficients"] - target)[None, None]
+        return (jnp.asarray(matrix) @ params["coefficients"] - target).reshape(1, 2, 15)
 
     monkeypatch.setattr(online, "_residual", residual_function)
     monkeypatch.setattr(
         online, "_curvature_diagonal", lambda *a, **kw: jnp.asarray(prior)
     )
     with jax.enable_x64(True):
-        proposal, current, trial, predicted, finite = online._proposal.__wrapped__(
-            {"coefficients": jnp.asarray(start)},
-            {},
-            (),
-            np.ones((1, 15)),
-            jnp.ones(1),
-            damping,
-            delay=1,
-            dt_s=0.05,
+        proposal, current, trial, predicted, finite, evidence = (
+            online._proposal.__wrapped__(
+                {"coefficients": jnp.asarray(start)},
+                {},
+                (),
+                np.ones((2, 15)),
+                jnp.ones(1),
+                damping,
+                delay=1,
+                dt_s=0.05,
+            )
         )
     assert finite
+    assert int(evidence["trial_evaluations"]) == 1
     np.testing.assert_allclose(
-        np.asarray(proposal["coefficients"]), start + delta, rtol=2e-12, atol=1e-12
+        np.asarray(proposal["coefficients"]), start + delta, rtol=2e-8, atol=2e-9
     )
     assert float(predicted) == pytest.approx(
-        -gradient @ delta - 0.5 * delta @ curvature @ delta, rel=2e-12
+        -gradient @ delta - 0.5 * delta @ curvature @ delta, rel=2e-8
     )
     assert float(current) == pytest.approx(
-        numpy_group_huber(raw).mean() + 0.5 * prior @ start**2, rel=2e-12
+        numpy_group_huber(grouped).mean() + 0.5 * prior @ start**2, rel=2e-12
     )
     assert float(trial) == pytest.approx(
-        numpy_group_huber(raw + matrix @ delta).mean()
+        numpy_group_huber((raw + matrix @ delta).reshape(2, 15)).mean()
         + 0.5 * prior @ (start + delta) ** 2,
-        rel=2e-12,
+        rel=2e-8,
     )

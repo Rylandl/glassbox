@@ -147,10 +147,20 @@ class FakeOnline:
         )
 
 
-def run_fixture(tmp_path, monkeypatch, *, fail=False, short=False, protocol=None):
+def run_fixture(
+    tmp_path,
+    monkeypatch,
+    *,
+    fail=False,
+    short=False,
+    protocol=None,
+    online_type=None,
+):
     import glassbox
 
-    class Chosen(FakeOnline):
+    online_type = FakeOnline if online_type is None else online_type
+
+    class Chosen(online_type):
         def observe(self, *args):
             if fail:
                 raise RuntimeError("synthetic update failure")
@@ -191,7 +201,13 @@ def test_causal_journal_and_exact_accounting_without_fitting(tmp_path, monkeypat
         evaluate.arrays(output / "predictions.npz"),
         evaluate.read(output / "case.json"),
     )
-    evaluate.verify_journal(output, data, source, info)
+    evaluate.verify_journal(
+        output,
+        data,
+        source,
+        info,
+        evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v4.json"),
+    )
     events = [
         json.loads(line) for line in (output / "events.jsonl").read_text().splitlines()
     ]
@@ -203,7 +219,13 @@ def test_causal_journal_and_exact_accounting_without_fitting(tmp_path, monkeypat
     events[0]["phase"] = "revealed"
     (output / "events.jsonl").write_text("\n".join(json.dumps(row) for row in events))
     with pytest.raises(ValueError, match="journal order"):
-        evaluate.verify_journal(output, data, source, info)
+        evaluate.verify_journal(
+            output,
+            data,
+            source,
+            info,
+            evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v4.json"),
+        )
 
 
 @pytest.mark.parametrize("short", [False, True])
@@ -219,7 +241,13 @@ def test_partial_failure_preserves_missing_rows_and_checkpoint(
         evaluate.read(output / "case.json"),
     )
     assert info["status"] == "failed"
-    evaluate.verify_journal(output, data, source, info)
+    evaluate.verify_journal(
+        output,
+        data,
+        source,
+        info,
+        evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v4.json"),
+    )
 
 
 def test_sealed_numeric_mutation_is_rejected_even_with_new_local_checksum(tmp_path):
@@ -307,7 +335,7 @@ def test_generic_session_archive_verification_without_optimizer_loader(
             evaluate.session_arrays(path, dict(first=75), 1, identity, protocol)
 
 
-@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 7])
+@pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 6, 7])
 def test_other_protocol_cannot_run_maintained_candidate(tmp_path, monkeypatch, version):
     protocol = tmp_path / "protocol.json"
     protocol.write_text(json.dumps(dict(id=f"online-fit-v{version}")))
@@ -438,7 +466,13 @@ def test_journal_rejects_normalizer_decrease_from_saved_payload(tmp_path, monkey
         stream.seek(offset)
         np.save(stream, changed, allow_pickle=False)
     with pytest.raises(ValueError, match="decreasing dynamic normalization"):
-        evaluate.verify_journal(output, data, source, info)
+        evaluate.verify_journal(
+            output,
+            data,
+            source,
+            info,
+            evaluate.read(evaluate.ROOT / "docs/harness/online-fit-v4.json"),
+        )
 
 
 def test_reference_authority_is_checked_before_candidate_or_source_work(
@@ -598,10 +632,10 @@ def test_prospective_run_rejects_weaker_v2_reference(tmp_path, monkeypatch, vers
         evaluate.reference_contract(tmp_path, protocol)
 
 
-def test_current_candidate_runner_uses_v6_against_working_v4():
+def test_current_candidate_runner_uses_v8_against_working_v6():
     protocol = evaluate.read(evaluate.PROTOCOL)
-    assert protocol["id"] == "online-fit-v6"
-    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v4"
+    assert protocol["id"] == "online-fit-v8"
+    assert protocol["comparison"]["reference"]["protocol_id"] == "online-fit-v6"
     assert evaluate.run.__defaults__[0] == evaluate.PROTOCOL
 
 
@@ -679,7 +713,7 @@ def test_endpoint_numpy_objective_preserves_role_weights_and_physical_prior():
     )
 
 
-@pytest.mark.parametrize("version", [6, 7])
+@pytest.mark.parametrize("version", [6, 7, 8])
 def test_endpoint_verifier_uses_saved_predictions_without_model_or_optimizer(
     tmp_path, monkeypatch, version
 ):
