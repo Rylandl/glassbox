@@ -583,7 +583,7 @@ def main():
         spec = read(args.output / "protocol.json")
         for value in spec["source"].values():
             if isinstance(value, dict) and "path" in value:
-                authenticate(value["path"], value["manifest_sha256"])
+                authenticate(Path(value["path"]), value["manifest_sha256"])
         results = [
             verify_case(args.output, source_case(spec, name)) for name in spec["cases"]
         ]
@@ -598,7 +598,7 @@ def main():
     spec = read(PROTOCOL)
     for value in spec["source"].values():
         if isinstance(value, dict) and "path" in value:
-            authenticate(value["path"], value["manifest_sha256"])
+            authenticate(Path(value["path"]), value["manifest_sha256"])
     bound = source_binding(spec)
     args.output.mkdir(parents=True, exist_ok=False)
     shutil.copyfile(PROTOCOL, args.output / "protocol.json")
