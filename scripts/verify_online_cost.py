@@ -77,7 +77,7 @@ EVIDENCE = (
 NATIVE = ("current_loss", "trial_loss", "predicted_reduction", "finite")
 
 
-def numeric_same(actual, expected, label):
+def numeric_same(actual, expected, label, *, strict=True):
     """Frozen tolerance with exact shape/dtype/finite masks and discrete values."""
     actual, expected = np.asarray(actual), np.asarray(expected)
     assert actual.shape == expected.shape and actual.dtype == expected.dtype, label
@@ -93,7 +93,8 @@ def numeric_same(actual, expected, label):
         ATOL + RTOL * np.abs(expected[finite])
     )
     maximum = float(np.max(scaled, initial=0.0))
-    assert maximum <= 1, (label, maximum)
+    if strict:
+        assert maximum <= 1, (label, maximum)
     return maximum
 
 
@@ -252,7 +253,7 @@ def subset(arrays, prefix):
     }
 
 
-def compare_group(arrays, left, right):
+def compare_group(arrays, left, right, *, strict=True):
     a, b = subset(arrays, left), subset(arrays, right)
     assert a and set(a) == set(b), (left, right, "array roster differs")
     errors = []
@@ -261,7 +262,7 @@ def compare_group(arrays, left, right):
             same(a[key], b[key])
             errors.append(0.0)
         else:
-            errors.append(numeric_same(a[key], b[key], left + key))
+            errors.append(numeric_same(a[key], b[key], left + key, strict=strict))
     return max(errors)
 
 
@@ -356,11 +357,13 @@ def verify_components(arrays, prepared):
         "native output roster differs"
     )
     errors = {
-        "instrumented_native": compare_group(arrays, "instrumented/native/", "native/")
+        "instrumented_native": compare_group(
+            arrays, "instrumented/native/", "native/", strict=False
+        )
     }
     for stage in ("setup", "solve", "trust"):
         errors[stage] = compare_group(
-            arrays, stage + "/", "instrumented/" + stage + "/"
+            arrays, stage + "/", "instrumented/" + stage + "/", strict=False
         )
     for role in ("params", "norms"):
         conditioned = subset(arrays, "conditioning/" + role + "/")
@@ -373,31 +376,41 @@ def verify_components(arrays, prepared):
         arrays["linearization/raw"],
         arrays["instrumented/setup/raw"],
         "linearization residual",
+        strict=False,
     )
     errors["residual"] = numeric_same(
-        arrays["residual"], arrays["instrumented/setup/raw"], "raw residual"
+        arrays["residual"],
+        arrays["instrumented/setup/raw"],
+        "raw residual",
+        strict=False,
     )
     errors["prior"] = numeric_same(
-        arrays["prior"], arrays["instrumented/setup/prior"], "prior diagonal"
+        arrays["prior"],
+        arrays["instrumented/setup/prior"],
+        "prior diagonal",
+        strict=False,
     )
     setup = subset(arrays, "setup/")
     errors["initial_direction"] = numeric_same(
         prepared["p"],
         -setup["gradient"] / setup["preconditioner"],
         "cached action direction",
+        strict=False,
     )
     errors["cached_c"] = numeric_same(
         prepared["c"],
         setup["weight"] * setup["irls"] * arrays["cached_jvp"],
         "cached adjoint cotangent",
+        strict=False,
     )
     lhs = np.asarray(np.vdot(arrays["cached_jvp"], prepared["c"]))
     rhs = np.asarray(np.vdot(prepared["p"], arrays["cached_vjp"]))
-    errors["adjoint"] = numeric_same(lhs, rhs, "cached adjoint identity")
+    errors["adjoint"] = numeric_same(lhs, rhs, "cached adjoint identity", strict=False)
     errors["curvature"] = numeric_same(
         arrays["cached_curvature"],
         arrays["cached_vjp"] + setup["preconditioner"] * prepared["p"],
         "cached curvature arithmetic",
+        strict=False,
     )
     report = verify_native_decision(arrays, prepared["conditioning_finite"])
     return errors, report
@@ -724,7 +737,13 @@ def verify_qualification(details, errors, outputs):
         "direction": dict(arrays=1, maximum_scaled_error=errors["initial_direction"]),
         "cotangent": dict(arrays=1, maximum_scaled_error=errors["cached_c"]),
     }
+    for check in expected.values():
+        check["passed"] = check["maximum_scaled_error"] <= 1
+    failed = sorted(name for name, check in expected.items() if not check["passed"])
     assert details["qualification"] == expected, "saved numerical qualification differs"
+    assert type(details["numerical_qualified"]) is bool
+    assert details["numerical_qualified"] == (not failed)
+    assert details["failed_checks"] == failed, "saved failed-check roster differs"
 
 
 def recompute_summary(points, protocol):
@@ -765,10 +784,18 @@ def recompute_summary(points, protocol):
             label: stat[top]["median_s"] / stat[bottom]["median_s"]
             for label, top, bottom in pairs
         }
+    qualified = all(point["numerical_qualified"] for point in points)
     return dict(
         format="glassbox-online-cost-profile-v1",
         protocol_id=protocol["id"],
-        status="complete",
+        status="complete" if qualified else "unqualified",
+        measurement_complete=True,
+        numerical_qualified=qualified,
+        numerical_failed_points={
+            point["id"]: point["failed_checks"]
+            for point in points
+            if point["failed_checks"]
+        },
         attempted_points=35,
         completed_points=35,
         point_statuses={point["id"]: "complete" for point in points},
@@ -777,7 +804,7 @@ def recompute_summary(points, protocol):
         component_dispatches=10500,
         groups=groups,
         diagnostic_ratios=ratios,
-        timing_claim="Repeated fixed inputs; component scopes are nonadditive and this is not real-time trajectory qualification.",
+        timing_claim="Repeated fixed inputs; component scopes are nonadditive and this is not real-time trajectory qualification. Failed numerical checks remain unqualified; their scopes cannot establish production equivalence.",
     )
 
 
@@ -964,11 +991,22 @@ def audit(root, authority, *, parent=None, source_root=None):
             assert records == [] and details["native_observe_calls"] == 0
         summaries.append(details)
     assert replay_count == 725 and timing_count == 12675
-    assert read(root / "summary.json") == recompute_summary(summaries, protocol), (
+    reconstructed_summary = recompute_summary(summaries, protocol)
+    assert read(root / "summary.json") == reconstructed_summary, (
         "summary differs from raw samples"
     )
     return dict(
         status="complete",
+        scientific_qualification="passed"
+        if reconstructed_summary["numerical_qualified"]
+        else "failed",
+        measurement_complete=True,
+        numerical_qualified=reconstructed_summary["numerical_qualified"],
+        failed_checks={
+            point["id"]: point["failed_checks"]
+            for point in summaries
+            if point["failed_checks"]
+        },
         payloads=payloads,
         parent_payloads=parent_payloads,
         points=35,

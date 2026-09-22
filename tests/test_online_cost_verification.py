@@ -106,11 +106,11 @@ def test_analytic_linear_actions_and_prefixes_qualify():
         "instrumented/trust/current_loss",
     ],
 )
-def test_changed_component_rejected(field):
+def test_changed_float_component_is_retained_as_unqualified(field):
     arrays, prepared = components()
     arrays[field] = arrays[field] + 0.01
-    with pytest.raises(AssertionError):
-        audit.verify_components(arrays, prepared)
+    errors, _ = audit.verify_components(arrays, prepared)
+    assert max(errors.values()) > 1
 
 
 @pytest.mark.parametrize(
@@ -300,3 +300,29 @@ def test_prefix_source_preserves_sixteen_step_solver_and_arithmetic():
     )
     with pytest.raises(AssertionError):
         audit.prefix_ast(source.replace("0, 16", "0, 4"), "instrumented")
+
+
+def test_all_float_failures_are_collected_without_changing_the_threshold():
+    arrays, prepared = components()
+    arrays["solve/delta"] += 0.01
+    arrays["prior"] += 0.01
+    errors, report = audit.verify_components(arrays, prepared)
+    assert errors["solve"] > 1 and errors["prior"] > 1
+    assert errors["instrumented_native"] == 0 and report["selected_alpha"] == 1
+    with pytest.raises(AssertionError):
+        audit.numeric_same(
+            arrays["solve/delta"],
+            arrays["instrumented/solve/delta"],
+            "still strict by default",
+        )
+
+
+def test_collecting_float_failures_does_not_allow_nonfinite_or_discrete_mismatch():
+    arrays, prepared = components()
+    arrays["solve/finite"] = np.asarray(False)
+    with pytest.raises(AssertionError):
+        audit.verify_components(arrays, prepared)
+    arrays, prepared = components()
+    arrays["solve/delta"][0] = np.nan
+    with pytest.raises(AssertionError):
+        audit.verify_components(arrays, prepared)

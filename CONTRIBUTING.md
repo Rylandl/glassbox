@@ -166,6 +166,9 @@ revision; supply the recorded checkout to additionally check its complete bound
 source inventory. Component prefixes and cached derivative actions are diagnostic,
 nonadditive compiler scopes. Only the nested observe/snapshot times are additive;
 repeated fixed snapshots do not establish real-time trajectory performance.
+Finite numerical qualification failures are retained while collecting the fixed
+roster; a completed but unqualified profile exits unsuccessfully and preserves
+its failed checks. See [the profile result](docs/online-cost-profile.md).
 
 Historical source-bound trace, reconstruction, head and backtracking tools must
 run from their recorded scientific checkouts, including their `verify` commands:

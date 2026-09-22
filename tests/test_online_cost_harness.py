@@ -199,6 +199,8 @@ def test_statistics_are_descriptive_and_groups_keep_fixedwing_kind():
         family="fixedwing",
         kind="initial",
         status="complete",
+        numerical_qualified=True,
+        failed_checks=[],
         statistics={key: values for key in scopes},
         native_observe_calls=25,
         component_dispatches=300,
@@ -345,6 +347,8 @@ def test_analytic_point_exercises_all_scopes_repetitions_and_saved_schema(
         point, tmp_path, destination, protocol, make_kernels(), set()
     )
     assert details["status"] == "complete"
+    assert details["numerical_qualified"] is True
+    assert details["failed_checks"] == []
     assert details["native_observe_calls"] == 25
     assert details["component_dispatches"] == 300
     assert public_calls == list(range(25))
@@ -381,3 +385,48 @@ def test_analytic_point_exercises_all_scopes_repetitions_and_saved_schema(
         )
         == 375
     )
+
+
+def test_float_failure_is_retained_without_relaxing_discrete_or_mask_checks():
+    settings = dict(rtol=2e-8, atol=2e-10, strict=False)
+    result = profile.compare(
+        {"value": np.array([2.0])}, {"value": np.array([1.0])}, **settings
+    )
+    assert result["passed"] is False and result["maximum_scaled_error"] > 1
+    for actual, expected in (
+        (np.array(True), np.array(False)),
+        (np.array([1.0, np.nan]), np.array([1.0, np.inf])),
+        (np.array([1.0], dtype=np.float32), np.array([1.0])),
+    ):
+        with pytest.raises(ValueError):
+            profile.compare({"value": actual}, {"value": expected}, **settings)
+    with pytest.raises(ValueError, match="discrete"):
+        profile.compare(
+            {"selected_alpha": np.array(0.5 + 1e-12)},
+            {"selected_alpha": np.array(0.5)},
+            **settings,
+        )
+
+
+def test_complete_measurement_can_remain_numerically_unqualified():
+    stat = profile.statistics(np.ones(21))
+    point = dict(
+        family="quad",
+        kind="initial",
+        status="complete",
+        numerical_qualified=True,
+        failed_checks=[],
+        native_observe_calls=25,
+        component_dispatches=300,
+        statistics={
+            key: stat for key in ("setup", "solve", "trust", "proposal", "instrumented")
+        },
+    )
+    points = [dict(point, id=str(index)) for index in range(35)]
+    points[3].update(numerical_qualified=False, failed_checks=["solve"])
+    result = profile.summary(points, dict(id="online-cost-profile-v1"))
+    assert result["measurement_complete"] is True
+    assert result["numerical_qualified"] is False
+    assert result["status"] == "unqualified"
+    assert result["completed_points"] == 35
+    assert result["numerical_failed_points"] == {"3": ["solve"]}

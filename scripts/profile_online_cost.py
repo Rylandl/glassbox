@@ -46,7 +46,7 @@ def flatten(value, prefix=""):
     return {prefix.rstrip("/"): np.asarray(value)}
 
 
-def compare(actual, expected, *, rtol, atol):
+def compare(actual, expected, *, rtol, atol, strict=True):
     """Qualify saved arrays, enforcing discrete values and every nonfinite mask."""
     require(set(actual) == set(expected), "component array roster differs")
     maximum = 0.0
@@ -73,8 +73,9 @@ def compare(actual, expected, *, rtol, atol):
                 atol + rtol * np.abs(reference[finite])
             )
             maximum = max(maximum, float(np.max(scaled)))
-            require(np.all(scaled <= 1), "component tolerance exceeded: " + key)
-    return dict(arrays=len(actual), maximum_scaled_error=maximum)
+            if strict:
+                require(np.all(scaled <= 1), "component tolerance exceeded: " + key)
+    return dict(arrays=len(actual), maximum_scaled_error=maximum, passed=maximum <= 1)
 
 
 def statistics(values):
@@ -268,6 +269,9 @@ def _public_replay(session_path, context, expected, index, phase):
 def _qualify(outputs, prepared, protocol):
     tolerance = protocol["qualification"]["component_numerics"]
     settings = {key: tolerance[key] for key in ("rtol", "atol")}
+    # Preserve every frozen numerical failure while finishing the fixed diagnostic
+    # roster. Structural/finite-mask/discrete failures still abort immediately.
+    settings["strict"] = False
     result = {
         "native": compare(
             flatten(outputs["instrumented"]["native"]),
@@ -338,6 +342,8 @@ def profile_point(point, parent, output, protocol, kernels, seen):
         linearization_tape=[],
         tape_bytes_semantics="Sum of logical leaf payload bytes; not peak or unique memory.",
         qualification={},
+        numerical_qualified=None,
+        failed_checks=[],
         statistics={},
     )
     timings, replay_records, recorded, prepared, signatures = (
@@ -542,6 +548,12 @@ def profile_point(point, parent, output, protocol, kernels, seen):
             dispatch("cached_curvature", True)
             prepared.update(p=np.asarray(p), c=np.asarray(c))
             details["qualification"] = _qualify(recorded, prepared, protocol)
+            details["failed_checks"] = sorted(
+                name
+                for name, result in details["qualification"].items()
+                if not result["passed"]
+            )
+            details["numerical_qualified"] = not details["failed_checks"]
             scopes = protocol["measurement"]["scopes"]
             warm = protocol["measurement"]["warmup_repetitions"]
             repetitions = warm + protocol["measurement"]["timed_repetitions"]
@@ -631,10 +643,23 @@ def summary(points, protocol):
             ratios[point["id"]]["native/public"] = (
                 stat["proposal"]["median_s"] / stat["public_combined"]["median_s"]
             )
+    measurement_complete = len(completed) == 35
+    numerical_qualified = measurement_complete and all(
+        point["numerical_qualified"] for point in completed
+    )
     return dict(
         format="glassbox-online-cost-profile-v1",
         protocol_id=protocol["id"],
-        status="complete" if len(completed) == 35 else "failed",
+        status=("complete" if numerical_qualified else "unqualified")
+        if measurement_complete
+        else "failed",
+        measurement_complete=measurement_complete,
+        numerical_qualified=numerical_qualified,
+        numerical_failed_points={
+            point["id"]: point["failed_checks"]
+            for point in completed
+            if not point["numerical_qualified"]
+        },
         attempted_points=len(points),
         completed_points=len(completed),
         point_statuses={point["id"]: point["status"] for point in points},
@@ -643,7 +668,7 @@ def summary(points, protocol):
         component_dispatches=sum(point["component_dispatches"] for point in points),
         groups=groups,
         diagnostic_ratios=ratios,
-        timing_claim="Repeated fixed inputs; component scopes are nonadditive and this is not real-time trajectory qualification.",
+        timing_claim="Repeated fixed inputs; component scopes are nonadditive and this is not real-time trajectory qualification. Failed numerical checks remain unqualified; their scopes cannot establish production equivalence.",
     )
 
 
@@ -772,7 +797,11 @@ def run(parent, output, protocol_path=PROTOCOL):
         )
     except Exception as error:
         result = summary(points, protocol)
-        result.update(status="failed", error=f"{type(error).__name__}: {error}")
+        result.update(
+            status="failed",
+            numerical_qualified=False,
+            error=f"{type(error).__name__}: {error}",
+        )
     finally:
         write(output / "summary.json", result)
         authority = seal(output, "glassbox-online-cost-profile-v1")
