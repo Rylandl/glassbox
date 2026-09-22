@@ -1,0 +1,29 @@
+{
+  "gap": "paired quad 10/50 ms observation schedules",
+  "attempts": [
+    {
+      "id": "paired-quad-sampling-v1",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-sampling-v1",
+      "manifest_sha256": "b5d476f3b2b4f035efd1ac19dd2931e8dc0b9a637108d22e0a4271190a948f27",
+      "outcome": "throw controller hit floor at 1.95 s; only two common origins"
+    },
+    {
+      "id": "paired-quad-sampling-v2",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-sampling-v2",
+      "manifest_sha256": "44192c3ad160adb2de9faf7702c1bf1de7f51e3c0293a8de98bb32ecb4b0fdd6",
+      "outcome": "ten-second held-command flight, 1000 fine and 200 coarse intervals"
+    },
+    {
+      "id": "paired-quad-evaluation-v2",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/paired-quad-evaluation-v2",
+      "manifest_sha256": "4357898cd02c88113d9c27eab180720f181fe8d0b791429c92ed31feeea46f25",
+      "outcome": "six frozen fits complete; saved-data verifier passed"
+    }
+  ],
+  "protocol_commits": {
+    "collection_v1": "ebdc1ed",
+    "collection_v2": "376f329",
+    "evaluation_v2": "f7b7fd5"
+  },
+  "experimental_source_commit": "a11848b"
+}

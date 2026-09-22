@@ -168,18 +168,33 @@ saved arrays. The first no-fit verifier stopped because a stop-gradient
 derivative cannot be checked by ordinary finite differences; its corrected
 criteria and attempt are retained in the [index](readout-attribution.json).
 
+## Latest experiment: paired quad observation schedules
+
+The [paired 10/50 ms quad experiment](paired-quad-sampling.md) removes the
+different-trajectory and command-timing confound: one ten-second controlled
+Crazyflow flight supplies exactly shared physical states and commands held for
+each 50 ms interval. The unchanged full learner, curvature readout and
+sensitivity readout each start fresh and receive the same elapsed prefix; 875
+versus 175 causal updates are scored at 35 common origins. A first collection
+attempt stopped at 1.95 s after floor contact and remains in the [index](paired-quad-sampling.json).
+
+At 50 ms, the sensitivity readout's 250 ms velocity/rate/orientation RMSE is
+**0.00339 m/s / 0.00442 rad/s / 0.000482 rad**; at 10 ms it is **0.00164 /
+0.00510 / 0.000528**. No fixed-wing-like angular explosion occurs at 50 ms.
+Thus 50 ms sampling alone is insufficient to cause the prior failure in this
+regime. The flight is gentle (maximum rate 0.171 rad/s), and sample interval,
+update count and history size still change together. One such trajectory does
+not establish aircraft-class robustness.
+
+The full learner's recursive velocity error is much larger here despite modest
+one-step error: **1.449 m/s** at 250 ms on the 10 ms tape and **0.821 m/s** on
+the 50 ms tape. Warm complete updates are **33.47/8.44 ms** versus the
+sensitivity readout's **1.324/0.654 ms**. Saved arrays and physical metrics
+verify without fitting. Production remains unchanged.
+
 ## Next iteration
 
-**Remove the family/sample-interval confound.** Collect one physical Crazyflow
-quad trajectory whose issued commands are held for each 50 ms interval. Expose
-identical physical motion to the unchanged learner at 10 and 50 ms observation
-schedules, with fits starting after the same elapsed prefix time. Freeze the
-recording, causal update count, complete-update timing and 50–250 ms physical
-forecast scoring before collection. Naively decimating a tape with 10 ms command
-changes would not isolate observation interval. The two current fixed-wing
-recordings remain one airframe, not independent generalization trials.
-
-Then freeze **one generic physical SO(3) sensitivity fit** for the fast readout.
+Freeze **one generic physical SO(3) sensitivity fit** for the fast readout.
 An attitude perturbation must change body-relative velocity and gravity
 direction together; penalize the six physical acceleration-output derivatives
 under these directions while preserving the shared direct solve. Keep both fast
