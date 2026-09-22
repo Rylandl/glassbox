@@ -44,41 +44,38 @@ predictions, the current compact model improves aggregate error **1.54%**, while
 rate error is **0.43% higher**. These are saved-data accuracy comparisons, not new
 paired timings or blind generalization tests. Earlier frozen results remain intact.
 
+## Latest experiment: fast readout without pretraining
+
+The [bounded cold-start screen](cold-readout.md) completed **382 updates per arm**
+on six known recordings. Both arms used identical fresh episode-prefix
+initialization, with no pretrained weights. Updating only the acceleration
+readout via measured-increment RLS took **0.36–0.41 ms for quads / 0.264–0.266 ms
+for fixed wings**, versus **34.1–36.1 ms / 7.71–7.74 ms** for the current learner.
+Quad one-step error fell **80.4%**, but fixed-wing one-step error nearly doubled;
+250 ms primary error was **1.95× / 278× worse**. **Rejected; production unchanged.**
+
+The local fitting objective improved sharply despite collapsing recursive
+forecasts. This screen changed both the optimized weights and the objective;
+it does not show that a pretrained representation is necessary. Known quad
+scoring begins 1.25 s after release, including 25 actuated initialization samples;
+no immediate recovery or successful catch was tested. Full results, every case,
+startup costs and limitations remain in the report. No broad offline fitting
+or controller campaign followed this clear loss.
+
 ## Next iteration
 
-**Test rapid linear readout fitting from a fresh episode, without pretraining.**
-The user's explicit requirement supersedes the planned preconditioner experiment:
-Throw must identify the system from the current episode, not adapt variations of
-a fleet-trained dynamics core. Shared physics and fixed generic features are
-allowed; learned representations, priors, normalizers and optimizer/memory state
-from previous flights are not.
+**Isolate readout-only adaptation under the existing recursive objective.** Keep
+current reconditioning, curvature prior, trust/backtracking and the 16-PCG budget;
+freeze only the feature/filter/accumulator functions after fresh episode
+initialization. Compare the full learner with this trainable-subset ablation on
+the same bounded causal roster. This separates loss/safeguards from the need to
+learn nonlinear features before another estimator design. Count every update
+operation and initialization observation; inspect one-step and 250 ms forecasts.
+Freeze the actual protocol and implementation before running it.
 
-First audit the actual Throw observation/startup contract and freeze a paired
-causal protocol. Count all prefix observations, initialization work and time to
-first useful prediction. Rebuild both arms from the permitted episode prefix;
-no offline fitted revision or learned feature extractor may initialize either
-arm. Score before assimilating each target, and reset between episodes. Existing
-known tapes support a diagnostic; unseen configurations remain separate evidence.
-
-Test a linear estimator over the current model's features, freezing the feature
-parameters only during that bounded screen after permitted fresh initialization.
-Preserve the existing output paths initially: the four-command / 10 ms model
-has 381 readout features and 2,286 output weights, not an assumed 500-weight head.
-Derive the estimator from measured motion increments; recursive forecast loss
-does not become linear merely because feature weights are fixed. Count feature
-construction, normalization, covariance and estimator work in the complete update.
-Compare physical forecasts, command responses and accuracy versus both elapsed
-time and observations against the current whole-model learner.
-
-This tests whether a fast linear update is useful without a pretrained basis.
-It does not establish that fixed features alone can represent arbitrary dynamics.
-If representation adaptation is needed, it must also learn from the current
-episode. Changes to features require rebuilding or consistently transforming
-accumulated estimator statistics. Do not rescue a failed screen with fleet
-pretraining or a catalog. No implementation or frozen numerical protocol has yet
-been produced for this experiment.
-
-Solver conditioning remains a fallback/diagnostic, supported by the earlier
-64-PCG and rounding-sensitive results. Reproducing refined offline fits,
-calibration and controller recovery are separate gaps; controllers remain in
-Dart/Throw. The adopted model and all measured results above are unchanged.
+No fleet-trained features, class priors, reused normalizers or fitted revisions
+may enter either arm. Representation changes, if needed, must learn from the
+same episode. No pretraining-based rescue. Solver conditioning, earlier usable
+predictions, calibrated uncertainty and controller recovery remain separate gaps;
+controllers stay in Dart/Throw. User direction is to move quickly and stop
+unpromising candidates before broad qualification.

@@ -6,6 +6,8 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
+- [Cold-start readout screen](cold-readout.md): rejected fast linear estimator,
+  preserved speed/accuracy evidence and the next isolated experiment.
 - [Nonlinear temporal compression](nonlinear-temporal.md): adopted smaller model,
   matched learning comparison, known losses and current archive identities.
 - [Accumulator migration](accumulator-migration.md): matched architecture

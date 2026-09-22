@@ -64,36 +64,40 @@ Initialization preserved original draw scales, physical coefficients and initial
 predictions; compact normalizers have explicit compensation. The result does
 not repeat the earlier initialization-strength error.
 
-## Next: rapid readout fitting without pretraining
+## Completed: fast readout fitting without pretraining
 
-The user accepted investigating a fast linear estimator only under a strict
-cold-start requirement: Throw must learn from observations in the current episode.
-A pretrained shared dynamics representation with small per-aircraft corrections
-would defeat the intended demonstration. No fleet-trained feature map, class
-prior, previously learned normalizer or fitted revision enters initialization.
-Shared mechanics and data-independent generic features are allowed.
+The [small cold-start screen](cold-readout.md) retained every output path, using
+381 features and 2,286 readout weights for four commands  / 10 ms. Both arms used
+identical fresh episode-prefix initialization. No pretrained dynamics, learned
+class prior or reused normalization entered either arm.
 
-The existing acceleration heads already form a linear readout when the nonlinear
-features, command filters and accumulator parameters are fixed. Preserving all
-output paths gives `195 + 153 + 32 + 1 = 381` features and 2,286 output weights
-for four commands / 10 ms. A proposed 500–600-weight estimator would require
-another capacity decision. Its covariance is also part of memory/runtime cost.
+Float64 RLS over measured midpoint increments achieved complete updates of
+0.36–0.41 ms on quads and 0.264–0.266 ms on fixed wings, approximately 91× / 29× faster
+than the current full update. Quad one-step error improved 80.4%, but fixed-wing
+one-step error nearly doubled, and 250 ms forecasts deteriorated severely on
+both families. The candidate was rejected without broad fitting or control trials.
 
-The first experiment should isolate the update method after fresh initialization
-from a causally available episode prefix. Include all initialization observations
-and computation in identification curves; do not initialize from a completed fit
-and call subsequent adaptation cold-start learning. A measured-increment loss
-can be linear in the readout; recursive predictions remain nonlinear through
-state-dependent features. Judge the resulting model by physical recursive
-forecasts and command responses as well as complete update time.
+The raw estimator removed recursive loss and its curvature/acceptance safeguards
+as well as feature learning. Its local regression objective improves while
+recursive forecasts fail, so this is not evidence that pretrained features are
+required. Fixed generic features remain a hypothesis; their adequacy has not
+been isolated. The first scoring time is 1.25 s after release for these quad tapes,
+not immediate cold-start recovery. All initialization data/time remain counted.
 
-The broader candidate is fast readout estimation with representation learning
-from the same episode wherever necessary. Freezing generic initial features is
-an experiment, not a decision to freeze system dynamics forever. Revising features
-invalidates old estimator sufficient statistics unless they are transformed
-consistently or rebuilt from retained observations. No pretraining-based rescue
-is admissible. Audit the Throw startup/data contract and freeze one bounded
-comparison before implementing it. See [status](status.md).
+## Next: isolate the weights that must adapt
+
+Keep the current recursive forecast objective, reconditioning, curvature prior
+and acceptance logic; restrict optimization to the acceleration readout after
+fresh episode initialization. Use the same short causal screen and 16-PCG budget.
+This changes one factor and tests whether representation learning is necessary
+before another estimator is designed. Preserve physical feature functions under
+normalizer compensation; do not confuse coefficient rescaling with learning new
+features. Freeze the actual protocol before implementation.
+
+All adaptation must use the current episode, including nonlinear representation
+learning if required. Fleet training is not a permitted rescue. A promising
+trainable-subset result could then motivate faster trajectory-aware fitting;
+a clear loss should stop that candidate promptly.
 
 ## Deferred: conditioning at the fixed update budget
 
