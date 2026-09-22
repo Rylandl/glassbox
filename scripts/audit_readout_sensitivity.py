@@ -8,6 +8,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from collect_throw import authenticate, binding, check_source, checkpoint, seal
+from diagnose_readout_stability import jacobian
 from run_dart import ROOT, write
 from screen_cold_readout_curvature import readout_features
 from screen_readout_sensitivity import numpy_jacobian
@@ -48,6 +49,9 @@ def summarize(data):
             positive_max_count=int(np.sum(eigen.real.max(axis=-1) > 0)),
             samples=int(np.prod(eigen.shape[:-1])),
         )
+        radii = np.max(np.abs(np.linalg.eigvals(data[arm + "_full"])), axis=-1)
+        result[arm]["full_recurrence_median_radius"] = float(np.median(radii))
+        result[arm]["full_recurrence_maximum_radius"] = float(radii.max())
     result["maximum_autodiff_absolute_difference"] = float(
         data["autodiff_difference"].max()
     )
@@ -86,7 +90,13 @@ def main():
             )
             tape = arrays(tapes / "inputs" / (name + ".npz"))
             states, commands = observed(tape["states"]), tape["commands"].astype(float)
-            saved = {"curvature": [], "candidate": [], "autodiff_difference": []}
+            saved = {
+                "curvature": [],
+                "candidate": [],
+                "curvature_full": [],
+                "candidate_full": [],
+                "autodiff_difference": [],
+            }
             for query, row in enumerate(data["conditional_rows"]):
                 row = int(row)
                 offset = row - info["first"]
@@ -94,7 +104,7 @@ def main():
                     arm: mean0 if offset == 0 else data[arm + "_mean"][offset - 1]
                     for arm in ("curvature", "candidate")
                 }
-                matrices = {arm: [] for arm in means}
+                matrices = {key: [] for arm in means for key in (arm, arm + "_full")}
                 for j in range(5):
                     t, h = row + j, model.history_steps
                     phi, applied, history, hidden = probe(
@@ -122,15 +132,31 @@ def main():
                             * slope[None, :]
                         )
                         matrices[arm].append(jac)
-                        if query in (0, 7) and j == 0:
-                            f, q = len(p["linear"]), len(p["quadratic"])
-                            params = dict(
-                                p,
-                                linear=jnp.asarray(mean[:f]),
-                                quadratic=jnp.asarray(mean[f : f + q]),
-                                bias=jnp.asarray(mean[f + q]),
-                                w2=jnp.asarray(mean[f + q + 1 :]),
+                        f, q = len(p["linear"]), len(p["quadratic"])
+                        params = dict(
+                            p,
+                            linear=jnp.asarray(mean[:f]),
+                            quadratic=jnp.asarray(mean[f : f + q]),
+                            bias=jnp.asarray(mean[f + q]),
+                            w2=jnp.asarray(mean[f + q + 1 :]),
+                        )
+                        matrices[arm + "_full"].append(
+                            np.asarray(
+                                jacobian(
+                                    params,
+                                    norm,
+                                    (
+                                        jnp.asarray(states[t : t + 1]),
+                                        applied,
+                                        history,
+                                        hidden,
+                                    ),
+                                    jnp.asarray(commands[t]),
+                                    dt_s=model.dt_s,
+                                )
                             )
+                        )
+                        if query in (0, 7) and j == 0:
                             expected = np.asarray(
                                 autodiff(
                                     params,
@@ -148,8 +174,8 @@ def main():
                             saved["autodiff_difference"].append(
                                 float(np.max(np.abs(jac - expected)))
                             )
-                for arm in means:
-                    saved[arm].append(matrices[arm])
+                for key, value in matrices.items():
+                    saved[key].append(value)
             saved = {k: np.asarray(v) for k, v in saved.items()}
             checkpoint(args.output / (name + ".npz"), **saved)
             result = summarize(saved)
