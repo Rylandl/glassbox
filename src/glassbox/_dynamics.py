@@ -148,7 +148,7 @@ def current_features(states, commands, filtered, norms, xp=jnp):
     return xp.concatenate(
         (
             motion,
-            body[..., 6:],
+            xp.zeros_like(body[..., 6:]),
             (commands - norms["input_mean"]) / norms["input_scale"],
             (filtered - norms["input_mean"]) / norms["input_scale"],
         ),
@@ -202,6 +202,32 @@ def nonlinear_features(sampled, current, delay, xp=jnp):
     )
 
 
+def state_without_current_command(current, xp=jnp):
+    return xp.concatenate((current[..., :9], xp.zeros_like(current[..., 9:])), axis=-1)
+
+
+def additive_quadratic_features(current, xp=jnp):
+    """State products plus velocity-dependent, additive command effectiveness."""
+    state = state_without_current_command(current, xp)
+    i, j = xp.triu_indices(current.shape[-1])
+    velocity_command = (i < 3) & (j >= 9)
+    return quadratic_features(state, xp) + xp.where(
+        velocity_command, current[..., i] * current[..., j], 0
+    )
+
+
+def additive_readout_features(current, history, hidden, xp=jnp):
+    """Linear controls, velocity-control products, nonlinear state/history."""
+    state = state_without_current_command(current, xp)
+    sampled = sampled_features(state, history, hidden, xp)
+    linear = xp.concatenate(
+        (sampled[..., :9], current[..., 9:], sampled[..., current.shape[-1] :]),
+        axis=-1,
+    )
+    nonlinear = nonlinear_features(sampled, current.shape[-1], history.shape[-2], xp)
+    return linear, additive_quadratic_features(current, xp), nonlinear
+
+
 def _prepare_head(params, norms, anchor, history, hidden):
     """Project history once, centered to retain small lag differences."""
     current_width, delay = anchor.shape[-1], history.shape[-2]
@@ -227,31 +253,46 @@ def _prepare_head(params, norms, anchor, history, hidden):
             nonlinear[current_width : 5 * current_width].reshape(4, current_width, -1),
         )
         return base, jnp.concatenate((effective_linear, effective_nonlinear), axis=-1)
-    weights = jnp.concatenate((params["linear"], params["w1"]), axis=-1)
-    base = (
-        sampled_features(anchor, history, hidden) / norms["feature_scale"]
-    ) @ weights
-    scaled = (
-        weights[: (delay + 1) * current_width]
-        / norms["feature_scale"][: (delay + 1) * current_width, None]
+    sampled = sampled_features(anchor, history, hidden)
+    base = jnp.concatenate(
+        (
+            (sampled / norms["feature_scale"]) @ params["linear"],
+            (sampled / norms["nonlinear_scale"]) @ params["w1"],
+        ),
+        axis=-1,
     )
-    effective = scaled[:current_width] - scaled[current_width:].reshape(
-        delay, current_width, -1
-    ).sum(axis=0)
-    return base, effective
+    effective = []
+    for weights, scale in (
+        (params["linear"], norms["feature_scale"]),
+        (params["w1"], norms["nonlinear_scale"]),
+    ):
+        scaled = weights[: (delay + 1) * current_width] / scale[
+            : (delay + 1) * current_width, None
+        ]
+        effective.append(
+            scaled[:current_width]
+            - scaled[current_width:].reshape(delay, current_width, -1).sum(axis=0)
+        )
+    return base, jnp.concatenate(effective, axis=-1)
 
 
 def _acceleration(params, norms, current, projection):
-    q = quadratic_features(current) / norms["quadratic_scale"]
-    acceleration = projection[..., :6] + q @ params["quadratic"] + params["bias"]
+    q = additive_quadratic_features(current) / norms["quadratic_scale"]
+    current_width = current.shape[-1]
+    control = (current[..., 9:] / norms["feature_scale"][9:current_width]) @ params[
+        "linear"
+    ][9:current_width]
+    acceleration = projection[..., :6] + control + q @ params["quadratic"] + params["bias"]
     acceleration += jnp.tanh(projection[..., 6:] + params["b1"]) @ params["w2"]
     return acceleration * norms["output_scale"]
 
 
 def _head(params, norms, states, commands, filtered, history, hidden):
     b = current_features(states, commands, filtered, norms)
-    z = sampled_features(b, history, hidden) / norms["feature_scale"]
-    projection, _ = _prepare_head(params, norms, b, history, hidden)
+    z = additive_readout_features(b, history, hidden)[0] / norms["feature_scale"]
+    projection, _ = _prepare_head(
+        params, norms, state_without_current_command(b), history, hidden
+    )
     return _acceleration(params, norms, b, projection), b, z
 
 
@@ -262,11 +303,12 @@ def physical_step(params, norms, states, commands, filtered, history, hidden, dt
     tau = time_constants(params)
     gravity = jnp.asarray(GRAVITY, dtype=states.dtype)
     start_features = current_features(states, commands, filtered, norms)
-    base, effective = _prepare_head(params, norms, start_features, history, hidden)
+    start_state = state_without_current_command(start_features)
+    base, effective = _prepare_head(params, norms, start_state, history, hidden)
 
     def acceleration(state, applied):
         current = current_features(state, commands, applied, norms)
-        projection = base + (current - start_features) @ effective
+        projection = base + (state_without_current_command(current) - start_state) @ effective
         return _acceleration(params, norms, current, projection)
 
     def substep(_, carry):
@@ -406,10 +448,6 @@ class VehicleSequenceModel:
             raise ValueError("vehicle arrays do not match dimensions")
         if any(np.any(v <= 0) for k, v in n.items() if k.endswith("_scale")):
             raise ValueError("vehicle scales must be positive")
-        if self.delay_steps <= 4 and not np.array_equal(
-            n["feature_scale"], n["nonlinear_scale"]
-        ):
-            raise ValueError("identity temporal coordinates require identical scales")
         object.__setattr__(self, "params", p)
         object.__setattr__(self, "norms", n)
         object.__setattr__(self, "dt_s", float(self.dt_s))
@@ -532,19 +570,18 @@ def initialize(train):
         filtered.append(applied.copy())
         applied = command + (applied - command) * np.exp(-train.dt_s / 0.05)
     b = current_features(xall, uall, np.stack(filtered, 1), norms, np)
-    z = np.stack(
-        [
-            sampled_features(
-                b[:, context + t],
-                b[:, context + t - delay : context + t],
-                np.zeros((n, memory)),
-                np,
-            )
-            for t in range(horizon)
-        ],
-        1,
-    )
-    q = quadratic_features(b[:, context:], np)
+    features = [
+        additive_readout_features(
+            b[:, context + t],
+            b[:, context + t - delay : context + t],
+            np.zeros((n, memory)),
+            np,
+        )
+        for t in range(horizon)
+    ]
+    z = np.stack([item[0] for item in features], 1)
+    q = np.stack([item[1] for item in features], 1)
+    compact = np.stack([item[2] for item in features], 1)
     rotation = current[..., 6:].reshape(n, horizon, 3, 3)
     force = np.einsum(
         "...ji,...j->...i",
@@ -556,7 +593,6 @@ def initialize(train):
     target = np.concatenate((force, angular), -1)
     norms["output_scale"] = np.maximum(target.std((0, 1)), 0.0001)
     norms["feature_scale"] = np.where(z.std((0, 1)) > 1e-08, z.std((0, 1)), 1.0)
-    compact = nonlinear_features(z, 9 + 2 * m, delay, np)
     norms["nonlinear_scale"] = np.where(
         compact.std((0, 1)) > 1e-08, compact.std((0, 1)), 1.0
     )
