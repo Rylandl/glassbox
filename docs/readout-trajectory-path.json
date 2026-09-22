@@ -1,0 +1,12 @@
+{
+  "gap": "five-checkpoint completed-path correction",
+  "protocol_commit": "a7e4818",
+  "source_commit": "d794dfb",
+  "screen": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/readout-trajectory-path-v1/screen",
+    "manifest_sha256": "14abdf7611a5ddc1be2c714dc78b49c4502316461850fecc7304a252f92ad000",
+    "status": "complete and independently verified without fitting",
+    "candidate_fits": 8,
+    "candidate_updates": 126
+  }
+}
