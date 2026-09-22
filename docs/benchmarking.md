@@ -35,6 +35,12 @@ traced. Commit the candidate before using a full result for an engineering
 decision. A separate candidate-specific unit test is warranted only for a
 new derivative, causality or numerical claim.
 
+The runner was validated by fitting the archived physical SO(3) direct
+readout through both suites. All eight conditional forecast arrays and every
+one-step prediction exactly matched the prior authenticated evaluation; both
+new packs independently verified. The [validation index](online-readout-benchmark-validation.json)
+holds their hashes.
+
 This benchmark uses known recordings and a fresh but nonzero causal prefix;
 it is not held-out-vehicle, full-stream or live Throw evidence. The runner
 itself has no model-family branch. Broader qualification remains a separate

@@ -1,0 +1,15 @@
+{
+  "candidate": "archived physical SO(3) direct readout from commit 734a859",
+  "smoke": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v1/smoke",
+    "manifest_sha256": "be56d7cac42c38d382bd6e6ade2d1819c0a4b743e638ec3dd1330f7fb16deb6e",
+    "cases": 4,
+    "status": "saved-data verifier passed; conditional and one-step arrays exactly match the archived direct readout"
+  },
+  "full": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v1/full",
+    "manifest_sha256": "9928e9ae46db3653a734e8193baff105e7286650c66cb43a0cb5c4bff2f7c7ae",
+    "cases": 8,
+    "status": "saved-data verifier passed; conditional and one-step arrays exactly match the archived direct readout"
+  }
+}

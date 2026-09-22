@@ -43,8 +43,10 @@ count/history parameterization or test comparable aerodynamic excitation.
 
 The [shared readout benchmark](benchmarking.md) now owns source loading,
 causal updates, scoring, controls, timing, a compact table and saved-data
-verification. Try the four-case smoke subset before the full eight known
-recordings; candidate changes no longer need a copied evaluator. Next target
+verification. Its four-case smoke and eight-case full suites exactly replayed
+the archived direct readout's forecasts and one-step streams; both [validated
+packs](online-readout-benchmark-validation.json) verify without fitting. A
+candidate change no longer needs a copied evaluator. Next target
 one structural simplification of the fast readout's recursive vector field,
 then run the shared benchmark. Do not stack correction guards or candidate
 branches. A fresh held-out condition and a separate Throw controller trial
