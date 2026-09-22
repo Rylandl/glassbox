@@ -1,0 +1,51 @@
+{
+  "id": "cold-readout-curvature-v1",
+  "gap": "Can the existing generic physical quadratic-curvature penalty prevent the cold-start increment estimator's recursive-forecast collapse without giving up its large speed advantage?",
+  "baseline_commit": "8f2bf44",
+  "parent": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+    "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"
+  },
+  "cases": [
+    "quad-arm-115",
+    "quad-arm-125",
+    "quad-arm-135",
+    "quad-change",
+    "fixedwing-80",
+    "fixedwing-81"
+  ],
+  "budget": {
+    "updates_per_case_max": 64,
+    "wall_limit_s": 600,
+    "attempts": 1,
+    "hyperparameter_sweep": false
+  },
+  "initialization": "Three fresh OnlineFit(prefix) constructions per case using original begin:first inclusive states and begin:first commands only; require exact parameter/normalizer equality. No saved model/session loads, offline training, fleet priors or reused learned state. Identical seed0 generic features, prefix-only two ridge solves. Record actual prefix bounds, sample counts, tape time of first prediction and synchronized construction/first-prediction/first-update latency. Prefix availability is not free: original quad begin50 first125 means scoring starts1.25s after release, using75 transitions from0.5s onward; fixedwing begin0 first15 means0.75s. Not an immediate throw-recovery trial.",
+  "arms": {
+    "baseline": "Unchanged public OnlineFit, one full-model 16-PCG update per observation.",
+    "candidate": "Same frozen features, filters, memory, normalization, midpoint measurements and prefix ridge mean as raw. Add only the maintained physical quadratic-curvature penalty, with its measured role-balanced domain computed from the identical current OnlineFit bootstrap/recent cache. No recursive acceptance guard, reconditioning, forgetting, gradient steps or extra fitting data. Solve the accumulated regularized linear system in float64 with diagonally equilibrated Cholesky, shared across six outputs; count cache/domain formation and the whole solve in update time.",
+    "frozen": "Prediction-only copy of initial model as an unchanged-prefix diagnostic; no extra fitting.",
+    "raw": "Freeze feature weights, filters, accumulators and all normalizers at identical fresh prefix initialization; update linear/quadratic/bias/w2 only. Readout phi=[full normalized sampled features, normalized current quadratic features,1,tanh(compact normalized features@w1+b1)]. Preserve every output path:381features/2286weights forU4,D10. Prior mean is the prefix readout; precision is ridge*I with ridge=0.01*initialized_transition_count, matching the initializer ridge magnitude. No prefix samples assimilated again. Float64 RLS: p=P@phi, gain=p/(1+phi@p), M+=outer(gain,y-phi@M), P-=outer(p,p)/(1+phi@p), symmetrize. No forgetting, damping search, parameter clipping, extra feature fitting, adaptive normalization or rollout acceptance guard in this first screen. Report invalid numerical behavior; no calibrated covariance claim."
+  },
+  "measurement": "After observing next state, reconstruct incoming filtered command/history/hidden state with existing _history on real context. Evaluate features at measured interval midpoint: average world velocities and body rates; Rmid=Rstart@exp(dt/4*(omega_start+omega_end)); filtered_mid=u+(incoming_filtered-u)*exp(-dt/(2*tau)); incoming lag history and hidden fixed across interval. Target=[Rmid.T@((v_next-v_start)/dt-gravity),(omega_next-omega_start)/dt]/output_scale. This is midpoint quadrature of measured increments; no measured accelerometer or simulator acceleration. The frozen feature loss is linear, while forecasts retain the unchanged nonlinear physical integrator. Noise/errors-in-variables and quadrature bias are unqualified.",
+  "evaluation": {
+    "causality": "Save each one-step prediction before revealing its next observation. Call observe exactly once per revealed transition. Only runner/scorer accesses the full sealed tape. Reset every case. Save initial/final parameters, all targets, predictions, times and work counts.",
+    "conditional_forecasts": "At offsets0,16,32,48, predict up to250ms with actual subsequent command tape for retrospective conditional scoring, using only current model weights/history. This is not an online-available future-command plan. Score50ms and250ms when complete truth/commands exist. No counterfactual response or controller success claim.",
+    "metrics": "Physical velocity-vector and body-rate-vector RMSE, orientation geodesic RMSE; per-case, first16/rest, equal-case within family then equal-family geometric candidate/baseline ratios, denominator floor1e-9. Report frozen comparison. Do not treat duplicate quad-change prefix as independent configuration evidence.",
+    "timing": "Single CPU process, no concurrent heavy jobs. Rotate baseline/raw/candidate update order each row, synchronize every arm; measure complete observe plus model snapshot. Record first-use compilation separately and all latencies; warmed median/p95 exclude first update only. Include all information-matrix/inverse setup in the relevant initialization. Record cumulative prediction+update+initialization compute curves and source-observation time separately; no live scheduler or hardware claim.",
+    "stop": "Finish bounded roster unless nonfinite model/forecast, exception, or600s wall budget; preserve partial results and stop the experiment on such failure. No broad offline fits, derivative campaign or simulator reruns for a clear loss.",
+    "decision": "Diagnostic promising region versus full learner: equal-family median update ratio<=0.5, one-step primary<=1.15,250ms primary<=1.25, each-family primary<=1.5, all finite. Report candidate/raw family ratios to determine whether curvature helps even if not ready for adoption. These guide overall engineering judgement, not single-cell vetoes. One bounded attempt, no outcome-driven strength sweep or broader fits/controller campaign. If forecast collapse persists, retain all evidence and stop this candidate; a recursive acceptance guard requires a separate iteration."
+  },
+  "verification": "Commit protocol before implementation and scientific code before running. Tests: feature reconstruction, raw RLS batch equivalence, penalty scaling equality with maintained Hessian penalty, regularized solve vs independent augmented least squares, frozen arrays and causality. Authenticate tapes and results; recompute every score from saved predictions. Full-learner and raw-RLS saved predictions/final model replay must match previous screen exactly. Candidate phi and target must match raw with rtol2e-12/atol1e-10. Check saved normal-equation backward error <=1e-10 at every update, final G/Q reconstruction, positive-definite regularized final system, and frozen arrays. Penalty must match a NumPy reconstruction of the same measured cache/domain. Report all failures; no silent rescue or change to thresholds.",
+  "penalty": {
+    "symbols": "M is readout coefficients in the original normalized-output coordinates; M0 is the fresh prefix readout; lambda=0.01*initialized_transition_count as raw; n is the number of assimilated post-prefix transitions. beta_l=dt*output_scale_l/fixed_bootstrap_first_step_group_scale_l. Phi,Y are exactly the raw estimator's measured midpoint design and normalized acceleration targets.",
+    "objective": "sum_l beta_l^2/(6*n) * (sum_i (phi_i@M_l-y_il)^2 + lambda*||M_l-M0_l||^2) + 0.5*sum_jl D_jl*M_quadratic_jl^2. D is the unchanged online._curvature_diagonal on the completed measured bootstrap/recent cache, current fixed normalizers and first-step loss scales. This is the existing 0.01/4 squared physical Hessian penalty; the data objective remains unrobust increment regression, not the production recursive Huber loss. Output-specific positive beta weights do not alter the unpenalized raw optimum.",
+    "solve": "G=lambda*I+sum phi*phi^T; Q=lambda*M0+sum phi*y^T; M=solve(G+diag(d_n),Q). d_n is zero except quadratic rows, where d_n=3*n*D[:,0]/beta_0^2 =0.015*n*(factor/quadratic_scale)^2. D/beta^2 is identical across outputs. Data and prefix-ridge sufficient statistics are retained independently of the time-varying curvature penalty. Prefix M0 is not penalized or refit before first prediction.",
+    "domain": "Reuse the current learner's 32 bootstrap/32 recent measured cache and role weights, reconstructed causally for each revealed observation. No simulator quantities. No future commands used to construct the penalty. Counts and measured-domain work are saved.",
+    "numerics": "No precision inverse or numerical jitter. Equilibrate SPD system by sqrt(diagonal), Cholesky, triangular solves; nonfinite values fail the screen. Save each phi,target,penalty,solved M and final G,Q for stationarity checks without fitting."
+  },
+  "previous_screen": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-v1/screen",
+    "manifest_sha256": "d340ce722387bf07f8786aa1f36962d059bc51c08f4e96583b190f9526cd2f85"
+  }
+}
