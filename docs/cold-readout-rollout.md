@@ -90,6 +90,10 @@ would isolate an omitted structural constraint before adding a catalog, learned
 prior or more feature capacity. A recursive acceptance check can be a later,
 separate experiment if regularization alone is insufficient. No pretraining.
 
+The curvature-regularized estimator has now been [tested on short and full
+recordings](cold-readout-curvature.md). It delivers large speed/local-accuracy
+gains while exposing a remaining fixed-wing recursive-forecast gap.
+
 ## Scope and verification
 
 The screen uses the existing recorded behavior policy; no new simulator or

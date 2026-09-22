@@ -1,0 +1,579 @@
+{
+  "adopted": false,
+  "baseline_commit": "8f2bf44",
+  "decision": "Preserve the fast architecture as promising, keep production unchanged pending a causal250ms forecast-acceptance experiment. Physical curvature regularization fixes the early fixed-wing collapse and preserves a22x speed advantage; full-stream fixed-wing250ms forecasts remain2.06x worse, mostly angular response. Aggregate frozen flags pass, but the consistent longer-horizon loss needs addressing.",
+  "experiments": {
+    "full": {
+      "cases": [
+        {
+          "count": 875,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 4.551956008425063e-05,
+              "initial": 62.964600659704764
+            },
+            "maximum_componentwise_backward_error": 2.37326787212515e-15,
+            "maximum_normal_equation_backward_error": 3.0151788790048243e-19,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.7788610997812103,
+          "id": "quad-arm-115",
+          "median_ratio": 0.0299006141512476,
+          "primary": 0.09060692072210981,
+          "timing": {
+            "baseline": {
+              "compute_s": 33.997833646135405,
+              "first_update_s": 2.666719874832779,
+              "median_s": 0.034133229055441916,
+              "p95_s": 0.0354385539656505
+            },
+            "candidate": {
+              "compute_s": 2.0834593130275607,
+              "first_update_s": 0.23612804105505347,
+              "median_s": 0.0010206045117229223,
+              "p95_s": 0.0011910147033631796
+            }
+          }
+        },
+        {
+          "count": 875,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 5.870822249122812e-06,
+              "initial": 0.631790285125757
+            },
+            "maximum_componentwise_backward_error": 2.907612895508895e-15,
+            "maximum_normal_equation_backward_error": 1.1712750269468674e-18,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.6142869963195086,
+          "id": "quad-arm-125",
+          "median_ratio": 0.030282053800982894,
+          "primary": 0.1731557177110575,
+          "timing": {
+            "baseline": {
+              "compute_s": 31.25127240503207,
+              "first_update_s": 0.03455816698260605,
+              "median_s": 0.034186915843747556,
+              "p95_s": 0.036635458609089254
+            },
+            "candidate": {
+              "compute_s": 1.490499628474936,
+              "first_update_s": 0.0011077087838202715,
+              "median_s": 0.001035250024870038,
+              "p95_s": 0.0012330607860349114
+            }
+          }
+        },
+        {
+          "count": 62,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 0.00026084492212640343,
+              "initial": 57.66579449360005
+            },
+            "maximum_componentwise_backward_error": 1.8310217901191732e-15,
+            "maximum_normal_equation_backward_error": 6.1238848379263e-19,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.6932971463621173,
+          "id": "quad-arm-135",
+          "median_ratio": 0.029619690130931024,
+          "primary": 0.3601364464727276,
+          "timing": {
+            "baseline": {
+              "compute_s": 2.1689069133717567,
+              "first_update_s": 0.03480266686528921,
+              "median_s": 0.03397374995984137,
+              "p95_s": 0.034773041028529406
+            },
+            "candidate": {
+              "compute_s": 0.10533108818344772,
+              "first_update_s": 0.0011238751467317343,
+              "median_s": 0.0010062919463962317,
+              "p95_s": 0.0011318749748170376
+            }
+          }
+        },
+        {
+          "count": 875,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 6.0770705491026735e-06,
+              "initial": 0.6318135418041562
+            },
+            "maximum_componentwise_backward_error": 2.808372743588176e-15,
+            "maximum_normal_equation_backward_error": 1.1712750269468674e-18,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.6143421487340885,
+          "id": "quad-change",
+          "median_ratio": 0.02983960433161774,
+          "primary": 0.17315787981894604,
+          "timing": {
+            "baseline": {
+              "compute_s": 30.76496163289994,
+              "first_update_s": 0.03475791704840958,
+              "median_s": 0.03390487493015826,
+              "p95_s": 0.03496270172763616
+            },
+            "candidate": {
+              "compute_s": 1.4491876852698624,
+              "first_update_s": 0.0012011248618364334,
+              "median_s": 0.001011708052828908,
+              "p95_s": 0.0011507164337672291
+            }
+          }
+        },
+        {
+          "count": 225,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 0.000952369301449652,
+              "initial": 25.73442562417216
+            },
+            "maximum_componentwise_backward_error": 1.3556633983967177e-15,
+            "maximum_normal_equation_backward_error": 1.9818959439930692e-22,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "fixedwing",
+          "horizon250": 1.8829440641096808,
+          "id": "fixedwing-80",
+          "median_ratio": 0.0705921271953882,
+          "primary": 0.2082058729112923,
+          "timing": {
+            "baseline": {
+              "compute_s": 4.342046925332397,
+              "first_update_s": 2.161814333871007,
+              "median_s": 0.00764485402032733,
+              "p95_s": 0.007855037483386696
+            },
+            "candidate": {
+              "compute_s": 0.6085337845142931,
+              "first_update_s": 0.229525167029351,
+              "median_s": 0.0005396665073931217,
+              "p95_s": 0.0006182643002830446
+            }
+          }
+        },
+        {
+          "count": 225,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 0.0012068386656485307,
+              "initial": 411.28106866940755
+            },
+            "maximum_componentwise_backward_error": 1.3672085013264576e-15,
+            "maximum_normal_equation_backward_error": 2.5677753326111998e-23,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "fixedwing",
+          "horizon250": 2.253632691841145,
+          "id": "fixedwing-81",
+          "median_ratio": 0.0697302358031197,
+          "primary": 0.11490011193485605,
+          "timing": {
+            "baseline": {
+              "compute_s": 1.9028098662383854,
+              "first_update_s": 0.00861958391033113,
+              "median_s": 0.007673020940274,
+              "p95_s": 0.0081037831841968
+            },
+            "candidate": {
+              "compute_s": 0.26380722993053496,
+              "first_update_s": 0.0007771661039441824,
+              "median_s": 0.0005350415594875813,
+              "p95_s": 0.0006366704707033931
+            }
+          }
+        }
+      ],
+      "evidence": {
+        "logs/run.log": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-full-v1/logs/run.log",
+          "sha256": "86cae017d5b797225e0c7cb6c808841a4d5082efa14aae0290394dfcd5aa4215"
+        },
+        "logs/verify.log": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-full-v1/logs/verify.log",
+          "sha256": "79b0f55446a6502474fdf51c32cdb9bbb7a85feaf71eafc157353bf80539755e"
+        },
+        "query-diagnosis.json": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-full-v1/query-diagnosis.json",
+          "sha256": "a78e0dccd929476d795186bd5ce623b37cc81cd411afc4aebef89e34df7becfa"
+        },
+        "verified.json": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-full-v1/verified.json",
+          "sha256": "9fd041b2c5f7b5b9ac056e37a8c5bd05e65976b7bfc28e21bbe5874bae6c1a7e"
+        }
+      },
+      "id": "cold-readout-curvature-full-v1",
+      "pack": {
+        "manifest_sha256": "adef6d7fe24fcab8c07bacc9f3868432fc1c3281a9fcf87c61926ad1f90032cb",
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-full-v1/evaluation"
+      },
+      "protocol_commit": "57715cb",
+      "source_commit": "6d2b9c4",
+      "summary": {
+        "adopted": false,
+        "aggregate": {
+          "horizon250": 1.1764548670497161,
+          "median_ratio": 0.045808832833438735,
+          "primary": 0.16539287618684118
+        },
+        "checks": {
+          "families": true,
+          "forecast250": true,
+          "one_step": true,
+          "speed": true
+        },
+        "families": {
+          "fixedwing": {
+            "horizon250": 2.0599670627914914,
+            "median_ratio": 0.07015985800426223,
+            "primary": 0.1546702237116178
+          },
+          "quad": {
+            "horizon250": 0.6718777592149576,
+            "median_ratio": 0.029909541228467895,
+            "primary": 0.1768588861962127
+          }
+        }
+      }
+    },
+    "short": {
+      "cases": [
+        {
+          "count": 64,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 0.00029945960082945153,
+              "initial": 43.981442605394996,
+              "raw": 220.44127368192372
+            },
+            "maximum_normal_equation_backward_error": 3.0151788790048243e-19,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.7854412314665566,
+          "horizon250_to_raw": 0.26399721783700963,
+          "id": "quad-arm-115",
+          "median_ratio": 0.029109303803971816,
+          "primary": 0.0878078824666192,
+          "primary_to_raw": 0.8773892792324578,
+          "timing": {
+            "baseline": {
+              "compute_s": 5.255681661423296,
+              "first_update_s": 2.6918764577712864,
+              "median_s": 0.034233042038977146,
+              "p95_s": 0.03552559651434421
+            },
+            "candidate": {
+              "compute_s": 0.3541027554310858,
+              "first_update_s": 0.2237962910439819,
+              "median_s": 0.0009965000208467245,
+              "p95_s": 0.0012445463100448251
+            },
+            "raw": {
+              "compute_s": 0.5926866282243282,
+              "first_update_s": 0.1850412089843303,
+              "median_s": 0.00038937502540647984,
+              "p95_s": 0.0004294049460440874
+            }
+          }
+        },
+        {
+          "count": 64,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 3.4179869621227695e-05,
+              "initial": 1.8871987387224534,
+              "raw": 0.20931748426524785
+            },
+            "maximum_normal_equation_backward_error": 1.1712750269468674e-18,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.8316482383230916,
+          "horizon250_to_raw": 0.3828222226069963,
+          "id": "quad-arm-125",
+          "median_ratio": 0.02921731690150639,
+          "primary": 0.1899887303361328,
+          "primary_to_raw": 1.020995433873068,
+          "timing": {
+            "baseline": {
+              "compute_s": 2.246290043927729,
+              "first_update_s": 0.0348390000872314,
+              "median_s": 0.034186374861747026,
+              "p95_s": 0.03488598328549415
+            },
+            "candidate": {
+              "compute_s": 0.10787950363010168,
+              "first_update_s": 0.0011057921219617128,
+              "median_s": 0.0009988341480493546,
+              "p95_s": 0.0012186164502054452
+            },
+            "raw": {
+              "compute_s": 0.06942966557107866,
+              "first_update_s": 0.0004771249368786812,
+              "median_s": 0.0003910418599843979,
+              "p95_s": 0.0004326919559389353
+            }
+          }
+        },
+        {
+          "count": 62,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 0.00026084492212640343,
+              "initial": 57.66579449360005,
+              "raw": 180.87251183102978
+            },
+            "maximum_normal_equation_backward_error": 6.1238848379263e-19,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.6932971463621173,
+          "horizon250_to_raw": 0.6723192633550625,
+          "id": "quad-arm-135",
+          "median_ratio": 0.029151540463834006,
+          "primary": 0.3601364464727276,
+          "primary_to_raw": 0.8494851261424211,
+          "timing": {
+            "baseline": {
+              "compute_s": 2.169774825917557,
+              "first_update_s": 0.03489333298057318,
+              "median_s": 0.034083375008776784,
+              "p95_s": 0.03454579203389585
+            },
+            "candidate": {
+              "compute_s": 0.10351990745402873,
+              "first_update_s": 0.0010111250448971987,
+              "median_s": 0.0009935828857123852,
+              "p95_s": 0.0012061248999089003
+            },
+            "raw": {
+              "compute_s": 0.06653424259275198,
+              "first_update_s": 0.0004080838989466429,
+              "median_s": 0.000390209024772048,
+              "p95_s": 0.00041862507350742817
+            }
+          }
+        },
+        {
+          "count": 64,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 3.4179869621227695e-05,
+              "initial": 1.8871987387224534,
+              "raw": 0.20931748426524785
+            },
+            "maximum_normal_equation_backward_error": 1.1712750269468674e-18,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "quad",
+          "horizon250": 0.8316482383230916,
+          "horizon250_to_raw": 0.3828222226069963,
+          "id": "quad-change",
+          "median_ratio": 0.029439108507988115,
+          "primary": 0.1899887303361328,
+          "primary_to_raw": 1.020995433873068,
+          "timing": {
+            "baseline": {
+              "compute_s": 2.268566041951999,
+              "first_update_s": 0.03473516693338752,
+              "median_s": 0.034165167016908526,
+              "p95_s": 0.03691024575382471
+            },
+            "candidate": {
+              "compute_s": 0.10741387610323727,
+              "first_update_s": 0.0011333329603075981,
+              "median_s": 0.0010057920590043068,
+              "p95_s": 0.0011121617862954736
+            },
+            "raw": {
+              "compute_s": 0.06987467082217336,
+              "first_update_s": 0.00046612508594989777,
+              "median_s": 0.00039224978536367416,
+              "p95_s": 0.0004352874122560024
+            }
+          }
+        },
+        {
+          "count": 64,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 8.379644185277294e-05,
+              "initial": 22.208944529953413,
+              "raw": 493982.4426685464
+            },
+            "maximum_normal_equation_backward_error": 1.9818959439930692e-22,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "fixedwing",
+          "horizon250": 0.7966641158948489,
+          "horizon250_to_raw": 0.003113888094610496,
+          "id": "fixedwing-80",
+          "median_ratio": 0.07068992697448219,
+          "primary": 0.3076144686260238,
+          "primary_to_raw": 0.11165935926268564,
+          "timing": {
+            "baseline": {
+              "compute_s": 3.003841041121632,
+              "first_update_s": 2.1844446670729667,
+              "median_s": 0.0077804578468203545,
+              "p95_s": 0.00800950403790921
+            },
+            "candidate": {
+              "compute_s": 0.30068220873363316,
+              "first_update_s": 0.2024965831078589,
+              "median_s": 0.0005499999970197678,
+              "p95_s": 0.0006050416734069586
+            },
+            "raw": {
+              "compute_s": 0.3541910918429494,
+              "first_update_s": 0.18954358296468854,
+              "median_s": 0.0002670001704245806,
+              "p95_s": 0.00030496257822960616
+            }
+          }
+        },
+        {
+          "count": 64,
+          "diagnosis": {
+            "controls_exact_replay": true,
+            "final_penalized_objective": {
+              "candidate": 7.682110756064109e-05,
+              "initial": 193.69760033453838,
+              "raw": 7536204.236077708
+            },
+            "maximum_normal_equation_backward_error": 2.5677753326111998e-23,
+            "penalty_numpy_reconstruction": true
+          },
+          "family": "fixedwing",
+          "horizon250": 0.6425660617553458,
+          "horizon250_to_raw": 0.002124703175243567,
+          "id": "fixedwing-81",
+          "median_ratio": 0.07067946743591327,
+          "primary": 0.1877370371636163,
+          "primary_to_raw": 0.13015464254861175,
+          "timing": {
+            "baseline": {
+              "compute_s": 0.5483502852730453,
+              "first_update_s": 0.008619166910648346,
+              "median_s": 0.007783957989886403,
+              "p95_s": 0.008088024449534714
+            },
+            "candidate": {
+              "compute_s": 0.07477250136435032,
+              "first_update_s": 0.0006313340272754431,
+              "median_s": 0.000550166005268693,
+              "p95_s": 0.0006224127020686865
+            },
+            "raw": {
+              "compute_s": 0.05795470695011318,
+              "first_update_s": 0.0003031250089406967,
+              "median_s": 0.0002667501103132963,
+              "p95_s": 0.00030443812720477577
+            }
+          }
+        }
+      ],
+      "evidence": {
+        "logs/run.log": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/logs/run.log",
+          "sha256": "cad632ccc70e4fd9e9941a63c1f2d3e9ae519625cc047a949d90779b9affebae"
+        },
+        "logs/tests.log": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/logs/tests.log",
+          "sha256": "7310e5a748a982dd916879b9728ba02718fb638225ca40aef04e4c3870bb6138"
+        },
+        "logs/verify-componentwise.log": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/logs/verify-componentwise.log",
+          "sha256": "91b2d1f47e90bd628a768bd5b109b4a8e2072af6d5247da45fb10a6bf6e5073f"
+        },
+        "logs/verify.log": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/logs/verify.log",
+          "sha256": "efb3f92ffcaa8dda8812dfdc38a17dda34247e293eac0cdfe1a001bdde291b98"
+        },
+        "verified-componentwise.json": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/verified-componentwise.json",
+          "sha256": "911e3ed73edcdeaf2d581d2877894ab9b2e878ba298e2067102495da265fb0dc"
+        },
+        "verified.json": {
+          "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/verified.json",
+          "sha256": "2990f3001a5864dd3d7b4066ed00ceec3fd6cad88e634ec8c07c73536c8b9c8c"
+        }
+      },
+      "extended_verifier_source": "6d2b9c4",
+      "id": "cold-readout-curvature-v1",
+      "pack": {
+        "manifest_sha256": "f9a7c4769b44c838b8d72443dd456219fee48dca57c27af260f7dd13908de621",
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-v1/screen"
+      },
+      "protocol_commit": "cba69a6",
+      "source_commit": "be38729",
+      "summary": {
+        "adopted": false,
+        "aggregate": {
+          "horizon250": 0.7486646310920567,
+          "horizon250_to_raw": 0.032140043868386016,
+          "median_ratio": 0.045453778319856114,
+          "primary": 0.21017023607166863,
+          "primary_to_raw": 0.33642492291694576
+        },
+        "checks": {
+          "families": true,
+          "forecast250": true,
+          "one_step": true,
+          "speed": true
+        },
+        "families": {
+          "fixedwing": {
+            "horizon250": 0.7154783878583317,
+            "horizon250_to_raw": 0.0025721757175535386,
+            "median_ratio": 0.07068469701172951,
+            "primary": 0.2403136053753718,
+            "primary_to_raw": 0.12055282656181011
+          },
+          "quad": {
+            "horizon250": 0.7833901615476706,
+            "horizon250_to_raw": 0.4015986982585595,
+            "median_ratio": 0.02922904179963846,
+            "primary": 0.18380785416383164,
+            "primary_to_raw": 0.9388558691458149
+          }
+        }
+      }
+    }
+  },
+  "id": "cold-readout-curvature",
+  "scope": {
+    "candidate_scientific_definitions_unchanged_between_stages": true,
+    "full_arms": 2,
+    "full_prefix_exact_replay": true,
+    "full_updates_per_arm": 3137,
+    "new_controller_trials": 0,
+    "offline_fits": 0,
+    "pretraining": false,
+    "short_arms": 3,
+    "short_controls_exact_replay": true,
+    "short_updates_per_arm": 382,
+    "tests_passed": 9
+  },
+  "verification_note": "A successful stricter short-data computation initially hit FileExistsError when saving to the existing verified.json. No fit was repeated. The separately saved verified-componentwise.json preserves the completed audit; the failed output-write log is retained."
+}

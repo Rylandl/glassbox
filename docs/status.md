@@ -44,60 +44,67 @@ predictions, the current compact model improves aggregate error **1.54%**, while
 rate error is **0.43% higher**. These are saved-data accuracy comparisons, not new
 paired timings or blind generalization tests. Earlier frozen results remain intact.
 
-## Latest experiment: fast readout without pretraining
+## Latest experiment: fast readout with physical curvature regularization
 
-The [bounded cold-start screen](cold-readout.md) completed **382 updates per arm**
-on six known recordings. Both arms used identical fresh episode-prefix
-initialization, with no pretrained weights. Updating only the acceleration
-readout via measured-increment RLS took **0.36–0.41 ms for quads / 0.264–0.266 ms
-for fixed wings**, versus **34.1–36.1 ms / 7.71–7.74 ms** for the current learner.
-Quad one-step error fell **80.4%**, but fixed-wing one-step error nearly doubled;
-250 ms primary error was **1.95× / 278× worse**. **Rejected; production unchanged.**
+The [regularized readout experiment](cold-readout-curvature.md) is promising but
+**not adopted**. It starts fresh on every episode with no pretraining, freezes
+feature/filter/memory functions, and solves readout coefficients directly from
+measured increments plus the existing generic physical curvature penalty.
+Production code and public interfaces remain unchanged.
 
-The local fitting objective improved sharply despite collapsing recursive
-forecasts. This screen changed both the optimized weights and the objective;
-it does not show that a pretrained representation is necessary. Known quad
-scoring begins 1.25 s after release, including 25 actuated initialization samples;
-no immediate recovery or successful catch was tested. Full results, every case,
-startup costs and limitations remain in the report. No broad offline fitting
-or controller campaign followed this clear loss.
+The short screen completed **382 updates per arm** against both the full learner
+and raw RLS. One-step primary error fell **79.0%**, 250 ms error **25.1%**; both
+controls reproduced exactly. The same unchanged candidate then completed
+**3,137 updates per arm** against the full learner on the entire recorded roster:
 
-## Follow-up: feature freezing isolated
+| Candidate / full learner | Quad | Fixed wing | Equal-family aggregate |
+| --- | ---: | ---: | ---: |
+| One-step velocity/rate error | 0.1769 | 0.1547 | **0.1654** |
+| 250 ms velocity/rate error | 0.6719 | **2.0600** | 1.1765 |
+| Warm median update time | 0.0299 | 0.0702 | **0.0458** |
 
-The [matched recursive-loss screen](cold-readout-rollout.md) completed another
-**382 updates per arm**. Both arms retain current reconditioning, quadratic
-curvature regularization, trust/backtracking and 16-PCG; only the candidate's
-readout weights learn. All baseline predictions and final model arrays reproduce
-the earlier screen exactly. Fresh episode initialization remains identical.
+Warm complete updates take **1.006–1.035 ms for quads / 0.535–0.540 ms for fixed
+wings**, about **22× faster** overall. After the four-second configuration change,
+quad one-step primary error is **40.2% lower**, though that segment is already
+near hover with narrow command variation. Both arms' short prefixes reproduce
+exactly in the full run. Nine focused tests pass; all saved solves pass the
+componentwise equation audit, with maximum backward error **2.91e-15**.
 
-Quad one-step/250 ms accuracy is effectively unchanged. Fixed-wing one-step error
-is **26.55% higher**, but 250 ms error is only **12.01% higher**, versus the raw
-RLS experiment's **278.16×**. This rules out an inevitable blow-up from the frozen
-feature representation on these recordings. It does not isolate which restored
-objective/regularization/safeguard component matters most, nor prove a universal
-fixed feature representation. Both arms accepted every proposal.
+All frozen aggregate flags pass. Nevertheless, full-recording fixed-wing 250 ms
+body-rate errors rise from **2.70 to 15.06 rad/s** and **14.52 to 39.98 rad/s**.
+A posthoc query view shows losses on 20 of 26 noninitial fixed-wing forecasts.
+The local fitting gain persists after 100 updates; it does not yet translate into
+reliable recursive trajectories. This is a consistent capability gap alongside
+a substantial architectural gain, not a reason to discard the fast approach or
+to call it production-ready. Absolute forecast errors in the truncated quad tape
+remain large too.
 
-Updates are **17.92% faster for quads / 13.84% faster for fixed wings**, an
-aggregate **15.90%** saving. Keep the full learner: this diagnostic does not
-capture the raw estimator's major speed benefit, and freezing still costs
-accuracy. No model option or experimental optimizer remains in production.
-The [index](cold-readout-rollout.json) records physical scores, exact replay,
-work counts, 37 passing tests and retained historical experiment source.
+The [index](cold-readout-curvature.json) preserves both protocols, every physical
+score, timing, startup cost, source/runtime binding, and the no-fit audits. The
+experimental source/tests remain in Git (`be38729`, `6d2b9c4`), not as a second
+maintained implementation. The [raw RLS](cold-readout.md) and
+[matched recursive-loss](cold-readout-rollout.md) reports establish why curvature
+and objective constraints were tested; neither requires a pretrained core.
 
 ## Next iteration
 
-**Isolate generic curvature regularization in the fast measured-increment
-readout.** Hold the raw RLS feature basis and measurement model fixed, add the
-existing physical quadratic-curvature penalty with explicit objective/scale
-accounting, and compare against raw RLS and the full learner on the same short
-causal roster. Freeze the actual protocol before implementation and fitting.
-This tests a missing structural constraint before adding feature capacity.
-A recursive acceptance check is a separate subsequent experiment if needed.
+**Causal 250 ms forecast acceptance for fast readout proposals.** Keep the new
+regularized estimator unchanged, then accept or damp each proposed readout
+change using only completed observed trajectories through 250 ms. Count cache
+construction, all forward forecasts and backtracking in the complete update
+cost. Freeze the actual data budget, objective, acceptance rule and comparison
+before implementation. First screen, then extend only if promising. Measure
+rejected/stale updates as well as speed, one-step accuracy and recursive error.
+
+This requires forward rollouts rather than repeated trajectory derivatives;
+its benefit is unproven. A 50 ms guard alone does not cover the observed failure:
+fixed-wing 50 ms is just one observation interval. No additional feature learning,
+forgetting or tuned penalty should be bundled into that next causal comparison.
 
 No fleet-trained features, class priors, reused normalizers or fitted revisions
 may enter any arm. Every learned quantity must come from that episode. Family
-and sample interval remain confounded (10/50 ms), as do initialization sample
-counts and elapsed time across 64 updates; don't call the loss an intrinsic
-fixed-wing incompatibility. Earlier usable predictions, calibrated uncertainty
-and controller recovery remain separate gaps; controllers stay in Dart/Throw.
-Move quickly and stop unpromising candidates before broad qualification.
+and sample interval remain confounded (10/50 ms), as do initialization counts.
+Cold-start availability still includes 0.5 s history plus 0.25 s initialization data;
+the quad tapes begin scoring 1.25 s after release. Warm-update speed is not live
+catch qualification. Counterfactual response, sensor-noise robustness, calibrated
+uncertainty and controller recovery remain separate gaps in Glassbox/Dart/Throw.
