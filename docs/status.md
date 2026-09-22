@@ -16,43 +16,43 @@ controllers and simulators remain external.
 | Online fitting | Adopted **online v8** reduces equal-family velocity/rate error **41.76% against v6** and 87.73% against frozen startup across six known tapes. All 3,137 targets are scored before assimilation; all twelve primary cells improve. Worst-decile error falls 42.86%, orientation RMSE 53.53%. Fixed-wing velocity/rate errors remain 1.6–4.5× the no-fit kinematic baseline; rare errors still regress. See [online evidence](online-fitting.md). |
 | Updates and calibration | Offline updates preserve immutable revisions and development roles. Online sessions retain bounded causal caches. Development-selected calibration does not establish independent coverage; streaming sessions have no calibrated envelope. |
 | Scope | Rigid-body motion across recorded quad/fixed-wing configurations. Broad airframe, articulated-system and arbitrary-system readiness remain unproved. No current-learner online closed-loop recovery trial has run. |
-| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. Only `online.py` changes from v6; all 14 other package files are byte-identical. All **414 tests pass**, and the complete saved baseline replays exactly. |
+| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All **15 package files remain byte-identical to adopted v8** during the cost profile, so its previous exact baseline replay remains applicable. All **464 tests pass**. |
 
 ## Latest completed iteration
 
-**Bounded online solve with backtracking — completed; v8 adopted.** The
-[frozen six-tape run](online-fitting.md) tests one v6-based candidate with sixteen
-PCG iterations and first-acceptable step scales 1, 1/2, 1/4, 1/8 and 1/16. The
-prior, conditioning, initialization, dynamics, trust bound and rollback/damping
-rules stay fixed. No platform branch, consumer option or parameter sweep is added.
+**V8 cost diagnosis — measurements complete; component qualification fails.**
+The [saved-session profile](online-cost-profile.md) measures all 35 frozen
+checkpoints: 29 genuine next observations and six final-cache probes. All 725
+native replays exactly reproduce original v8 model, report and session state.
+An independent audit validates 257 profile payloads, 400 parent payloads and
+12,675 raw timing samples without model calls. The learner is unchanged.
 
-The primary ratio is **0.58240** against v6: quad 0.46812, fixed-wing 0.72459.
-The separate tail/orientation/rotation-consistency gates also pass. Every one of
-3,137 updates accepts; 3,098 use the full step, 35 half and 4 quarter. All quad
-updates use full steps, so their gains come from the longer solve without active
-shortening. Backtracking is used on 39/450 fixed-wing updates and adds 43 objective
-evaluations overall. Solver work increases fourfold to 50,192 scheduled iterations;
-quad p95 update time rises to 78–93 ms. This passes the declared accuracy decision,
-not real-time quad qualification.
+Quad initial medians are **75.44 ms for the native proposal versus 77.38 ms for
+the public update**; the nested public snapshot costs only 0.054 ms. Passing
+setup/trust diagnostics and a 4.68 ms cached curvature application consistently
+point to repeated derivative work. The sixteen-step proposal already reuses one
+nonlinear linearization. Separate component times are nonadditive; the fraction
+specifically spent propagating through history is not yet measured.
 
-Both saved-data verifiers pass, including 400 authenticated payloads, 9,411 journal
-events and 23 prospective snapshots; no refitting is used. All 414 tests pass and
-the offline/Dart baseline replays exactly. Four descriptive quantile/maximum
-regressions remain, including FW80 maximum velocity error 1.297→1.578 m/s. Quad125
-and quad-change share their first 4 s and differ only slightly after the declared
-change; these known cases do not establish independent generalization. No
-current-learner online closed-loop recovery trial has run.
+Four initial-quad standalone solver prefixes fail the frozen numerical tolerance
+and are excluded from conclusions. Every full instrumented/native proposal and
+trust checkpoint matches exactly; all other comparisons pass. The failed first
+attempt remains sealed. A committed failure-collection change completed the same
+roster without changing kernels or criteria, while retaining the failed overall
+qualification. Across both attempts: 726 native replays, zero initializations.
+This is a useful cost diagnosis, not a speedup or new real-time qualification.
 
 ## Next scientific gap
 
-**Cost of the adopted v8 online solve.** Freeze a component profile on saved
-sessions before changing implementation. Measure conditioning, linearization,
-repeated curvature products and exact trial evaluation separately; identify
-reusable numerical work while preserving the sixteen-step proposal and prediction
-accuracy. The quad 10 ms cadence is still far out of reach on this measured runtime.
-Do not silently lower the budget, add tuning options or trade away the measured
-gains. A changed numerical recipe needs a new prospective comparison.
+**Reduce repeated derivative application cost.** Freeze one prospective candidate:
+cache transport through the learned-memory recurrence and batch history parameter
+JVP/VJP calculations. Preserve the model, conditioning, prior, sixteen solver
+steps, trust bound and backtracking. Measure construction cost and total proposal
+latency, then verify numerical and forecast preservation against adopted v8.
+History transport is a plausible target, not a measured share or promised route
+to 10 ms. Reordered arithmetic needs qualification; do not lower solver effort,
+add consumer choices or trade away measured gains.
 
 Fixed-wing absolute forecast errors, known-tape coverage, physical derivatives,
-calibration and live consumer recovery remain separate open gaps. V6 remains
-reproducible from its pinned scientific source; v8 is the one maintained fitter.
+calibration and live consumer recovery remain separate open gaps. V8 remains
+the one maintained fitter; this iteration changes profiling tools only.

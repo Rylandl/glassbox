@@ -8,6 +8,8 @@
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
 - [Online fitting](online-fitting.md): causal quad/fixed-wing results, bounded backtracking,
   verification and remaining accuracy/runtime gaps.
+- [Online cost profile](online-cost-profile.md): native update timings, retained
+  diagnostic failures and the next derivative-cost experiment.
 - [Dart precision](dart-precision.md): nominal contact performance, every attempted
   intervention and numerical qualification.
 - [Cleanup result](cleanup.md): adopted implementation, preserved evidence and
