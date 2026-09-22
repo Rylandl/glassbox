@@ -86,24 +86,58 @@ maintained implementation. The [raw RLS](cold-readout.md) and
 [matched recursive-loss](cold-readout-rollout.md) reports establish why curvature
 and objective constraints were tested; neither requires a pretrained core.
 
+## Latest diagnosis: excessive linear angular feedback
+
+The [saved-model investigation](readout-stability.md) supports continuing the fast
+readout architecture, with a more specific structural target. Across every saved
+fixed-wing forecast origin, angular error compounds through 50–250 ms. Replacing
+the candidate angular output with the full learner reduces 250 ms rate error to
+**2.77 / 18.24 rad/s**, versus **15.06 / 39.98** for the candidate.
+
+Removing quadratic rate coefficients worsens the first case and only modestly
+helps the second (**19.71 / 35.39 rad/s**). Removing the **linear lag-difference
+rate rows** helps both much more (**6.94 / 14.76 rad/s**), with local accuracy and
+velocity tradeoffs. This is a diagnostic ablation, not an adopted replacement.
+Motion features already saturate before products; 50 ms integration already uses
+two 25 ms midpoint substeps.
+
+The full 50-dimensional recurrence Jacobian has median spectral radius about
+**3.3–3.4** on measured states, versus **1.3–1.4** for the reference. Instantaneous
+angular-rate feedback has median maximum real eigenvalue **+13.04/s / +13.59/s**;
+negative candidate derivatives do not support stiff damping as the main failure.
+Leverage spikes correlate with error, but are not calibrated uncertainty. Neither
+partial Jacobians nor these local spectral radii constitute a stability proof.
+
+Eight distinct diagnostic tests pass; saved arrays and scores verify without
+fitting. Candidate weights were reused throughout. Missing intermediate reference
+models required exact replay; a harness reuse bug caused one redundant replay:
+**900 reference updates versus 450 planned, zero candidate fits**. All attempts and
+the metadata correction are in the [index](readout-stability.json). Production is
+unchanged. Completed experimental code is archived through `da3123c` in Git.
+
 ## Next iteration
 
-**Causal 250 ms forecast acceptance for fast readout proposals.** Keep the new
-regularized estimator unchanged, then accept or damp each proposed readout
-change using only completed observed trajectories through 250 ms. Count cache
-construction, all forward forecasts and backtracking in the complete update
-cost. Freeze the actual data budget, objective, acceptance rule and comparison
-before implementation. First screen, then extend only if promising. Measure
-rejected/stale updates as well as speed, one-step accuracy and recursive error.
+**First-order state/history sensitivity regularization for the fast readout.**
+Penalize the effective instantaneous and delayed motion feedback, including the
+linear path that the current curvature penalty cannot constrain. With frozen
+features this remains quadratic in the readout and can preserve the shared direct
+solve. Freeze generic coordinate scales, probe domain, penalty strength, data
+budget and complete-update measurement before implementation. Keep the existing
+curvature penalty and other estimator choices fixed. Use one generic formulation
+across all acceleration outputs; do not force all plants to be globally contractive.
 
-This requires forward rollouts rather than repeated trajectory derivatives;
-its benefit is unproven. A 50 ms guard alone does not cover the observed failure:
-fixed-wing 50 ms is just one observation interval. No additional feature learning,
-forgetting or tuned penalty should be bundled into that next causal comparison.
+Compare one-step accuracy and full 250 ms forecasts against both the unchanged
+readout and full learner. Report velocity and rate separately, with the future
+per-family flags declared in the diagnostic protocol. Include all derivative/
+precision construction in update cost. Soft sensitivity regularization can bias
+legitimate dynamics and is unproven; a retrospective acceptance guard remains a
+possible safety net rather than the primary next change.
 
 No fleet-trained features, class priors, reused normalizers or fitted revisions
 may enter any arm. Every learned quantity must come from that episode. Family
 and sample interval remain confounded (10/50 ms), as do initialization counts.
+A matched quad tape with commands held for 50 ms is still needed to isolate the
+observation interval; naive decimation with changing commands does not do that.
 Cold-start availability still includes 0.5 s history plus 0.25 s initialization data;
 the quad tapes begin scoring 1.25 s after release. Warm-update speed is not live
 catch qualification. Counterfactual response, sensor-noise robustness, calibrated

@@ -55,6 +55,13 @@ contracts, invalid numerical behavior and substantial consistent capability loss
 need resolution; an isolated benchmark loss can become follow-up work. Distinguish
 architecture changes from fitting provenance before attributing a regression.
 
+Future online architecture evaluations freeze and report per-family 250 ms
+forecast flags, with velocity and body-rate components shown separately, alongside
+aggregate and one-step scores. Preserve physical errors for each recording and
+historical flags. A combined metric must not hide a large angular recurrence loss;
+these flags still inform an overall engineering decision rather than make every
+isolated regression a veto.
+
 ## Definition of done
 
 | Criterion | Required evidence |
