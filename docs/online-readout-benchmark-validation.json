@@ -4,12 +4,47 @@
     "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v1/smoke",
     "manifest_sha256": "be56d7cac42c38d382bd6e6ade2d1819c0a4b743e638ec3dd1330f7fb16deb6e",
     "cases": 4,
-    "status": "saved-data verifier passed; conditional and one-step arrays exactly match the archived direct readout"
+    "status": "historical two-origin validation; saved-data verifier passed; conditional and one-step arrays exactly match the archived direct readout"
+  },
+  "smoke_current": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v2/smoke-cold-timing",
+    "manifest_sha256": "325ae3c2837447fad4caa8a5cfc1f9dc9b4962a8396f5eb020086538f57eece5",
+    "cases": 4,
+    "conditional_origins": 8,
+    "causal_updates": 73,
+    "status": "current optional smoke path; saved-data verifier passed; exact archived replay"
   },
   "full": {
     "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v1/full",
     "manifest_sha256": "9928e9ae46db3653a734e8193baff105e7286650c66cb43a0cb5c4bff2f7c7ae",
     "cases": 8,
-    "status": "saved-data verifier passed; conditional and one-step arrays exactly match the archived direct readout"
+    "status": "historical two-origin validation; saved-data verifier passed; conditional and one-step arrays exactly match the archived direct readout"
+  },
+  "full_stream_initial": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v2/full-stream",
+    "manifest_sha256": "3f9adc4ef768801b4689fc8aa74a18ca1cef9b5eaed292960fbede71dfb6c52d",
+    "cases": 8,
+    "conditional_origins": 263,
+    "causal_updates": 4187,
+    "wall_s": 15.0,
+    "status": "completed before cold timing fields were added; saved-data verifier passed; exact archived replay"
+  },
+  "full_stream_cold_timing": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v2/full-stream-cold-timing",
+    "manifest_sha256": "eb7ad8270e2614ebd33de829919f5639f039ed0474db035158dba9d65cbd4d8f",
+    "cases": 8,
+    "conditional_origins": 263,
+    "causal_updates": 4187,
+    "wall_s": 14.45,
+    "status": "completed before matched full-learner one-step controls were included; saved-data verifier passed; exact archived replay"
+  },
+  "full_stream": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/benchmark-loop-validation-v2/full-stream-complete",
+    "manifest_sha256": "977197fa4a0cc1d94e630631353f829253da5296766c7af94141dccfad6ecd8c",
+    "cases": 8,
+    "conditional_origins": 263,
+    "causal_updates": 4187,
+    "wall_s": 14.17,
+    "status": "final runner: saved-data verifier passed; candidate conditional and one-step arrays exactly match the archived direct readout; matched full-learner one-step controls included"
   }
 }

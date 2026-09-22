@@ -40,12 +40,15 @@ decision. A separate candidate-specific unit test is warranted only for a
 new derivative, causality or numerical claim.
 
 The original two-origin runner and expanded full-stream runner were validated
-against the archived physical SO(3) direct readout. The final full run took **14.45 s**
+against the archived physical SO(3) direct readout. The final full run took **14.17 s**
 on this machine; all **263 conditional forecasts and 4,187 one-step predictions**
 match the archived arrays exactly. Its saved-data verifier passed. The
 [validation index](online-readout-benchmark-validation.json) preserves both
-versions and the complete pre-timing run. First JAX compilation appears in
+versions and the completed harness-only timing/control corrections. First JAX compilation appears in
 the first update for a new shape and is reported separately from warm updates.
+The hard quad illustrates why both local and recursive errors belong in one
+table: its direct readout has **0.049 rad/s** native one-step rate error, but
+**62.867 rad/s** 250 ms rate RMSE across its three scored origins.
 
 This benchmark uses known recordings and a fresh but nonzero causal prefix;
 it is not held-out-vehicle, counterfactual command-response or live Throw
