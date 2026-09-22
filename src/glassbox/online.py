@@ -16,6 +16,7 @@ from ._dynamics import (
     _rollout,
     current_features,
     initialize,
+    nonlinear_features,
     quadratic_features,
     time_constants,
 )
@@ -24,7 +25,7 @@ from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
 from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-accumulator-v1"
+_FORMAT = "glassbox-online-temporal-v1"
 _STEP_SCALES = (1.0, 0.5, 0.25, 0.125, 0.0625)
 _FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
@@ -70,7 +71,7 @@ _RECIPE = dict(
     minimum_trust_radius=1.0,
     conditioning=dict(
         calls_per_observation=1,
-        scales=["feature_scale", "quadratic_scale", "output_scale"],
+        scales=["feature_scale", "nonlinear_scale", "quadratic_scale", "output_scale"],
         statistic="role-balanced uncentered measured-cache RMS",
         update="elementwise maximum with existing scales",
         hidden_scales="fixed at 1",
@@ -110,7 +111,7 @@ def _huber(residual):
 
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
 def _recondition(params, norms, data, weights, *, delay, dt_s):
-    """Grow three coordinate scales from completed observations, preserving the map.
+    """Grow coordinate scales from completed observations, preserving the map.
 
     Measured histories and targets set feature statistics; no model trajectory or
     future observation enters. The known tanh bound keeps hidden scales fixed.
@@ -148,6 +149,13 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
             norms["feature_scale"][sampled.shape[-1] :],
         )
     )
+    compact = nonlinear_features(sampled, current.shape[-1], delay)
+    nonlinear_scale = jnp.concatenate(
+        (
+            jnp.maximum(norms["nonlinear_scale"][: compact.shape[-1]], rms(compact)),
+            norms["nonlinear_scale"][compact.shape[-1] :],
+        )
+    )
     quadratic_scale = jnp.maximum(
         norms["quadratic_scale"], rms(quadratic_features(current))
     )
@@ -162,6 +170,7 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
         norms["output_scale"], rms(jnp.concatenate((body_force, angular), axis=-1))
     )
     sf = feature_scale / norms["feature_scale"]
+    sn = nonlinear_scale / norms["nonlinear_scale"]
     sq = quadratic_scale / norms["quadratic_scale"]
     so = norms["output_scale"] / output_scale
     changed_params = dict(
@@ -169,13 +178,14 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
         linear=sf[:, None] * params["linear"] * so[None, :],
         quadratic=sq[:, None] * params["quadratic"] * so[None, :],
         bias=params["bias"] * so,
-        w1=sf[:, None] * params["w1"],
+        w1=sn[:, None] * params["w1"],
         w2=params["w2"] * so[None, :],
         memory=sf[: params["memory"].shape[0], None] * params["memory"],
     )
     changed_norms = dict(
         norms,
         feature_scale=feature_scale,
+        nonlinear_scale=nonlinear_scale,
         quadratic_scale=quadratic_scale,
         output_scale=output_scale,
     )
@@ -924,6 +934,7 @@ class OnlineFit:
             or model.params["b1"].shape != (32,)
             or model.params["memory_bias"].shape != (8,)
             or not np.array_equal(model.norms["feature_scale"][-8:], np.ones(8))
+            or not np.array_equal(model.norms["nonlinear_scale"][-8:], np.ones(8))
             or self._initial_cursor < p + self._initial_count
             or self.cursor < self._initial_cursor
         ):

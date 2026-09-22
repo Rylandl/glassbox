@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 
 import jax
 import jax.numpy as jnp
@@ -25,8 +26,8 @@ from glassbox._training import (
     trial_parameters,
 )
 
-FORMAT = "glassbox-shared-vehicle-sequence-accumulator-v1"
-RECIPE_ID = "shared-vehicle-accumulator-v1"
+FORMAT = "glassbox-shared-vehicle-sequence-temporal-v1"
+RECIPE_ID = "shared-vehicle-temporal-v1"
 GRAVITY = (0.0, 0.0, -9.80665)
 MAX_SUBSTEP_S = 0.025
 STEPS = 1000
@@ -47,6 +48,7 @@ _PARAMETERS = {
     "raw_memory_tau",
 }
 _NORMS = {
+    "nonlinear_scale",
     "body_mean",
     "body_scale",
     "motion_bound_scale",
@@ -170,13 +172,65 @@ def quadratic_features(current, xp=jnp):
     return current[..., i] * current[..., j]
 
 
+@lru_cache(maxsize=64)
+def temporal_basis(delay):
+    """Fixed discrete polynomial coordinates; short histories stay unchanged."""
+    if delay <= 4:
+        basis = np.eye(delay)
+    else:
+        t = np.linspace(-1.0, 1.0, delay)
+        basis, triangular = np.linalg.qr(np.stack([t**i for i in range(4)], axis=1))
+        basis *= np.sign(np.diag(triangular))
+    basis.setflags(write=False)
+    return basis
+
+
+def nonlinear_features(sampled, current, delay, xp=jnp):
+    if delay <= 4:
+        return sampled
+    end = (delay + 1) * current
+    lag = sampled[..., current:end].reshape((*sampled.shape[:-1], delay, current))
+    basis = xp.asarray(temporal_basis(delay), dtype=sampled.dtype)
+    compact = xp.einsum("...dc,dr->...rc", lag, basis)
+    return xp.concatenate(
+        (
+            sampled[..., :current],
+            compact.reshape((*sampled.shape[:-1], -1)),
+            sampled[..., end:],
+        ),
+        axis=-1,
+    )
+
+
 def _prepare_head(params, norms, anchor, history, hidden):
     """Project history once, centered to retain small lag differences."""
+    current_width, delay = anchor.shape[-1], history.shape[-2]
+    if delay > 4:
+        sampled = sampled_features(anchor, history, hidden)
+        compact = nonlinear_features(sampled, current_width, delay)
+        base = jnp.concatenate(
+            (
+                (sampled / norms["feature_scale"]) @ params["linear"],
+                (compact / norms["nonlinear_scale"]) @ params["w1"],
+            ),
+            axis=-1,
+        )
+        linear = params["linear"] / norms["feature_scale"][:, None]
+        nonlinear = params["w1"] / norms["nonlinear_scale"][:, None]
+        effective_linear = linear[:current_width] - linear[
+            current_width : (delay + 1) * current_width
+        ].reshape(delay, current_width, -1).sum(axis=0)
+        basis_sum = jnp.asarray(temporal_basis(delay).sum(axis=0), dtype=anchor.dtype)
+        effective_nonlinear = nonlinear[:current_width] - jnp.einsum(
+            "r,rch->ch",
+            basis_sum,
+            nonlinear[current_width : 5 * current_width].reshape(4, current_width, -1),
+        )
+        return base, jnp.concatenate((effective_linear, effective_nonlinear), axis=-1)
     weights = jnp.concatenate((params["linear"], params["w1"]), axis=-1)
     base = (
         sampled_features(anchor, history, hidden) / norms["feature_scale"]
     ) @ weights
-    current_width, delay = anchor.shape[-1], history.shape[-2]
     scaled = (
         weights[: (delay + 1) * current_width]
         / norms["feature_scale"][: (delay + 1) * current_width, None]
@@ -197,7 +251,7 @@ def _acceleration(params, norms, current, projection):
 def _head(params, norms, states, commands, filtered, history, hidden):
     b = current_features(states, commands, filtered, norms)
     z = sampled_features(b, history, hidden) / norms["feature_scale"]
-    projection = z @ jnp.concatenate((params["linear"], params["w1"]), axis=-1)
+    projection, _ = _prepare_head(params, norms, b, history, hidden)
     return _acceleration(params, norms, b, projection), b, z
 
 
@@ -319,12 +373,13 @@ class VehicleSequenceModel:
             raise ValueError("invalid vehicle hidden dimensions")
         current = 9 + 2 * m
         feature = (self.delay_steps + 1) * current + memory
+        nonlinear = (min(4, self.delay_steps) + 1) * current + memory
         quadratic = current * (current + 1) // 2
         ps = dict(
             linear=(feature, 6),
             quadratic=(quadratic, 6),
             bias=(6,),
-            w1=(feature, width),
+            w1=(nonlinear, width),
             b1=(width,),
             w2=(width, 6),
             memory=(current, memory),
@@ -339,6 +394,7 @@ class VehicleSequenceModel:
             input_mean=(m,),
             input_scale=(m,),
             feature_scale=(feature,),
+            nonlinear_scale=(nonlinear,),
             quadratic_scale=(quadratic,),
             output_scale=(6,),
             state_mean=(15,),
@@ -350,6 +406,10 @@ class VehicleSequenceModel:
             raise ValueError("vehicle arrays do not match dimensions")
         if any(np.any(v <= 0) for k, v in n.items() if k.endswith("_scale")):
             raise ValueError("vehicle scales must be positive")
+        if self.delay_steps <= 4 and not np.array_equal(
+            n["feature_scale"], n["nonlinear_scale"]
+        ):
+            raise ValueError("identity temporal coordinates require identical scales")
         object.__setattr__(self, "params", p)
         object.__setattr__(self, "norms", n)
         object.__setattr__(self, "dt_s", float(self.dt_s))
@@ -496,6 +556,10 @@ def initialize(train):
     target = np.concatenate((force, angular), -1)
     norms["output_scale"] = np.maximum(target.std((0, 1)), 0.0001)
     norms["feature_scale"] = np.where(z.std((0, 1)) > 1e-08, z.std((0, 1)), 1.0)
+    compact = nonlinear_features(z, 9 + 2 * m, delay, np)
+    norms["nonlinear_scale"] = np.where(
+        compact.std((0, 1)) > 1e-08, compact.std((0, 1)), 1.0
+    )
     norms["quadratic_scale"] = np.where(q.std((0, 1)) > 1e-08, q.std((0, 1)), 1.0)
     target = (target / norms["output_scale"]).reshape(n * horizon, 6)
     linear = (z / norms["feature_scale"]).reshape(n * horizon, -1)
@@ -528,6 +592,24 @@ def initialize(train):
         raw_tau=np.full(m, np.log(np.expm1(0.049))),
         raw_memory_tau=np.log(np.expm1(np.geomspace(0.01, 0.5, memory) - 0.001)),
     )
+    if delay > 4:
+        current_width = 9 + 2 * m
+        end = (delay + 1) * current_width
+        physical = (
+            params["w1"][current_width:end]
+            / norms["feature_scale"][current_width:end, None]
+        ).reshape(delay, current_width, width)
+        compact_weights = np.einsum(
+            "dr,dch->rch", temporal_basis(delay), physical
+        ).reshape(4 * current_width, width)
+        params["w1"] = np.concatenate(
+            (
+                params["w1"][:current_width],
+                compact_weights
+                * norms["nonlinear_scale"][current_width : 5 * current_width, None],
+                params["w1"][end:],
+            )
+        )
     return VehicleSequenceModel(train.dt_s, context, delay, params, norms)
 
 

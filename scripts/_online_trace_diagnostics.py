@@ -145,6 +145,14 @@ def _stage_fields(params, norms, states, filtered, command, history, hidden):
         dynamics.sampled_features(features, histories, memories)
         / norms["feature_scale"]
     )
+    nonlinear = (
+        dynamics.nonlinear_features(
+            dynamics.sampled_features(features, histories, memories),
+            features.shape[-1],
+            history.shape[0],
+        )
+        / norms["nonlinear_scale"]
+    )
     quadratic = dynamics.quadratic_features(features) / norms["quadratic_scale"]
     current, memory = features.shape[1], hidden.shape[0]
     contribution = (
@@ -155,7 +163,7 @@ def _stage_fields(params, norms, states, filtered, command, history, hidden):
                 sampled[:, -memory:] @ params["linear"][-memory:],
                 quadratic @ params["quadratic"],
                 jnp.broadcast_to(params["bias"], (count, 6)),
-                jnp.tanh(sampled @ params["w1"] + params["b1"]) @ params["w2"],
+                jnp.tanh(nonlinear @ params["w1"] + params["b1"]) @ params["w2"],
             ),
             axis=1,
         )

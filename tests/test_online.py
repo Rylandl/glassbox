@@ -74,7 +74,12 @@ def predict_args(session, states, commands, row):
     )
 
 
-DYNAMIC_NORMALIZERS = {"feature_scale", "quadratic_scale", "output_scale"}
+DYNAMIC_NORMALIZERS = {
+    "feature_scale",
+    "nonlinear_scale",
+    "quadratic_scale",
+    "output_scale",
+}
 
 
 def assert_normalizers_advance(initial, current):
@@ -783,6 +788,43 @@ def conditioning_fixture():
     return model, bootstrap, recent
 
 
+def test_compressed_branch_reconditioning_preserves_rollout_and_command_derivative():
+    states, commands = stream(commands=4, dt=0.01, steps=110)
+    session = OnlineFit(prefix(states, commands, dt=0.01))
+    initial = session.model
+    rng = np.random.default_rng(291)
+    params = {k: rng.normal(0, 0.003, v.shape) for k, v in initial.params.items()}
+    for key in ("raw_tau", "raw_memory_tau"):
+        params[key] = initial.params[key]
+    norms = {
+        k: np.zeros_like(v) if k.endswith("_mean") else np.ones_like(v)
+        for k, v in initial.norms.items()
+    }
+    for key in ("feature_scale", "nonlinear_scale"):
+        norms[key][:-8] = rng.uniform(0.01, 0.05, norms[key].size - 8)
+    norms["motion_bound_scale"][:] = 8
+    model = VehicleSequenceModel(0.01, 50, 10, params, norms)
+    recent = online._windows(states, commands, [75, 76], 50, 5)
+    data, weights = online._full_cache(session._bootstrap, recent)
+    with jax.enable_x64(True):
+        p, n, finite = online._recondition(
+            params, norms, data, weights, delay=10, dt_s=0.01
+        )
+        assert bool(finite)
+        assert np.any(np.asarray(n["nonlinear_scale"]) > norms["nonlinear_scale"])
+        changed = VehicleSequenceModel(
+            0.01, 50, 10, jax.tree.map(np.asarray, p), jax.tree.map(np.asarray, n)
+        )
+        past, issued, future = (jnp.asarray(value[:2]) for value in data[:3])
+        direction = jnp.asarray(rng.normal(size=future.shape))
+        outputs = [
+            jax.jvp(lambda u, m=m: m.rollout(past, issued, u), (future,), (direction,))
+            for m in (model, changed)
+        ]
+        for a, b in zip(*outputs, strict=True):
+            np.testing.assert_allclose(a, b, rtol=2e-11, atol=2e-11)
+
+
 def numpy_conditioning_scales(model, roles):
     """Literal per-role/window/time computation without any model feature helpers."""
     role_feature, role_quadratic, role_output = [], [], []
@@ -899,6 +941,7 @@ def test_conditioning_matches_independent_role_window_time_rms_and_never_shrinks
         for name in DYNAMIC_NORMALIZERS:
             high[name] *= 4
         high["feature_scale"][-8:] = 1
+        high["nonlinear_scale"][-8:] = 1
         _, following, finite = online._recondition(
             params,
             high,

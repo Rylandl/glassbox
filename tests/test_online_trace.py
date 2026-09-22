@@ -218,6 +218,7 @@ def analytic_model(dt, *, varying_heads):
         input_mean=np.zeros(commands),
         input_scale=np.ones(commands),
         feature_scale=np.ones(feature),
+        nonlinear_scale=np.ones(feature),
         quadratic_scale=np.ones(quadratic),
         output_scale=np.ones(6),
         state_mean=np.zeros(15),

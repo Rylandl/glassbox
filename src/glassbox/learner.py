@@ -54,7 +54,7 @@ RECIPE = {
     "objective": "fixed_initial_training_channel_balance",
     "fitter_wall_time_limit_s": 7200,
 }
-_FORMAT = "glassbox-accumulator-dynamics-v1"
+_FORMAT = "glassbox-temporal-dynamics-v1"
 _ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
 
 

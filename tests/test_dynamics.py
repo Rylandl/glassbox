@@ -13,12 +13,13 @@ from glassbox import _dynamics as core
 def constant_model(commands=3, *, dt=0.05, history=3, delay=2):
     b = 9 + 2 * commands
     f = (delay + 1) * b + 2
+    nonlinear = (min(4, delay) + 1) * b + 2
     q = b * (b + 1) // 2
     params = dict(
         linear=np.zeros((f, 6)),
         quadratic=np.zeros((q, 6)),
         bias=np.zeros(6),
-        w1=np.zeros((f, 3)),
+        w1=np.zeros((nonlinear, 3)),
         b1=np.zeros(3),
         w2=np.zeros((3, 6)),
         memory=np.zeros((b, 2)),
@@ -33,6 +34,7 @@ def constant_model(commands=3, *, dt=0.05, history=3, delay=2):
         input_mean=np.zeros(commands),
         input_scale=np.ones(commands),
         feature_scale=np.ones(f),
+        nonlinear_scale=np.ones(nonlinear),
         quadratic_scale=np.ones(q),
         output_scale=np.ones(6),
         state_mean=np.zeros(15),
@@ -64,6 +66,7 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
         norms = {k: v.copy() for k, v in model.norms.items()}
         width = 9 + 2 * commands
         norms["feature_scale"][width : (delay + 1) * width] = 0.001
+        norms["nonlinear_scale"][width : (min(4, delay) + 1) * width] = 0.001
         norms["quadratic_scale"][:] = 1000
         anchor = rng.uniform(-32, 32, size=(2, width))
         current = anchor + rng.normal(size=anchor.shape) * 0.003
@@ -77,7 +80,21 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
         def direct(value):
             p, b, _, past, h = value
             z = core.sampled_features(b, past, h) / norms["feature_scale"]
-            linear, nonlinear = z @ p["linear"], z @ p["w1"]
+            weights = p["w1"] / norms["nonlinear_scale"][:, None]
+            end = (min(4, delay) + 1) * width
+            expanded = jnp.concatenate(
+                (
+                    weights[:width],
+                    jnp.einsum(
+                        "dr,rch->dch",
+                        jnp.asarray(core.temporal_basis(delay)),
+                        weights[width:end].reshape(min(4, delay), width, -1),
+                    ).reshape(delay * width, -1),
+                    weights[end:],
+                )
+            )
+            linear = z @ p["linear"]
+            nonlinear = core.sampled_features(b, past, h) @ expanded
             acceleration = (
                 linear
                 + (core.quadratic_features(b) / norms["quadratic_scale"])
@@ -108,6 +125,20 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
             strict=True,
         ):
             np.testing.assert_allclose(a, b, rtol=tolerance, atol=tolerance)
+
+
+@pytest.mark.parametrize("delay", [1, 2, 4, 5, 10, 20])
+def test_temporal_basis_is_orthonormal_and_preserves_declared_polynomial_span(delay):
+    basis = core.temporal_basis(delay)
+    np.testing.assert_allclose(basis.T @ basis, np.eye(min(delay, 4)), atol=1e-14)
+    if delay <= 4:
+        np.testing.assert_array_equal(basis, np.eye(delay))
+    else:
+        t = np.linspace(-1, 1, delay)
+        for degree in range(4):
+            np.testing.assert_allclose(
+                basis @ (basis.T @ t**degree), t**degree, atol=1e-14
+            )
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

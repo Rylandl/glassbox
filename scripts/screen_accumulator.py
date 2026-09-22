@@ -503,7 +503,7 @@ def verify_pair(output, authority):
     )
 
 
-def pair(output, baseline_root):
+def pair(output, baseline_root, *, runner="screen_accumulator.py", verifier=None):
     output.mkdir(parents=True, exist_ok=False)
     processes, logs, results = {}, [], {}
     try:
@@ -516,7 +516,7 @@ def pair(output, baseline_root):
             processes[arm] = subprocess.Popen(
                 [
                     sys.executable,
-                    str(root / "scripts/screen_accumulator.py"),
+                    str(root / "scripts" / runner),
                     "worker",
                     "--arm",
                     arm,
@@ -572,7 +572,7 @@ def pair(output, baseline_root):
         print(
             json.dumps(dict(output=str(output), manifest_sha256=authority)), flush=True
         )
-    result = verify_pair(output, authority)
+    result = (verifier or verify_pair)(output, authority)
     # Keep the completed sealed attempt immutable; publish reduction next to it.
     write(output.parent / (output.name + "-verified.json"), result)
     return result
