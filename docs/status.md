@@ -115,23 +115,50 @@ models required exact replay; a harness reuse bug caused one redundant replay:
 the metadata correction are in the [index](readout-stability.json). Production is
 unchanged. Completed experimental code is archived through `da3123c` in Git.
 
+## Latest experiment: first-order motion sensitivity
+
+The [single-strength sensitivity experiment](readout-sensitivity.md) completed
+**3,137 updates per arm** on the full roster. Analytic feature derivatives add one
+quadratic penalty to the shared readout solve. Against the previous fast readout,
+aggregate 250 ms error falls **8.65%**, one-step error rises **3.30%**, and complete
+updates cost **21.31% more**. Warm medians are **1.292–1.331 ms quad / 0.561–0.565 ms
+fixed wing**, still **18.45× faster** than the full learner overall.
+
+Fixed-wing 250 ms angular error changes **15.06 → 12.25 rad/s** and **39.98 → 42.00
+rad/s**. All six 250 ms velocity forecasts improve, while angular changes are mixed.
+The frozen family primary/rate flags still fail; aggregate flags pass. Production
+remains unchanged. This is a measured tradeoff, not a resolved recursive learner.
+
+The decisive diagnostic is that median instantaneous angular feedback falls
+**+13.04/s → +4.03/s / +13.59/s → +3.24/s**, but full recurrence radius stays near
+**3.4**. The physical-state partial block remains near **3.5–3.7** even with latent
+history fixed. Thus the earlier lag ablation does not justify blaming history
+alone. The tested derivative perturbs velocity/rate features and omits attitude;
+it is an incomplete surrogate for coupled physical-state feedback.
+
+Five focused tests pass. Both controls replay exactly; all 3,137 candidate solves
+verify from saved data with maximum componentwise backward error **3.22e-15**.
+One fitting run, no repeated attempts or strength sweep. Two saved-model audits
+add no fitting. The [index](readout-sensitivity.json) retains protocols, all
+physical scores, timing and provenance. Experimental code is archived through
+`17e4921` in Git.
+
 ## Next iteration
 
-**First-order state/history sensitivity regularization for the fast readout.**
-Penalize the effective instantaneous and delayed motion feedback, including the
-linear path that the current curvature penalty cannot constrain. With frozen
-features this remains quadratic in the readout and can preserve the shared direct
-solve. Freeze generic coordinate scales, probe domain, penalty strength, data
-budget and complete-update measurement before implementation. Keep the existing
-curvature penalty and other estimator choices fixed. Use one generic formulation
-across all acceleration outputs; do not force all plants to be globally contractive.
+**Sensitivity under physical-state perturbations, including attitude.** Replace
+the incomplete readout-coordinate surrogate with physically consistent state
+directions: an SO(3) perturbation changes body-relative velocity and gravity
+direction together. Freeze scales, derivative definition, probe domain, strength,
+data budget and complete-update measurement before implementation. Explicitly
+account for the distinction between learned body acceleration and the known
+world-frame force rotation; do not silently assume their Jacobians are the same.
 
-Compare one-step accuracy and full 250 ms forecasts against both the unchanged
-readout and full learner. Report velocity and rate separately, with the future
-per-family flags declared in the diagnostic protocol. Include all derivative/
-precision construction in update cost. Soft sensitivity regularization can bias
-legitimate dynamics and is unproven; a retrospective acceptance guard remains a
-possible safety net rather than the primary next change.
+Keep the shared direct solve where mathematically justified and compare against
+both fast-readout controls and the full learner. Report local and complete
+recurrence derivatives alongside physical forecast errors and separate family
+velocity/rate flags. Do not bundle feature learning, forgetting, a global strict
+contraction constraint or a strength sweep into this next experiment. A local
+physical derivative penalty still is not a full-recursion stability certificate.
 
 No fleet-trained features, class priors, reused normalizers or fitted revisions
 may enter any arm. Every learned quantity must come from that episode. Family
