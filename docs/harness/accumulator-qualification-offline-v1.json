@@ -1,0 +1,88 @@
+{
+  "id": "accumulator-qualification-offline-v1",
+  "gap": "Qualify corrected accumulator offline and preserve deployed model capability before migration",
+  "baseline": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/baseline",
+    "manifest_sha256": "55009687fd5ca48a77a5cb69b0c5ce264dc5196f2863753942cdd4a51a097407"
+  },
+  "models": [
+    "dart",
+    "crazyflow",
+    "cascade"
+  ],
+  "arms": [
+    "baseline",
+    "candidate",
+    "incumbent"
+  ],
+  "model_package_files": {
+    "baseline": {
+      "src/glassbox/__init__.py": "ae2fc12240545a6c074649af99f93a41b2dc01d6614407006853104b67c0fac8",
+      "src/glassbox/_dynamics.py": "9ce72aa4ebd09ab5dbd0f8f0deac6007eaa6eb5e583885d1cc717302537e706b",
+      "src/glassbox/_learner_arrays.py": "c7e33df1421b50b49ea24c65230360a231a9b72772536118a876e986a8e0d4c9",
+      "src/glassbox/_training.py": "68893a05e827686ea1883ec2e4c06d37c16995bbf68301d28393e7716a65f6be",
+      "src/glassbox/cli/__init__.py": "ee0147e8e574e5cd4187140b4aa19c4a338f48d492cbfbf8f8a57f5c81a08653",
+      "src/glassbox/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/glassbox/core/dynamics.py": "1bcb06a181e92ad91b3ade450138febd4f1c8a26c1dc4759ad2013605f59c57c",
+      "src/glassbox/core/geometry.py": "5398de6edeba68ff1dc1fea6064e509d31725f96c2d1368cbd87f058b9808cbb",
+      "src/glassbox/io/__init__.py": "5aaadf824431df13d997bcaa6bfed760989798991b7a71ca481a635ec0d732a3",
+      "src/glassbox/io/recordings.py": "ca030fd10c0619d14b423eed141e0071ad8c80d73d406bd7625e04d9ce9386bd",
+      "src/glassbox/learner.py": "4cee36d466f4ff6721a05c2478f96fc9263d774ad20a511d400b92b033bad8a3",
+      "src/glassbox/online.py": "11ef35192bca295aa5214ac372c871669392bd5ca6dd6238b50c2406b08c2bad",
+      "src/glassbox/recordings.py": "9e7f1ef7acab0ccd4f4e3a71458593d714497870083d42b660b2100eac462f9d",
+      "src/glassbox/workflows/__init__.py": "f3661c537b77d811e0140b64ca7884b5cfe1edc2f7a39607cef33bd1fa759e82",
+      "src/glassbox/workflows/forecast.py": "2671a257a59b591963d21690ac3e4c53e111f2e5a60d9a5d7adddddbe8141a9b"
+    },
+    "candidate": {
+      "src/glassbox/__init__.py": "ae2fc12240545a6c074649af99f93a41b2dc01d6614407006853104b67c0fac8",
+      "src/glassbox/_dynamics.py": "d27521f4604e7a2291a1d08d1e346b37cdb26b2bc54bfeb6c8663eede4f6cdcf",
+      "src/glassbox/_learner_arrays.py": "c7e33df1421b50b49ea24c65230360a231a9b72772536118a876e986a8e0d4c9",
+      "src/glassbox/_training.py": "68893a05e827686ea1883ec2e4c06d37c16995bbf68301d28393e7716a65f6be",
+      "src/glassbox/cli/__init__.py": "ee0147e8e574e5cd4187140b4aa19c4a338f48d492cbfbf8f8a57f5c81a08653",
+      "src/glassbox/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "src/glassbox/core/dynamics.py": "1bcb06a181e92ad91b3ade450138febd4f1c8a26c1dc4759ad2013605f59c57c",
+      "src/glassbox/core/geometry.py": "5398de6edeba68ff1dc1fea6064e509d31725f96c2d1368cbd87f058b9808cbb",
+      "src/glassbox/io/__init__.py": "5aaadf824431df13d997bcaa6bfed760989798991b7a71ca481a635ec0d732a3",
+      "src/glassbox/io/recordings.py": "ca030fd10c0619d14b423eed141e0071ad8c80d73d406bd7625e04d9ce9386bd",
+      "src/glassbox/learner.py": "3233483db85e7962f9ca7a712c2b276b172e4ab4162097bceb34fbf4ac689066",
+      "src/glassbox/online.py": "c1eaddeb4a20970b1931663aff83662978d71e5afe37cf8742999617eb2b1ba0",
+      "src/glassbox/recordings.py": "9e7f1ef7acab0ccd4f4e3a71458593d714497870083d42b660b2100eac462f9d",
+      "src/glassbox/workflows/__init__.py": "f3661c537b77d811e0140b64ca7884b5cfe1edc2f7a39607cef33bd1fa759e82",
+      "src/glassbox/workflows/forecast.py": "2671a257a59b591963d21690ac3e4c53e111f2e5a60d9a5d7adddddbe8141a9b"
+    }
+  },
+  "fit": {
+    "recipe": "Unchanged production offline _train / fit_sequence: 1000 full-cache safeguarded Adam attempts; checkpoint every100; initial plus lowest-development checkpoint selected; fixed seed0; 1536 train and256 development windows; no hyperparameter tuning or early success stop",
+    "data": "Exact cached train/development arrays and recording roles from the three authenticated adopted public models. This controls source roles; cached horizons are250ms, unlike some earlier long-horizon experimental training. Candidate and fresh v8 use identical roles/budgets; deployed incumbent remains a separate comparator.",
+    "budgets": {
+      "fits_per_arm": 3,
+      "wall_limit_s_per_fit": 7200
+    },
+    "instrumentation": "A wrapper around the unchanged trial_parameters function prints attempted-step progress every100; returns its output without arithmetic changes. No evaluation outcomes enter fitting or checkpoint selection."
+  },
+  "evaluation": {
+    "flight_roster": "All8064 saved factual/counterfactual queries across Crazyflow/Cascade known14m/15m cohorts; same history and command availability, targets and horizons. No native simulator calls or additional training.",
+    "forecast": "Score factual query predictions against recorded states. Velocity/rate vector RMSE and rotation geodesic angle at each declared horizon; top-decile velocity/rate tails.",
+    "response": "Score predicted counterfactual-minus-factual velocity/rate changes against the same differences in truth. Rotation response is factual-relative rotation; compare predicted and true relative rotations geodesically. Physical response is distinct from numerical derivative fidelity.",
+    "weighting": "Pool queries within each cohort/scope/kind/horizon, report absolute metrics and count. Equal geometric weights across scopes, cohorts and declared horizons within each family/kind. Equal family weights, equal velocity/rate primary weights. Denominator floor1e-9. Full per-group results retained.",
+    "dart_heldout": "Original test10/test11 ordinary recordings only, origins50,75,100,125,150,175, full120-step issued-command forecasts. Score10ms,250ms,600ms,1200ms. These are known held-out records, not new blind data.",
+    "derivatives": "At first four fully available eligible queries per flight cohort and Dart query rows0,1,6,7: seeded Gaussian unit-norm command direction, float64 JVP, centered finite differences at1e-4 and1e-5. Check every fine-difference element with atol1e-6+rtol2e-4*abs(JVP), preserve coarse values. No physical derivative claim from this check.",
+    "batching": "Batches of32 at full saved horizon. Pad absent command suffix with last available command and score only real prefixes; causal invariance covered by model tests. Preserve ineligible arrays as NaN. This may change floating-point grouping vs saved incumbent arrays; incumbent is reevaluated under the same batching."
+  },
+  "checks": {
+    "complete_rosters": true,
+    "finite_eligible": true,
+    "derivatives": true,
+    "forecast_primary_ratio_max": 1.05,
+    "response_primary_ratio_max": 1.05,
+    "each_family_primary_ratio_max": 1.1,
+    "aggregate_rate_ratio_max": 1.05,
+    "aggregate_orientation_ratio_max": 1.05,
+    "aggregate_tail_ratio_max": 1.1,
+    "comparators": [
+      "fresh_equal_budget_v8",
+      "deployed_incumbent"
+    ]
+  },
+  "decision": "Report all checks without rewriting old verdicts or discarding individual cells. These checks trigger diagnosis when missed; they are not proof of irreducible architecture inferiority. Adoption requires review of all online/offline and consumer evidence. Freeze a separate model-bound Dart trial with the unchanged1mm nominal task, objective, seed, plant and solver budget after fitting. Complete mathematical finite-difference and native trajectory audits. No production migration until capability is established; no universal-system or real-time claim."
+}
