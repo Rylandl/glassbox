@@ -145,20 +145,36 @@ physical scores, timing and provenance. Experimental code is archived through
 
 ## Next iteration
 
-**Sensitivity under physical-state perturbations, including attitude.** Replace
-the incomplete readout-coordinate surrogate with physically consistent state
-directions: an SO(3) perturbation changes body-relative velocity and gravity
-direction together. Freeze scales, derivative definition, probe domain, strength,
-data budget and complete-update measurement before implementation. Explicitly
-account for the distinction between learned body acceleration and the known
-world-frame force rotation; do not silently assume their Jacobians are the same.
+**Attribute the remaining recursive error before another fit.** The last
+experiment reduced the angular-rate self-derivative by about 70% while leaving
+the full recurrence gain and fixed-wing 250 ms loss largely intact. That supports
+testing attitude coupling, but does not yet isolate it as the cause. Use the
+saved models at *all* fixed-wing forecast origins to separate learned
+attitude-to-force/rate response, known frame/kinematic terms and delayed-state
+feedback in the physical and full augmented Jacobians. Check finite differences,
+measured and free-running states, five-step products and per-origin physical
+error. No fit or acceptance threshold should be inferred from a local spectral
+radius alone. If the simulator can branch from the same complete plant state,
+compare model perturbation responses with its truth; otherwise report the lack
+of counterfactual truth explicitly.
 
-Keep the shared direct solve where mathematically justified and compare against
-both fast-readout controls and the full learner. Report local and complete
-recurrence derivatives alongside physical forecast errors and separate family
-velocity/rate flags. Do not bundle feature learning, forgetting, a global strict
-contraction constraint or a strength sweep into this next experiment. A local
-physical derivative penalty still is not a full-recursion stability certificate.
+Then collect a paired quad 10/50 ms observation test from one physical simulator
+trajectory with issued commands held for each 50 ms interval. The two learners
+must start from the same elapsed prefix time. This separates sample interval
+from vehicle family without adding an input to the model. A different command
+history created by naive decimation would not answer the question.
+
+Only after those measurements, freeze one architectural fit. If the measured
+attitude response is abnormal, test a physically consistent SO(3)
+state-sensitivity penalty. If the evidence does not support that mechanism, or
+the penalty fails to improve recursive error, test a bounded short-trajectory
+fitting correction that targets the equation-error/rollout gap directly. Both
+paths remain generic and episode-only. Compare against the two saved
+fast-readout definitions and the full learner on 50–250 ms physical errors,
+full update cost and derivative behavior. No global plant contraction, fleet
+prior or strength sweep is implied.
+Set absolute task-relevant error targets alongside reference ratios; the full
+learner also has large errors on some recorded trajectories.
 
 No fleet-trained features, class priors, reused normalizers or fitted revisions
 may enter any arm. Every learned quantity must come from that episode. Family
