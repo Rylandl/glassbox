@@ -60,8 +60,48 @@ particular fit. The ordinary-quad loss and absent counterfactual truth mean
 there is no production adoption, offline/update qualification, held-out vehicle
 claim or Throw controller claim here.
 
-The next named gap is to retain the fixed-wing and hard-quad gains while
-recovering ordinary-quad late forecasts, ideally by representing the missing
-command/hidden response directly rather than restoring a gravity proxy. If that
-works, remove the inactive gravity coordinates from the actual arrays and
-measure parameter count and whole-update time before considering adoption.
+## Follow-up: gravity scale is informative but not the full fix
+
+Two more committed structural screens used the same frozen eight-case runner,
+4,187 causal updates and 263 forecast origins. Both full packs passed
+saved-data verification after copying into `artifacts/readout-structure-v1`.
+The bounded standardized-gravity source is commit `156c475`; its pack is
+`gravity-support-full` with manifest
+`78b636a7ccf6d01ba062ad09a75be74d3e075c3f476e6c9d84c576a78760879f`.
+It applied the existing smooth observed-support map to gravity coordinates as
+well as body motion. The physical-scale source is `e654892`; its pack is
+`physical-gravity-full` with manifest
+`71ed84188fc1f7bd5f32f239551b5930170f9f288cec4cb0ae2b47c3524cb29b`.
+It kept centered body gravity in its naturally bounded units and stopped
+restandardizing gravity-bearing readout features by the narrow prefix variance.
+Both sources were reverted on the isolated branch after evaluation; the
+maintained learner and frozen harness were not changed.
+
+| Case | 250 ms rate, bounded / physical / gravity-free / direct (rad/s) |
+| --- | ---: |
+| Fixed wing 80 | 1.732 / 1.520 / 1.520 / 2.593 |
+| Fixed wing 81 | 2.545 / 1.905 / 1.906 / 6.027 |
+| Quad arm 115 | 4.709 / 2.603 / 2.608 / 3.282 |
+| Quad arm 125 | 2.183 / 3.153 / 3.143 / 2.171 |
+| Truncated quad arm 135 | 48.373 / 36.851 / 36.821 / 62.867 |
+
+The bounded map restored settled ordinary-quad behavior: late-half median
+250 ms rate error was 0.015 versus 0.200 rad/s for gravity-free arm 115, and
+0.048 versus 0.210 for arm 125. It kept a fixed-wing advantage over direct,
+but arm 115 acquired an early outlier of 28.275 rad/s and its aggregate rate
+error worsened beyond direct. Its strongest hard-quad origin was also worse
+than gravity-free. The physical-scale version behaved almost exactly like
+gravity-free, so the ordinary-quad late loss remained. These are meaningful
+tradeoffs, not a winner to adopt. Prefix gravity standard deviations were as
+small as 0.0008, and direct fixed-wing forecasts reached hundreds of those
+standard deviations in a 250 ms rollout; removing or bounding that amplification
+helps, but merely choosing a gravity scale does not resolve angular recurrence.
+
+The next named gap is the angular rollout itself. One-step rate error remains
+near parity while a small rate error grows across the 250 ms forecast, especially
+around quad hover. Test a compact trajectory-error objective for the same
+generic readout, without a family branch or acceptance guard, and measure the
+whole online update. Short trajectory fitting is motivated by
+[operator inference with rollouts](https://arxiv.org/abs/2212.01418) and the
+[multiple-shooting analysis](https://arxiv.org/abs/1905.00820); neither paper
+establishes that this particular implementation will meet the time budget.
