@@ -154,15 +154,21 @@ at trace time; controllers that compile their own objective must pass changing
 model parameters as traced arguments, or deliberately use a fixed snapshot.
 The session is mutable; it does not rewrite previously saved sessions or model
 snapshots. Saves include the optimizer state, bounded replay data and cursor
-needed to continue deterministically.
+needed to continue deterministically. The current session format is
+`glassbox-online-fit-v8`; older mutable sessions are rejected. Immutable model
+archives retain their existing format. `report["last_proposal"]` holds the latest
+bounded decision evidence, with null values for nonfinite diagnostic scalars;
+`objective_calls` counts the current loss plus the actually attempted trials.
 
 Startup initializes the existing model from one-step ridge windows. Thereafter
 each observation permits one damped Gauss-Newton proposal on 50 ms recursive
-prediction windows. Four preconditioned conjugate-gradient iterations use matrix-free curvature
-products; acceptance checks the complete bounded startup and recent replay
-caches, with equal weight to each role. A fixed prediction-change bound and an
-actual-versus-predicted improvement check control the step. Before that proposal,
-one causal cache pass can grow feature, quadratic and output scales. Compensating
+prediction windows. Sixteen preconditioned conjugate-gradient iterations use
+matrix-free curvature products; acceptance checks the complete bounded startup
+and recent replay caches, with equal weight to each role. A fixed prediction-change bound and an
+actual-versus-predicted improvement check control the step. The bounded proposal
+tries scales 1, 1/2, 1/4, 1/8 and 1/16 and stops at the first acceptable step.
+Before that proposal, one causal cache pass can grow feature, quadratic and
+output scales. Compensating
 parameter changes preserve the recurrent prediction function before optimization;
 this changes the optimizer's coordinates without adding model equations. Raw
 body/input/state normalization and motion bounds stay fixed. The fixed loss
@@ -181,8 +187,8 @@ platform dispatch or user-selected learning budget.
 
 This procedure has no development split or calibrated error envelope. Training
 loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v6.json) measures predictions before
-assimilating their targets, against authenticated saved v4 online predictions,
+[online-fitting protocol](harness/online-fit-v8.json) measures predictions before
+assimilating their targets, against authenticated saved v6 online predictions,
 an identical session frozen after startup and a no-fit kinematic predictor.
 It separately measures update latency; a bounded proposal count alone does not
 establish real-time fitting. Initial evidence and remaining limits belong in

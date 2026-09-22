@@ -112,37 +112,51 @@ control change requires a new prospective measurement contract.
 
 ## Reproduce streaming fitting
 
-The active [v6 physical-curvature comparison](docs/harness/online-fit-v6.json) reuses the
-exact sealed v1 collection and two known Cascade recordings. It intentionally
-refuses changed inputs. The old Throw controller collected issued commands and
-observations; it is not the candidate or a matched-input accuracy comparator.
-See [the v1 result](docs/online-fit-v1.json) for its failed result and identities.
+The active [v8 bounded-solver comparison](docs/harness/online-fit-v8.json) reuses
+the exact sealed v1 collection and two known Cascade recordings. It refuses
+changed inputs and compares against adopted v6 on all 3,137 rows. The old Throw
+controller collected issued commands and observations; it is not the candidate
+or a matched-input accuracy comparator.
 
-Commit source and choose a new output directory. With the preserved v1 pack:
+Commit source and choose a new output directory. With the preserved packs:
 
 ```bash
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
   scripts/evaluate_online.py run artifacts/online-fit-v1/collection \
   --collection-sha256 276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4 \
-  --protocol docs/harness/online-fit-v6.json \
-  --reference artifacts/online-fit-v4/evaluation \
-  --output artifacts/online-fit-v6-reproduction
+  --protocol docs/harness/online-fit-v8.json \
+  --reference artifacts/online-fit-v6/evaluation \
+  --output artifacts/online-fit-v8-reproduction
 ```
 
-Verify errors and the causal journal without fitting, using the evaluation
-manifest hash printed by the run. The copied, authenticated v4 reference pack (including v2)
-is verified too; no old optimizer implementation is needed:
+Verify errors, first-acceptable step decisions and the causal journal without
+fitting, using the evaluation manifest hash printed by the run. The authenticated
+v6 reference pack, including its v4/v2 references, is verified too:
 
 ```bash
 PYTHONPATH=src:scripts python scripts/evaluate_online.py verify \
-  artifacts/online-fit-v6-reproduction \
+  artifacts/online-fit-v8-reproduction \
   --manifest-sha256 EVALUATION_MANIFEST_SHA256
+python scripts/verify_online_v8.py artifacts/online-fit-v8-reproduction \
+  EVALUATION_MANIFEST_SHA256 --output independent-audit.json
 ```
+
+The second verifier uses independent NumPy/SciPy arithmetic with no Glassbox/JAX
+imports or model/optimizer calls. Its scalar decision audit does not independently
+regenerate each trial loss. [The current result](docs/online-fitting.json) pins
+the scientific source (`899e0d9`), runtime and measured artifact authority.
+
+Historical source-bound trace, reconstruction, head and backtracking tools must
+run from their recorded scientific checkouts, including their `verify` commands:
+they authenticate the complete original source inventory. Their commands below
+are relative to those checkouts. The current `evaluate_online.py verify` instead
+checks saved arrays and supports sealed historical packs without loading their
+old learners. Current v8 fitting uses the single maintained implementation.
 
 The rejected v5 solver-consistency experiment is reproducible from source
 `5db9059`, using its frozen `online-fit-v5.json` protocol and the v4 evaluation
 as `--reference`. Current verification still audits its sealed pack and nested
-v4/v2 references with zero fits; current runs use the maintained v6 fitter.
+v4/v2 references with zero fits; current runs use the maintained v8 fitter.
 See [the failed primary result](docs/online-fit-v5.json).
 
 The rejected [v7 domain experiment](docs/online-fit-v7.md) is reproducible from
@@ -154,7 +168,8 @@ snapshot diagnostics from that committed source after authenticating the v7
 pack; its sealed result authority is in [the index](docs/online-fit-v7.json).
 
 The preceding v4 result is reproducible from source `8053938`; its sealed pack
-is the v6 primary comparator. V6 scientific source is `2e465a4`.
+is the historical v6 primary comparator. V6 scientific source `2e465a4` uses
+`online-fit-v6.json` against v4; its saved results are now the v8 primary comparator.
 
 The v2 optimizer result is reproducible from source `a43d2dc`; its sealed pack
 supplies the v4 primary comparator. The failed coordinate-only v3 run is
@@ -168,7 +183,7 @@ blind generalization across platforms.
 
 ## Reproduce the causal fixed-wing diagnosis
 
-The current [v2 trace](docs/harness/online-causal-trace-v2.json) uses adopted v6
+The historical [v2 trace](docs/harness/online-causal-trace-v2.json) uses adopted v6
 and recovers 23 snapshots across all 450 fixed-wing updates. Source `7dee1b4`
 reproduces it with the commands below, replacing the input with
 `artifacts/online-fit-v6/evaluation` and explicitly passing

@@ -76,12 +76,13 @@ the original float32 convergence failure remains documented. This is one known
 seeded simulated task, not broad control reliability or real-time qualification.
 See [the full precision result](docs/dart-precision.md), including every attempt.
 
-The streaming fitter reduces aggregate one-step velocity/rate error **41% versus
-the previous working online version** across four quad and two fixed-wing tapes
-(73% versus frozen startup fits). All twelve primary case/metric comparisons
-improve with one shared procedure. Fixed-wing forecast spikes, one quad orientation
-regression and quad update latency remain open; live controller adoption is
-unqualified. See [the online result](docs/online-fitting.md).
+The streaming fitter reduces aggregate one-step velocity/rate error **41.76%
+against adopted v6** across four quad and two fixed-wing tapes (87.73% versus
+frozen startup fits). All twelve primary case/metric comparisons improve, along
+with tail and angular aggregates. Quad update p95 is now 78–93 ms against 10 ms
+observations; fixed-wing accuracy remains worse than the no-fit kinematic
+baseline. Live controller adoption is unqualified. See
+[the online result](docs/online-fitting.md).
 
 Forecast and response errors across Crazyflow and Cascade remain improvement
 work, including wind cases and longer horizons. Error-envelope calibration and

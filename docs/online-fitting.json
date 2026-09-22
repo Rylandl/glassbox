@@ -1,847 +1,327 @@
 {
-  "id": "online-fit-v6",
-  "source_commit": "2e465a4",
-  "protocol": "harness/online-fit-v6.json",
-  "protocol_freeze_commit": "35cfdab",
-  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v6/evaluation",
+  "id": "online-fit-v8",
+  "decision": "Adopt as the sole online fitter: the frozen primary and separate robustness gates pass. The quad real-time gate fails; no current-learner closed-loop recovery has run.",
+  "source_commit": "899e0d9517b2f016089b5237077cd38df0a428ec",
+  "protocol": "harness/online-fit-v8.json",
+  "protocol_freeze_commit": "ddc182b",
+  "protocol_sha256": "6f67aa8bca0187ba37e298c0e9b47f3f147678e3bfdd1b7661c86f0963e373d9",
+  "artifacts": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+  "evaluation_manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340",
   "collection_manifest_sha256": "276ba8d5c49250bf0cc8c242884f50e42c2566b660619958c53ca285651486c4",
-  "evaluation_manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
-  "reference_manifest_sha256": "b1d2ce69bd34de79a6ff3f0716bf506f8a477b9f25ff3204236bcd8d9847c349",
-  "comparator": "Working v4 on byte-identical inputs, initial core and fixed comparators. This is not a matched-input comparison to the original Throw identifier.",
-  "decision": "Adopt v6 as the sole maintained streaming fitter: frozen primary and separate robustness gates pass, with regressions retained and reported.",
+  "reference_manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
+  "comparator": "Adopted v6 online predictions on byte-identical inputs, targets, startup core, frozen and kinematic arms. Same six known tapes, no individual case veto.",
+  "runtime": {
+    "backend": "cpu",
+    "executable": "/Users/ryland/.local/share/uv/python/cpython-3.12.12-macos-aarch64-none/bin/python3.12",
+    "interpreter_sha256": "71075bad123652e54e536b2b1de640a17b75f21ff4ed25fbdbf3562485975afb",
+    "machine": "arm64",
+    "python": "3.12.12",
+    "versions": {
+      "jax": "0.11.1",
+      "jaxlib": "0.11.1",
+      "numpy": "2.5.3",
+      "scipy": "1.18.1"
+    },
+    "x64_enabled": false
+  },
   "observations": 3137,
-  "validation": {
-    "source_commit": "2e465a4",
-    "tests_passed": 204,
-    "full_suite_elapsed_s": 95.54,
-    "ruff": "passed",
-    "wheel_import_outside_checkout": true,
-    "wheel_sha256": "162be9f32c7b413b318803690d1c84f99b1fb41878500d1dc94b87146f7245b2",
-    "baseline": "All 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients exact. Initial attempt correctly rejected changed current Dart planner; complete replay used the preserved byte-authenticated original Dart source.",
-    "unchanged_package_source": "Every src file except online.py is byte-identical to working v4 source8053938."
+  "accuracy_passed": true,
+  "aggregate_ratio": 0.5824047716993134,
+  "families": {
+    "fixedwing": {
+      "aggregate": 0.7245851909679607,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 0.746795604982692,
+        "velocity_rmse_m_s": 0.7030353358630763
+      }
+    },
+    "quad": {
+      "aggregate": 0.4681234481828207,
+      "metric_ratios": {
+        "body_rate_rmse_rad_s": 0.41882111156177576,
+        "velocity_rmse_m_s": 0.5232295046479554
+      }
+    }
   },
-  "no_fit_verification": {
-    "verified": true,
-    "manifest_sha256": "43014bce12460b91fc034e127ec4c9249322dc134ce18dbed4b7c6795791983c",
-    "cases": 6,
-    "fits": 0,
-    "model_calls": 0
+  "frozen_comparison": {
+    "aggregate_ratio": 0.1226988447323706,
+    "families": {
+      "fixedwing": {
+        "aggregate": 0.1556019411394714,
+        "metric_ratios": {
+          "body_rate_rmse_rad_s": 0.17015851879383115,
+          "velocity_rmse_m_s": 0.14229063733040262
+        }
+      },
+      "quad": {
+        "aggregate": 0.09675333346364914,
+        "metric_ratios": {
+          "body_rate_rmse_rad_s": 0.05460149403669376,
+          "velocity_rmse_m_s": 0.17144599614869685
+        }
+      }
+    }
   },
+  "robustness_passed": true,
+  "robustness": {
+    "aggregate_ratios": {
+      "orientation": 0.46474259153302483,
+      "rotation_rate": 0.5543097765395925,
+      "upper_decile": 0.5713721570339242
+    },
+    "families": {
+      "fixedwing": {
+        "orientation": 0.5258971315385951,
+        "rate_tail": 0.705937001681823,
+        "rotation_rate": 0.5914064737188285,
+        "upper_decile": 0.7083811873344279,
+        "velocity_tail": 0.7108338355601662
+      },
+      "quad": {
+        "orientation": 0.4106994760609014,
+        "rate_tail": 0.40425129488135125,
+        "rotation_rate": 0.5195400152373929,
+        "upper_decile": 0.4608622415031388,
+        "velocity_tail": 0.5254009284141826
+      }
+    }
+  },
+  "real_time_target_passed": false,
+  "work": {
+    "current_objective_calls": 3137,
+    "gradient_calls": 3137,
+    "observations": 3137,
+    "scheduled_cg_iterations": 50192,
+    "selected_alpha_histogram": {
+      "0.0": 0,
+      "0.0625": 0,
+      "0.125": 0,
+      "0.25": 4,
+      "0.5": 35,
+      "1.0": 3098
+    },
+    "total_objective_calls": 6317,
+    "trial_count_histogram": {
+      "1": 3098,
+      "2": 35,
+      "3": 4,
+      "4": 0,
+      "5": 0
+    },
+    "trial_objective_calls": 3180
+  },
+  "validation_file": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/checks/validation.json",
+  "validation_sha256": "07e2ac6056869679de1135a5e1d6a4d6d64741a383d54202c8b67b2b75dfbb30",
+  "independent_audit_file": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/checks/independent-audit.json",
+  "independent_audit_sha256": "665b83ecac957ceae26060bf694bd64af9416432f6101bba31115670b7355e31",
+  "interpretation_file": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/checks/interpretation.json",
+  "interpretation_sha256": "a0ed5072d37681414f87ab661e95231af5e39bf8341da32980ed1a10ea2e0bb9",
   "cases": [
     {
       "id": "quad-arm-115",
       "family": "quad",
-      "expected": 875,
-      "complete": true,
-      "metrics": {
-        "candidate": {
-          "body_rate_rmse_rad_s": 0.2329469593996571,
-          "orientation_rmse_rad": 0.001780166109352235,
-          "velocity_rmse_m_s": 0.023747760405675344
-        },
-        "frozen": {
-          "body_rate_rmse_rad_s": 2.309220533573504,
-          "orientation_rmse_rad": 0.010736290465443166,
-          "velocity_rmse_m_s": 0.1347157166217019
-        },
-        "kinematic": {
-          "body_rate_rmse_rad_s": 0.11165536483611523,
-          "orientation_rmse_rad": 0.0004474429063217157,
-          "velocity_rmse_m_s": 0.03967146360153428
-        },
-        "reference": {
-          "body_rate_rmse_rad_s": 0.27256069287354256,
-          "orientation_rmse_rad": 0.004024160925798094,
-          "velocity_rmse_m_s": 0.02207724085860801
-        }
+      "observations": 875,
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.0867408450914427,
+        "orientation_rmse_rad": 0.0004898458596903374,
+        "velocity_rmse_m_s": 0.01099421796669476
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.8546608718364805,
-        "orientation_rmse_rad": 0.44236951309276545,
-        "velocity_rmse_m_s": 1.0756670436204436
+        "body_rate_rmse_rad_s": 0.37236307061052965,
+        "orientation_rmse_rad": 0.27516862449908225,
+        "velocity_rmse_m_s": 0.46295809705353574
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 2.0863033293704287,
-        "orientation_rmse_rad": 3.97853242101078,
-        "velocity_rmse_m_s": 0.5986106447748227
+        "body_rate_rmse_rad_s": 0.776862313949344,
+        "orientation_rmse_rad": 1.0947672938145399,
+        "velocity_rmse_m_s": 0.277131644980942
       },
       "robustness_ratios": {
-        "orientation": 0.44236951309276545,
-        "rate_tail": 0.8974731986044785,
-        "rotation_rate": 0.30500460539833,
-        "velocity_tail": 1.1077907011071788
+        "orientation": 0.27516862449908225,
+        "rate_tail": 0.3736142461879867,
+        "rotation_rate": 0.14386725101184078,
+        "velocity_tail": 0.4631157200477925
       },
-      "latency": {
-        "frozen_predict": {
-          "count": 875,
-          "first_s": 0.0011661250609904528,
-          "warm_max_s": 0.008150457870215178,
-          "warm_median_s": 0.0006582294590771198,
-          "warm_p95_s": 0.0007659602561034261
-        },
-        "observe": {
-          "count": 875,
-          "first_s": 2.4994270419701934,
-          "warm_max_s": 0.05968108307570219,
-          "warm_median_s": 0.027541937539353967,
-          "warm_p95_s": 0.028747435216791926
-        },
-        "predict": {
-          "count": 875,
-          "first_s": 0.38985079107806087,
-          "warm_max_s": 0.006917124846950173,
-          "warm_median_s": 0.0008240628521889448,
-          "warm_p95_s": 0.0010182414087466895
-        }
-      },
-      "endpoint_objectives": {
-        "final": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 32
-          },
-          "combined_loss": 0.2545199746374075,
-          "data_loss": 7.399711408942378e-05,
-          "domain": [
-            3.1325676943109775,
-            5.965525203646288,
-            1.0,
-            1.0090173372935047,
-            1.1366050595005208,
-            2.1027459991194797,
-            58.15662908851654,
-            40.26065915639159,
-            55.51833238760852,
-            1.4926252478564164,
-            1.7194149639546241,
-            1.7433438995988138,
-            1.6666304386327797,
-            1.4926252478564164,
-            1.7194149639546241,
-            1.7433438995988138,
-            1.6666304386327797
-          ],
-          "prior_loss": 0.2544459775233181
-        },
-        "initial": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 0
-          },
-          "combined_loss": 10.865496691918592,
-          "data_loss": 0.07560962477883396,
-          "domain": [
-            3.209361479280896,
-            4.30416156180483,
-            1.182267948242618,
-            1.3654340204782272,
-            1.5247285279016678,
-            1.0,
-            58.15662908851654,
-            40.26065915639159,
-            55.51833238760852,
-            2.046036103317192,
-            2.403689936826802,
-            2.3858898843125065,
-            2.323220181155094,
-            2.046036103317192,
-            2.403689936826802,
-            2.3858898843125065,
-            2.323220181155094
-          ],
-          "prior_loss": 10.789887067139759
-        }
+      "observe_latency": {
+        "count": 875,
+        "first_s": 2.613315291935578,
+        "warm_max_s": 0.16909712506458163,
+        "warm_median_s": 0.07694864610675722,
+        "warm_p95_s": 0.07870670618722214
       }
     },
     {
       "id": "quad-arm-125",
       "family": "quad",
-      "expected": 875,
-      "complete": true,
-      "metrics": {
-        "candidate": {
-          "body_rate_rmse_rad_s": 0.08106586103735926,
-          "orientation_rmse_rad": 0.00037513110537230155,
-          "velocity_rmse_m_s": 0.010245733240225747
-        },
-        "frozen": {
-          "body_rate_rmse_rad_s": 0.6803210393280901,
-          "orientation_rmse_rad": 0.003144297400383177,
-          "velocity_rmse_m_s": 0.03760597789486961
-        },
-        "kinematic": {
-          "body_rate_rmse_rad_s": 0.12057851919904918,
-          "orientation_rmse_rad": 0.00048633078200594794,
-          "velocity_rmse_m_s": 0.029419028657145834
-        },
-        "reference": {
-          "body_rate_rmse_rad_s": 0.10730043698014734,
-          "orientation_rmse_rad": 0.0004987846119788324,
-          "velocity_rmse_m_s": 0.012201902989812682
-        }
+      "observations": 875,
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.037405595460646764,
+        "orientation_rmse_rad": 0.0001745160412072494,
+        "velocity_rmse_m_s": 0.004143834604276794
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.7555035498351047,
-        "orientation_rmse_rad": 0.7520903740074113,
-        "velocity_rmse_m_s": 0.8396832239020313
+        "body_rate_rmse_rad_s": 0.4614222927134317,
+        "orientation_rmse_rad": 0.4652134645940643,
+        "velocity_rmse_m_s": 0.40444490473436256
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 0.672307651278558,
-        "orientation_rmse_rad": 0.7713497052870357,
-        "velocity_rmse_m_s": 0.34826891668080534
+        "body_rate_rmse_rad_s": 0.31021773786173457,
+        "orientation_rmse_rad": 0.3588422688101923,
+        "velocity_rmse_m_s": 0.14085558882890797
       },
       "robustness_ratios": {
-        "orientation": 0.7520903740074113,
-        "rate_tail": 0.7739231807555668,
-        "rotation_rate": 0.9764650527429123,
-        "velocity_tail": 0.8098641941374001
+        "orientation": 0.4652134645940643,
+        "rate_tail": 0.4570569530782339,
+        "rotation_rate": 0.7720074212690295,
+        "velocity_tail": 0.4071455607181247
       },
-      "latency": {
-        "frozen_predict": {
-          "count": 875,
-          "first_s": 0.0007438329048454762,
-          "warm_max_s": 0.0038882920052856207,
-          "warm_median_s": 0.0006633545272052288,
-          "warm_p95_s": 0.0007733955164439976
-        },
-        "observe": {
-          "count": 875,
-          "first_s": 0.0285436671692878,
-          "warm_max_s": 0.04931512498296797,
-          "warm_median_s": 0.027532896026968956,
-          "warm_p95_s": 0.02844706025207415
-        },
-        "predict": {
-          "count": 875,
-          "first_s": 0.000998165924102068,
-          "warm_max_s": 0.0055012081284075975,
-          "warm_median_s": 0.0008326041279360652,
-          "warm_p95_s": 0.0010263352305628355
-        }
-      },
-      "endpoint_objectives": {
-        "final": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 32
-          },
-          "combined_loss": 0.0025441701936904995,
-          "data_loss": 5.135333948142693e-06,
-          "domain": [
-            3.438014875246017,
-            6.8634384659109795,
-            6.212194380146924,
-            1.0,
-            1.0,
-            4.61226897859961,
-            38.64715420808969,
-            15.008724679455828,
-            8.984674879055172,
-            1.2612824609427462,
-            1.5132026008854416,
-            1.638666000834984,
-            1.4011602588813423,
-            1.2612824609427462,
-            1.5132026008854416,
-            1.638666000834984,
-            1.4011602588813423
-          ],
-          "prior_loss": 0.0025390348597423566
-        },
-        "initial": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 0
-          },
-          "combined_loss": 0.015460238385796991,
-          "data_loss": 0.011095026947651033,
-          "domain": [
-            3.529509000311751,
-            4.919229901626173,
-            6.544616382789481,
-            1.1547331609229663,
-            1.017439265819898,
-            1.0,
-            38.64715420808969,
-            15.008724679455828,
-            8.984674879055172,
-            1.7480145863068577,
-            2.05989803499202,
-            2.2711428266876568,
-            1.9613194204311764,
-            1.7480145863068577,
-            2.05989803499202,
-            2.2711428266876568,
-            1.9613194204311764
-          ],
-          "prior_loss": 0.004365211438145958
-        }
+      "observe_latency": {
+        "count": 875,
+        "first_s": 0.07720741699449718,
+        "warm_max_s": 0.14335408294573426,
+        "warm_median_s": 0.07707516651134938,
+        "warm_p95_s": 0.07837521194014699
       }
     },
     {
       "id": "quad-arm-135",
       "family": "quad",
-      "expected": 62,
-      "complete": true,
-      "metrics": {
-        "candidate": {
-          "body_rate_rmse_rad_s": 0.912603718792254,
-          "orientation_rmse_rad": 0.004427632726715565,
-          "velocity_rmse_m_s": 1.177408844295878
-        },
-        "frozen": {
-          "body_rate_rmse_rad_s": 4.525367984737336,
-          "orientation_rmse_rad": 0.01966458484088863,
-          "velocity_rmse_m_s": 1.3364842312514198
-        },
-        "kinematic": {
-          "body_rate_rmse_rad_s": 1.120879084472137,
-          "orientation_rmse_rad": 0.004489489900028987,
-          "velocity_rmse_m_s": 1.1738888059918617
-        },
-        "reference": {
-          "body_rate_rmse_rad_s": 1.0763235378594698,
-          "orientation_rmse_rad": 0.005225876571102893,
-          "velocity_rmse_m_s": 1.1992855381959449
-        }
+      "observations": 62,
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.35415966954140504,
+        "orientation_rmse_rad": 0.002115121114823798,
+        "velocity_rmse_m_s": 1.1652893953421768
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.8478897717011631,
-        "orientation_rmse_rad": 0.8472516842817697,
-        "velocity_rmse_m_s": 0.9817585610738079
+        "body_rate_rmse_rad_s": 0.38807607535294986,
+        "orientation_rmse_rad": 0.4777092512803795,
+        "velocity_rmse_m_s": 0.9897066774957436
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 0.8141856971325614,
-        "orientation_rmse_rad": 0.9862217813847799,
-        "velocity_rmse_m_s": 1.002998613059473
+        "body_rate_rmse_rad_s": 0.3159659899517099,
+        "orientation_rmse_rad": 0.47112726878172534,
+        "velocity_rmse_m_s": 0.99267442486393
       },
       "robustness_ratios": {
-        "orientation": 0.8472516842817697,
-        "rate_tail": 0.9462231921764452,
-        "rotation_rate": 0.6085529154830023,
-        "velocity_tail": 0.9870046236019394
+        "orientation": 0.4777092512803795,
+        "rate_tail": 0.3421697485784532,
+        "rotation_rate": 0.8497220822218285,
+        "velocity_tail": 0.9926003244168808
       },
-      "latency": {
-        "frozen_predict": {
-          "count": 62,
-          "first_s": 0.0007692079525440931,
-          "warm_max_s": 0.0009101671166718006,
-          "warm_median_s": 0.0006560839246958494,
-          "warm_p95_s": 0.000740166986361146
-        },
-        "observe": {
-          "count": 62,
-          "first_s": 0.027615166967734694,
-          "warm_max_s": 0.028610625071451068,
-          "warm_median_s": 0.027506167069077492,
-          "warm_p95_s": 0.028157917084172368
-        },
-        "predict": {
-          "count": 62,
-          "first_s": 0.00101883290335536,
-          "warm_max_s": 0.0010727918706834316,
-          "warm_median_s": 0.0008282919880002737,
-          "warm_p95_s": 0.0009645000100135803
-        }
-      },
-      "endpoint_objectives": {
-        "final": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 32
-          },
-          "combined_loss": 0.08202950972645474,
-          "data_loss": 0.023060181727309045,
-          "domain": [
-            8.6560174976584,
-            8.286666575979558,
-            6.012621700259683,
-            4.05123596745537,
-            2.4974940403785983,
-            7.4218391066336205,
-            34.82765934740348,
-            59.71453619218759,
-            18.255710935485375,
-            1.7388979318541893,
-            1.8600548276951512,
-            1.42013242721393,
-            1.881353417202257,
-            1.7388979318541893,
-            1.8600548276951512,
-            1.42013242721393,
-            1.881353417202257
-          ],
-          "prior_loss": 0.0589693279991457
-        },
-        "initial": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 0
-          },
-          "combined_loss": 0.14216772234363578,
-          "data_loss": 0.014119163126884072,
-          "domain": [
-            3.415598173319186,
-            4.058830872433121,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            34.82765934740348,
-            59.71453619218759,
-            18.255710935485375,
-            2.0249888229930866,
-            2.441248512888127,
-            1.526477022170343,
-            2.335351935959635,
-            2.0249888229930866,
-            2.441248512888127,
-            1.526477022170343,
-            2.335351935959635
-          ],
-          "prior_loss": 0.1280485592167517
-        }
+      "observe_latency": {
+        "count": 62,
+        "first_s": 0.07740320893935859,
+        "warm_max_s": 0.1548199588432908,
+        "warm_median_s": 0.0774009998422116,
+        "warm_p95_s": 0.09254999994300306
       }
     },
     {
       "id": "quad-change",
       "family": "quad",
-      "expected": 875,
-      "complete": true,
-      "metrics": {
-        "candidate": {
-          "body_rate_rmse_rad_s": 0.08107406915548329,
-          "orientation_rmse_rad": 0.00037516587586412375,
-          "velocity_rmse_m_s": 0.01024578965702752
-        },
-        "frozen": {
-          "body_rate_rmse_rad_s": 0.6803340285962546,
-          "orientation_rmse_rad": 0.0031443546281355677,
-          "velocity_rmse_m_s": 0.03760615698506135
-        },
-        "kinematic": {
-          "body_rate_rmse_rad_s": 0.1205799069870141,
-          "orientation_rmse_rad": 0.00048633629351900936,
-          "velocity_rmse_m_s": 0.02941859906068214
-        },
-        "reference": {
-          "body_rate_rmse_rad_s": 0.10730292908207009,
-          "orientation_rmse_rad": 0.0004987952334413871,
-          "velocity_rmse_m_s": 0.012201312882339995
-        }
+      "observations": 875,
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.03741228086761315,
+        "orientation_rmse_rad": 0.0001745440640197495,
+        "velocity_rmse_m_s": 0.004143876323732128
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.7555624981446145,
-        "orientation_rmse_rad": 0.7521440677684605,
-        "velocity_rmse_m_s": 0.8397284583905006
+        "body_rate_rmse_rad_s": 0.4614580377835006,
+        "orientation_rmse_rad": 0.46524504292326746,
+        "velocity_rmse_m_s": 0.40444674958653587
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 0.672367985523613,
-        "orientation_rmse_rad": 0.771412458546978,
-        "velocity_rmse_m_s": 0.34827592013791653
+        "body_rate_rmse_rad_s": 0.31026961126817154,
+        "orientation_rmse_rad": 0.3588958223882321,
+        "velocity_rmse_m_s": 0.1408590638590403
       },
       "robustness_ratios": {
-        "orientation": 0.7521440677684605,
-        "rate_tail": 0.7739231807555668,
-        "rotation_rate": 0.9764388769719465,
-        "velocity_tail": 0.8098641941374001
+        "orientation": 0.46524504292326746,
+        "rate_tail": 0.4570569530782339,
+        "rotation_rate": 0.7719971302263556,
+        "velocity_tail": 0.4071455607181247
       },
-      "latency": {
-        "frozen_predict": {
-          "count": 875,
-          "first_s": 0.0006542920600622892,
-          "warm_max_s": 0.021924125030636787,
-          "warm_median_s": 0.0006671040318906307,
-          "warm_p95_s": 0.0007821102393791075
-        },
-        "observe": {
-          "count": 875,
-          "first_s": 0.02756799990311265,
-          "warm_max_s": 0.16426425008103251,
-          "warm_median_s": 0.027581645525060594,
-          "warm_p95_s": 0.029527346021495746
-        },
-        "predict": {
-          "count": 875,
-          "first_s": 0.0010501658543944359,
-          "warm_max_s": 0.00759191601537168,
-          "warm_median_s": 0.0008392499294131994,
-          "warm_p95_s": 0.0010679306695237753
-        }
-      },
-      "endpoint_objectives": {
-        "final": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 32
-          },
-          "combined_loss": 0.0025443405958792318,
-          "data_loss": 5.283282565942216e-06,
-          "domain": [
-            3.439381775200821,
-            6.8643579695704755,
-            6.212543038896294,
-            1.0,
-            1.0,
-            4.612271012407864,
-            38.64715420808969,
-            15.008724679455828,
-            8.984674879055172,
-            1.2612809230391149,
-            1.513201810316421,
-            1.638663095959227,
-            1.4011594217174994,
-            1.2612809230391149,
-            1.513201810316421,
-            1.638663095959227,
-            1.4011594217174994
-          ],
-          "prior_loss": 0.0025390573133132898
-        },
-        "initial": {
-          "cache_windows": {
-            "bootstrap": 21,
-            "recent": 0
-          },
-          "combined_loss": 0.015460238385796991,
-          "data_loss": 0.011095026947651033,
-          "domain": [
-            3.529509000311751,
-            4.919229901626173,
-            6.544616382789481,
-            1.1547331609229663,
-            1.017439265819898,
-            1.0,
-            38.64715420808969,
-            15.008724679455828,
-            8.984674879055172,
-            1.7480145863068577,
-            2.05989803499202,
-            2.2711428266876568,
-            1.9613194204311764,
-            1.7480145863068577,
-            2.05989803499202,
-            2.2711428266876568,
-            1.9613194204311764
-          ],
-          "prior_loss": 0.004365211438145958
-        }
+      "observe_latency": {
+        "count": 875,
+        "first_s": 0.07663904107175767,
+        "warm_max_s": 0.1317588749807328,
+        "warm_median_s": 0.07702054211404175,
+        "warm_p95_s": 0.07987389605259522
       }
     },
     {
       "id": "fixedwing-80",
       "family": "fixedwing",
-      "expected": 225,
-      "complete": true,
-      "metrics": {
-        "candidate": {
-          "body_rate_rmse_rad_s": 0.7832933502092078,
-          "orientation_rmse_rad": 0.025641464432725584,
-          "velocity_rmse_m_s": 0.308985463425904
-        },
-        "frozen": {
-          "body_rate_rmse_rad_s": 2.856183243399267,
-          "orientation_rmse_rad": 0.06837837890672713,
-          "velocity_rmse_m_s": 1.302684177243834
-        },
-        "kinematic": {
-          "body_rate_rmse_rad_s": 0.3761761016867941,
-          "orientation_rmse_rad": 0.009524647033371436,
-          "velocity_rmse_m_s": 0.16863034175627478
-        },
-        "reference": {
-          "body_rate_rmse_rad_s": 1.1301919732462908,
-          "orientation_rmse_rad": 0.02634565345406928,
-          "velocity_rmse_m_s": 0.2990665993598846
-        }
+      "observations": 225,
+      "candidate": {
+        "body_rate_rmse_rad_s": 0.6039708699495936,
+        "orientation_rmse_rad": 0.018647617580478126,
+        "velocity_rmse_m_s": 0.2753984331620443
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.6930622131029,
-        "orientation_rmse_rad": 0.9732711499234069,
-        "velocity_rmse_m_s": 1.033166070993048
+        "body_rate_rmse_rad_s": 0.771065999460203,
+        "orientation_rmse_rad": 0.7272446403910777,
+        "velocity_rmse_m_s": 0.8912989954560954
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 2.0822517610684934,
-        "orientation_rmse_rad": 2.6921170246924397,
-        "velocity_rmse_m_s": 1.8323242437146194
+        "body_rate_rmse_rad_s": 1.605553535276046,
+        "orientation_rmse_rad": 1.9578276775131513,
+        "velocity_rmse_m_s": 1.63314875777269
       },
       "robustness_ratios": {
-        "orientation": 0.9732711499234069,
-        "rate_tail": 0.6105786403795792,
-        "rotation_rate": 1.1394068280512122,
-        "velocity_tail": 1.0188894621536189
+        "orientation": 0.7272446403910777,
+        "rate_tail": 0.7179166058992016,
+        "rotation_rate": 0.7448464184973453,
+        "velocity_tail": 0.9599792901535683
       },
-      "latency": {
-        "frozen_predict": {
-          "count": 225,
-          "first_s": 0.0008790830615907907,
-          "warm_max_s": 0.0011902500409632921,
-          "warm_median_s": 0.0006032496457919478,
-          "warm_p95_s": 0.0007275188923813403
-        },
-        "observe": {
-          "count": 225,
-          "first_s": 2.150810959050432,
-          "warm_max_s": 0.005347583908587694,
-          "warm_median_s": 0.003944416530430317,
-          "warm_p95_s": 0.004602259886451065
-        },
-        "predict": {
-          "count": 225,
-          "first_s": 0.28495700005441904,
-          "warm_max_s": 0.0011637089774012566,
-          "warm_median_s": 0.0007521873340010643,
-          "warm_p95_s": 0.0009305346640758216
-        }
-      },
-      "endpoint_objectives": {
-        "final": {
-          "cache_windows": {
-            "bootstrap": 5,
-            "recent": 32
-          },
-          "combined_loss": 0.28173798076903145,
-          "data_loss": 0.07319859403957893,
-          "domain": [
-            5.375515928046347,
-            9.911790437866522,
-            1.0,
-            7.63304697179443,
-            1.237488546009913,
-            11.382287294585653,
-            37.54680687128117,
-            500.9246585376661,
-            782.0344605454499,
-            32.919242016136856,
-            12.00510105565502,
-            1.0,
-            32.919242016136856,
-            12.00510105565502,
-            1.0
-          ],
-          "prior_loss": 0.20853938672945252
-        },
-        "initial": {
-          "cache_windows": {
-            "bootstrap": 5,
-            "recent": 0
-          },
-          "combined_loss": 10.27817968842551,
-          "data_loss": 0.029514143600900846,
-          "domain": [
-            3.5996083198641378,
-            2.8774423635197532,
-            1.0,
-            1.5849501133178436,
-            1.2923757274488277,
-            3.164412097690012,
-            37.54680687128117,
-            500.9246585376661,
-            782.0344605454499,
-            10.826870992677325,
-            1.0,
-            1.0,
-            10.826870992677325,
-            1.0,
-            1.0
-          ],
-          "prior_loss": 10.24866554482461
-        }
+      "observe_latency": {
+        "count": 225,
+        "first_s": 2.186642332933843,
+        "warm_max_s": 0.010500666918233037,
+        "warm_median_s": 0.009585542022250593,
+        "warm_p95_s": 0.009859291953034699
       }
     },
     {
       "id": "fixedwing-81",
       "family": "fixedwing",
-      "expected": 225,
-      "complete": true,
-      "metrics": {
-        "candidate": {
-          "body_rate_rmse_rad_s": 2.340879242497436,
-          "orientation_rmse_rad": 0.10892172257038309,
-          "velocity_rmse_m_s": 1.2442823169777963
-        },
-        "frozen": {
-          "body_rate_rmse_rad_s": 12.365551689155017,
-          "orientation_rmse_rad": 0.2879333853339188,
-          "velocity_rmse_m_s": 7.204759659359133
-        },
-        "kinematic": {
-          "body_rate_rmse_rad_s": 0.37919534694939155,
-          "orientation_rmse_rad": 0.009584423405099306,
-          "velocity_rmse_m_s": 0.17023272979733872
-        },
-        "reference": {
-          "body_rate_rmse_rad_s": 2.9052830716321174,
-          "orientation_rmse_rad": 0.10164180162921546,
-          "velocity_rmse_m_s": 2.890975876317351
-        }
+      "observations": 225,
+      "candidate": {
+        "body_rate_rmse_rad_s": 1.6931325705461773,
+        "orientation_rmse_rad": 0.04142243028501356,
+        "velocity_rmse_m_s": 0.690001158974003
       },
       "reference_ratios": {
-        "body_rate_rmse_rad_s": 0.8057318976434151,
-        "orientation_rmse_rad": 1.0716232969553652,
-        "velocity_rmse_m_s": 0.4304021791294974
+        "body_rate_rmse_rad_s": 0.7232891555481559,
+        "orientation_rmse_rad": 0.3802954021246514,
+        "velocity_rmse_m_s": 0.5545374627278544
       },
       "kinematic_ratios": {
-        "body_rate_rmse_rad_s": 6.17328050391361,
-        "orientation_rmse_rad": 11.364452295839962,
-        "velocity_rmse_m_s": 7.309301322131818
+        "body_rate_rmse_rad_s": 4.465066842637569,
+        "orientation_rmse_rad": 4.321848955772877,
+        "velocity_rmse_m_s": 4.05328140948833
       },
       "robustness_ratios": {
-        "orientation": 1.0716232969553652,
-        "rate_tail": 0.8063538940858095,
-        "rotation_rate": 0.995187545799789,
-        "velocity_tail": 0.409685959310446
+        "orientation": 0.3802954021246514,
+        "rate_tail": 0.6941572966115401,
+        "rotation_rate": 0.4695754835770697,
+        "velocity_tail": 0.5263496274970128
       },
-      "latency": {
-        "frozen_predict": {
-          "count": 225,
-          "first_s": 0.000717374961823225,
-          "warm_max_s": 0.0008068329188972712,
-          "warm_median_s": 0.0005922908894717693,
-          "warm_p95_s": 0.0006496356218121946
-        },
-        "observe": {
-          "count": 225,
-          "first_s": 0.004224833101034164,
-          "warm_max_s": 0.007081333082169294,
-          "warm_median_s": 0.003789958544075489,
-          "warm_p95_s": 0.00438320372486487
-        },
-        "predict": {
-          "count": 225,
-          "first_s": 0.001193332951515913,
-          "warm_max_s": 0.0010959168430417776,
-          "warm_median_s": 0.0006949794478714466,
-          "warm_p95_s": 0.0008936750120483339
-        }
-      },
-      "endpoint_objectives": {
-        "final": {
-          "cache_windows": {
-            "bootstrap": 5,
-            "recent": 32
-          },
-          "combined_loss": 4.778676646362622,
-          "data_loss": 0.6741115100775202,
-          "domain": [
-            7.483859243505131,
-            7.169026211300467,
-            1.0,
-            25.180683925654545,
-            1.0156568690717303,
-            7.646256264675054,
-            53.27727534608137,
-            1299.680453519056,
-            907.8834900240399,
-            27.231006906530247,
-            28.607326340478394,
-            1.0,
-            27.231006906530247,
-            28.607326340478394,
-            1.0
-          ],
-          "prior_loss": 4.1045651362851014
-        },
-        "initial": {
-          "cache_windows": {
-            "bootstrap": 5,
-            "recent": 0
-          },
-          "combined_loss": 19.184915232118282,
-          "data_loss": 0.049986518013432193,
-          "domain": [
-            3.235471168244428,
-            1.4297719360626673,
-            1.0,
-            3.880123321538683,
-            1.1678127148977913,
-            1.0,
-            53.27727534608137,
-            1299.680453519056,
-            907.8834900240399,
-            2.6366695446257378,
-            1.5772881154665581,
-            1.0,
-            2.6366695446257378,
-            1.5772881154665581,
-            1.0
-          ],
-          "prior_loss": 19.13492871410485
-        }
+      "observe_latency": {
+        "count": 225,
+        "first_s": 0.010074791964143515,
+        "warm_max_s": 0.011038499884307384,
+        "warm_median_s": 0.009599375072866678,
+        "warm_p95_s": 0.009893862507306039
       }
     }
   ],
-  "accuracy_passed": true,
-  "aggregate_ratio": 0.780570234326304,
-  "all_cases_complete": true,
-  "candidate_closed_loop_trials": 0,
-  "families": {
-    "fixedwing": {
-      "aggregate": 0.7059140791248797,
-      "metric_ratios": {
-        "body_rate_rmse_rad_s": 0.7472766101975523,
-        "velocity_rmse_m_s": 0.6668410068060219
-      }
-    },
-    "quad": {
-      "aggregate": 0.8631218851330416,
-      "metric_ratios": {
-        "body_rate_rmse_rad_s": 0.801973522741379,
-        "velocity_rmse_m_s": 0.9289326486104665
-      }
-    }
-  },
-  "frozen_comparison": {
-    "aggregate_ratio": 0.21067623531717572,
-    "families": {
-      "fixedwing": {
-        "aggregate": 0.21474623423038147,
-        "metric_ratios": {
-          "body_rate_rmse_rad_s": 0.22785152678794182,
-          "velocity_rmse_m_s": 0.2023947162708693
-        }
-      },
-      "quad": {
-        "aggregate": 0.20668337345465154,
-        "metric_ratios": {
-          "body_rate_rmse_rad_s": 0.13036948837914558,
-          "velocity_rmse_m_s": 0.32766882338573566
-        }
-      }
-    }
-  },
-  "real_time_target_passed": false,
-  "robustness": {
-    "aggregate_ratios": {
-      "orientation": 0.8324632802162677,
-      "rotation_rate": 0.8310635819241495,
-      "upper_decile": 0.7704268964314046
-    },
-    "families": {
-      "fixedwing": {
-        "orientation": 1.0212639416490044,
-        "rate_tail": 0.7016711938762292,
-        "rotation_rate": 1.0648584341948033,
-        "upper_decile": 0.6733042587482283,
-        "velocity_tail": 0.6460841328601947
-      },
-      "quad": {
-        "orientation": 0.678566122475126,
-        "rate_tail": 0.8445059166705076,
-        "rotation_rate": 0.6485995274318768,
-        "upper_decile": 0.8815592579919769,
-        "velocity_tail": 0.9202383429299008
-      }
-    }
-  },
-  "robustness_passed": true,
-  "independent_audit": {
-    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v6/checks/independent-audit.json",
-    "sha256": "0a28eea331c36c2e07e5726a24e77876278fb436b12d6e474cdf20ee2ad35282",
-    "payloads_verified": 242,
-    "observations": 3137,
-    "fits": 0,
-    "model_calls": 0,
-    "complete": true
-  }
+  "limits": [
+    "Known tapes and one simulator airframe per family; not independent generalization.",
+    "Quad125/change share the first4s and diverge only slightly afterward; six cases are not six independent aircraft.",
+    "16 PCG plus backtracking is one tested bundle, not an isolated16-only ablation or a demonstrated optimum.",
+    "Fixed-wing errors remain above the no-fit kinematic comparator.",
+    "Quad online fitting does not meet10ms cadence; durable journal/checkpoint overhead is excluded.",
+    "No new consumer-controlled flight, derivative fidelity or error-envelope calibration result."
+  ]
 }

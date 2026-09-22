@@ -6,8 +6,8 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
-- [Online fitting](online-fitting.md): causal quad/fixed-wing results, failed first
-  candidate, runtime and remaining conditioning gap.
+- [Online fitting](online-fitting.md): causal quad/fixed-wing results, bounded backtracking,
+  verification and remaining accuracy/runtime gaps.
 - [Dart precision](dart-precision.md): nominal contact performance, every attempted
   intervention and numerical qualification.
 - [Cleanup result](cleanup.md): adopted implementation, preserved evidence and
