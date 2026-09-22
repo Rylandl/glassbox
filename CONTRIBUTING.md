@@ -43,9 +43,17 @@ Delete superseded implementations instead of retaining compatibility branches.
 Preserve current evidence and useful recordings; Git holds historical source.
 Controllers, simulators and telemetry conversion belong to their own projects.
 
-## Verify the accumulator evidence
+## Verify current evidence
 
-The current [migration index](docs/accumulator-migration.json) identifies the
+The [temporal index](docs/nonlinear-temporal.json) records the adopted compact
+model, freshly matched full-model fits, finalized revision paths and test logs.
+Its [report](docs/nonlinear-temporal.md) includes saved-data verification commands.
+No fitting is needed to audit scores. Current code loads the separately finalized
+revisions; use the recorded experimental source for original archive replay.
+
+## Verify historical accumulator evidence
+
+The historical [migration index](docs/accumulator-migration.json) identifies the
 saved fitted revisions, online comparison, offline predictions and Dart trials.
 Evidence packs are outside Git and the Python distribution. Keep their recorded
 paths, or update paths in a local copy of the index without changing authorities.
@@ -96,18 +104,20 @@ trials ran alongside other work and do not support a latency comparison.
 
 The migration report records scientific commits and protocols. Use those
 checkouts to reproduce a historical fit or trial, with a fresh output directory.
-The six-fit comparison intentionally imports v8 from a separate historical
-checkout; the maintained package contains only the accumulator. A benchmark
+The historical six-fit accumulator comparison imports v8 from a separate
+historical checkout; the maintained package contains only the temporal learner. A benchmark
 protocol is an internal measurement contract, not a product tuning interface.
 
-The current Dart runner defaults to the model-bound accumulator protocol and
-uses the preserved external controller snapshot:
+The Dart runner requires an explicit model-bound protocol. For the historical
+accumulator trial, use source `19a0221` with the preserved external controller
+snapshot (its archives are incompatible with the current temporal recipe):
 
 ```bash
 env -u JAX_ENABLE_X64 PYTHONPATH=src:scripts SCIPY_ARRAY_API=1 python \
   scripts/run_dart.py artifacts/baseline \
   --dart-root artifacts/dart-precision-v1/dart-lateral \
-  --output artifacts/accumulator-dart-reproduction
+  --output artifacts/accumulator-dart-reproduction \
+  --protocol docs/harness/accumulator-dart-qualification-v1.json
 ```
 
 This runs optimization and native simulation with the saved revision, not a fit.

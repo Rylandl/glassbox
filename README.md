@@ -67,32 +67,30 @@ not a quick test or physical validation.
 
 ## Current evidence
 
-The accumulator is the single maintained dynamics formulation. It retains shared
-rigid-body physics, all 100 ms lag inputs, a nonlinear acceleration head and
-learned memory time constants. A parallel history reduction replaces nonlinear
-recurrent memory; there is no vehicle-family selector or smaller-model option.
+The single maintained model combines shared rigid-body physics, full linear lag
+response, compact nonlinear history and eight learned stable accumulators.
+Each configuration gets its own fit; there is no vehicle-family selector or
+smaller-model option. Four-command / 10 ms models now use **5,450 parameters**,
+down from 8,714.
 
-Across six known quad/fixed-wing streams and 3,137 causal updates, it improves
-aggregate prediction error **4.11% versus v8**, while reducing quad median/p95
-update time **47.63% / 49.76%**. A subsequent projection-reuse optimization reduces
-whole-update snapshot medians a further **19.17% for quads / 4.85% for fixed wings**,
-to roughly **32 ms / 8 ms**, without shrinking the model. These are separate
-benchmarks; real-time fitting remains unqualified against 10 ms quad observations.
+The matched architectural comparison preserves aggregate online accuracy and
+improves Crazyflow command-response error **4.31%** and Dart 250 ms forecast
+error **14.99%**. Crazyflow forecast error is **4.20% higher**, and quad whole
+updates are **6.10% slower** on the measured CPU (**31.9 → 33.9 ms**). Fixed-wing
+results are unchanged in the tested two-lag configuration. Compactness did not
+produce a CPU speedup; real-time fitting and other hardware remain unqualified.
 
-With equal fresh fitting budgets, aggregate offline forecast/command-response
-errors improve **8.29% / 9.78%** versus v8. The unchanged Dart task misses by **3.67 mm
-with the accumulator and 3.60 mm with v8**. Both retain valid gradients and pass
-attitude/speed limits; both miss the strict 1 mm target. The historical **0.720 mm**
-result used a separately refined v8 revision and is not current accumulator
-performance. Closing that fitting-pipeline gap is distinct from choosing the
-memory architecture.
+No new Dart controller trial was run for this architecture. The earlier
+**3.669 mm** full-history accumulator result and **0.720 mm** refined-v8 result
+belong to different revisions. Held-out forecast improvements do not establish
+submillimeter control. Long-horizon fidelity, independent error coverage and live
+closed-loop identification remain open.
 
-See [the migration evidence](docs/accumulator-migration.md) for the offline
-forecast/response comparisons, [projection-reuse evidence](docs/history-projection-reuse.md)
-for the speedup and retained numerical/tail differences, [status](docs/status.md)
-for remaining gaps, and [the network review](docs/network-review.md) for the next
-optimization. Generalization, independent error coverage and live closed-loop
-identification remain limited.
+See [the temporal comparison](docs/nonlinear-temporal.md) for matched fits,
+physical errors and archive provenance, [status](docs/status.md) for remaining
+gaps, and [the network review](docs/network-review.md) for the next priority.
+Earlier migration and projection results remain historical evidence; current
+full-stream evaluation corrects their combined accuracy interpretation.
 
 [Development guide](CONTRIBUTING.md) · [Documentation](docs/README.md) ·
 [Apache-2.0 license](LICENSE)

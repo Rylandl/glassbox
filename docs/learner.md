@@ -83,9 +83,12 @@ callbacks do not establish physical command-response fidelity. Means beyond
 
 Shared gravity, frame transforms and rigid-body integration surround one learned
 acceleration model. The model combines a linear head, quadratic current-feature
-head and 32-unit nonlinear head. It retains the preceding 100 ms of sampled
-feature differences and eight bounded latent accumulators with learned positive
-time constants. Issued-command filters have learned time constants as well.
+head and 32-unit nonlinear head. The linear head retains every sampled feature
+difference over the preceding 100 ms. The nonlinear head uses up to four fixed
+orthonormal temporal summaries; histories of four or fewer samples keep their
+original coordinates. Eight bounded latent accumulators and issued-command
+filters have learned positive time constants. The basis and dimensions follow
+sample timing, with no consumer choice or vehicle-family dispatch.
 
 The accumulators use a nonlinear drive of observed motion and commands, followed
 by stable exponential accumulation. Recorded history can be reduced in parallel;
@@ -111,9 +114,10 @@ independent coverage evidence. Streaming snapshots have no calibrated envelope.
 `envelope` raises an explicit error when calibration is unavailable. Do not treat
 absent uncertainty as zero uncertainty.
 
-The accumulator changes the saved model and streaming-session formats. Historical
-v8 archives require their recorded source checkout or a new fit; relabeling an
-old archive does not convert its dynamics. The public fit/predict/update workflow
+Compact nonlinear history changes the saved model and streaming-session formats.
+The current recipe is `shared-vehicle-temporal-v1`. Historical v8 and full-history
+accumulator archives require their recorded source checkout or a new fit;
+relabeling an old archive does not convert its dynamics. The public fit/predict/update workflow
 and recording semantics remain the same.
 
 ## Update and evaluate

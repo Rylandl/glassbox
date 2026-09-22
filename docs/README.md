@@ -6,6 +6,8 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
+- [Nonlinear temporal compression](nonlinear-temporal.md): adopted smaller model,
+  matched learning comparison, known losses and current archive identities.
 - [Accumulator migration](accumulator-migration.md): matched architecture
   comparisons, deployed-model evidence and the adoption decision.
 - [Network review](network-review.md): parameter inventory and the next

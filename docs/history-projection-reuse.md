@@ -95,3 +95,15 @@ redundant full-suite run were needed for this computation change.
 The next iteration is the observed command-filter history scan described in the
 [network review](network-review.md). It is another linear recurrence whose full
 history may be computed in parallel without removing information.
+
+## Subsequent full-stream evidence
+
+The fresh baseline in [nonlinear temporal qualification](nonlinear-temporal.md)
+replayed all 3,137 causal updates under this refactor. Compared with the original
+pre-projection accumulator, primary error is 2.69% higher and rate error 4.70%
+higher, predominantly fixedwing-81 (primary +12.25%, rate +15.12%). This does not
+change the frozen snapshot results above; it demonstrates their limited scope.
+Tiny differences after individual updates can compound over repeated fitting.
+The adopted speed/accuracy tradeoff remains explicit, and solver conditioning
+is the next measured gap. The original 4.11% improvement versus v8 should not be
+quoted as the refactored model's current full-stream accuracy.

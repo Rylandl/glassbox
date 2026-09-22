@@ -628,8 +628,7 @@ def verify(output, authorities):
     )
     result["checks"] = qualification_checks(result, spec)
     result["qualified"] = result["checks"]["derivatives"] and all(
-        all(result["checks"][reference].values())
-        for reference in references
+        all(result["checks"][reference].values()) for reference in references
     )
     return result
 

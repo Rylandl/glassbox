@@ -1,0 +1,651 @@
+{
+  "adopted": true,
+  "date": "2026-09-22",
+  "decision": "Adopt one compact nonlinear-history model: substantial parameter reduction and improved command-response/Dart forecasts justify modest forecast/runtime cost. No CPU speed or uniformly faster learning claim.",
+  "evaluation": {
+    "authorities": {
+      "baseline": "b70d6ad5ae1bfdd2cf161f1eeee0ea03f311fa7d3f5402af6c01e8dc7afa8eff",
+      "candidate": "eb95dfdb86e77fb63176afbd8c4c545ba6b3fc5dbaab08992fc3b19d60475de8"
+    },
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-evaluation"
+  },
+  "fit_authorities": {
+    "baseline/cascade": "02573f1bc86a3a02cd9ff62d65c982c72f04d6d885433fe8ad4c174735c8e6c2",
+    "baseline/crazyflow": "5ba4a94b931ca6901038c99f9091e8ad665ceb2aa806efd2410c2a6c71808ff8",
+    "baseline/dart": "70bc57d62f8cbdf0196351e7fdadf00fc50c59f1e69b1b33512a6548446ebe9d",
+    "candidate/cascade": "977d7ce8d20b931240fe2d4c04740443e71b28be26ab59ee51b29fba6db50bce",
+    "candidate/crazyflow": "9aeee14501f81c5aea90d6ea4f04c8d2204336c3479db0e8c778b2594baec8cd",
+    "candidate/dart": "0a5ad59cd4e25e26e51050ae8c329fd1b84a859944640c2bd0cbfe3241576137"
+  },
+  "fits": {
+    "manifest_sha256": "f744cd2c2ebe0ec7abea8ec1f74c7a805a3550fc48f834f2cce55d676eaa4d86",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-fits"
+  },
+  "id": "nonlinear-temporal-v1",
+  "models": {
+    "cascade": {
+      "fingerprint": "2a1001bf7bda662d73464f2fc3846d53fa216a654efc3246e89097a19ee06832",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/revisions/cascade.npz",
+      "sha256": "19cea30ba2355161363e9dca43cc118762700d9d6f809ca2874bc2c10789b60f",
+      "source_path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-fits/candidate/cascade/model.npz",
+      "source_sha256": "ce5a3bc8ca87dfff1798c51c3d8887a1295e66dcadb7ee3494068f3dd4206e5d",
+      "unchanged_array_count": 30
+    },
+    "crazyflow": {
+      "fingerprint": "12500759d8b9d94cbcea59266a5a2b40e250750de6a95c13563193714b2107ed",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/revisions/crazyflow.npz",
+      "sha256": "2ddb677188e0712994dd60fcaaba54332766d9e731f752619dde2cf430ff5bc4",
+      "source_path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-fits/candidate/crazyflow/model.npz",
+      "source_sha256": "dcf2b58accbc7b9bb034f939b20df8e074ba5ecd493d459dbb5022608b619f2d",
+      "unchanged_array_count": 30
+    },
+    "dart": {
+      "fingerprint": "ef8fe9e8984fb4070629287f7cdcea39dbb6df102ef1dd021a3d0ede2e67710c",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/revisions/dart.npz",
+      "sha256": "458fee60c213ed23b6ad7c39f13207a8c5292dc8c6aa5594825a684bed391f65",
+      "source_path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-fits/candidate/dart/model.npz",
+      "source_sha256": "30bed7435678e7221cb37aaf02f2b261a41fc4f123808c2073bb4d1203309f58",
+      "unchanged_array_count": 30
+    }
+  },
+  "offline_summary": {
+    "checks": {
+      "baseline": {
+        "each_family_primary": true,
+        "forecast_primary": true,
+        "orientation": true,
+        "rate": true,
+        "response_primary": true,
+        "tail": true
+      },
+      "derivatives": true
+    },
+    "comparisons": {
+      "baseline": {
+        "aggregate": {
+          "factual": {
+            "body_rate_rmse_rad_s": 1.031936169455276,
+            "orientation_rmse_rad": 1.0267686002478797,
+            "primary": 1.0207615073001792,
+            "tail": 1.021148791119912,
+            "velocity_rmse_m_s": 1.009707853670587
+          },
+          "response": {
+            "body_rate_rmse_rad_s": 0.9942838255284158,
+            "orientation_rmse_rad": 0.9649709667002139,
+            "primary": 0.978218984441417,
+            "tail": 0.977596325264233,
+            "velocity_rmse_m_s": 0.9624137061799658
+          }
+        },
+        "families": {
+          "cascade": {
+            "factual": {
+              "body_rate_rmse_rad_s": 1.0,
+              "orientation_rmse_rad": 1.0,
+              "primary": 1.0,
+              "tail": 1.0,
+              "velocity_rmse_m_s": 1.0
+            },
+            "response": {
+              "body_rate_rmse_rad_s": 1.0,
+              "orientation_rmse_rad": 1.0,
+              "primary": 1.0,
+              "tail": 1.0,
+              "velocity_rmse_m_s": 1.0
+            }
+          },
+          "crazyflow": {
+            "factual": {
+              "body_rate_rmse_rad_s": 1.0648922578300282,
+              "orientation_rmse_rad": 1.0542537584549905,
+              "primary": 1.041954054785734,
+              "tail": 1.0427448536056578,
+              "velocity_rmse_m_s": 1.0195099497640636
+            },
+            "response": {
+              "body_rate_rmse_rad_s": 0.9886003257074211,
+              "orientation_rmse_rad": 0.9311689665743452,
+              "primary": 0.9569123815215971,
+              "tail": 0.955694575170132,
+              "velocity_rmse_m_s": 0.9262401418430576
+            }
+          }
+        }
+      }
+    },
+    "dart_heldout": {
+      "baseline": [
+        {
+          "body_rate_rmse_rad_s": 0.008294764779232121,
+          "horizon_steps": 1,
+          "orientation_rmse_rad": 8.395269743630874e-05,
+          "velocity_rmse_m_s": 0.002689296519064862
+        },
+        {
+          "body_rate_rmse_rad_s": 1.3666008732126953,
+          "horizon_steps": 25,
+          "orientation_rmse_rad": 0.11751701021509273,
+          "velocity_rmse_m_s": 0.11244043382510048
+        },
+        {
+          "body_rate_rmse_rad_s": 6.602634615189273,
+          "horizon_steps": 60,
+          "orientation_rmse_rad": 1.3772672732747238,
+          "velocity_rmse_m_s": 2.5614023223175972
+        },
+        {
+          "body_rate_rmse_rad_s": 14.642876201446109,
+          "horizon_steps": 120,
+          "orientation_rmse_rad": 2.59517226050377,
+          "velocity_rmse_m_s": 8.78462008412272
+        }
+      ],
+      "candidate": [
+        {
+          "body_rate_rmse_rad_s": 0.007716751676519364,
+          "horizon_steps": 1,
+          "orientation_rmse_rad": 8.35673096590759e-05,
+          "velocity_rmse_m_s": 0.002473526192359739
+        },
+        {
+          "body_rate_rmse_rad_s": 1.1567558915114227,
+          "horizon_steps": 25,
+          "orientation_rmse_rad": 0.0997637251592799,
+          "velocity_rmse_m_s": 0.09599407406822348
+        },
+        {
+          "body_rate_rmse_rad_s": 5.657534460557197,
+          "horizon_steps": 60,
+          "orientation_rmse_rad": 1.1654726262145574,
+          "velocity_rmse_m_s": 2.2270536220598296
+        },
+        {
+          "body_rate_rmse_rad_s": 13.23356747123076,
+          "horizon_steps": 120,
+          "orientation_rmse_rad": 2.221915407802433,
+          "velocity_rmse_m_s": 8.02639322906093
+        }
+      ]
+    },
+    "fit_progress": {
+      "baseline": {
+        "cascade": {
+          "full_training_objective_calls": 1188,
+          "parameter_count": 3103,
+          "selected_step": 1000,
+          "validation_rollout_mse": 0.0011316356535414581
+        },
+        "crazyflow": {
+          "full_training_objective_calls": 1038,
+          "parameter_count": 8714,
+          "selected_step": 1000,
+          "validation_rollout_mse": 2.829080007185449e-05
+        },
+        "dart": {
+          "full_training_objective_calls": 1650,
+          "parameter_count": 8714,
+          "selected_step": 1000,
+          "validation_rollout_mse": 0.0008473006385822262
+        }
+      },
+      "candidate": {
+        "cascade": {
+          "full_training_objective_calls": 1188,
+          "parameter_count": 3103,
+          "selected_step": 1000,
+          "validation_rollout_mse": 0.0011316356535414581
+        },
+        "crazyflow": {
+          "full_training_objective_calls": 1006,
+          "parameter_count": 5450,
+          "selected_step": 1000,
+          "validation_rollout_mse": 3.199436458725501e-05
+        },
+        "dart": {
+          "full_training_objective_calls": 1737,
+          "parameter_count": 5450,
+          "selected_step": 1000,
+          "validation_rollout_mse": 0.0007420608597635684
+        }
+      }
+    },
+    "qualified": true
+  },
+  "online": {
+    "manifest_sha256": "979225f0739e606a2aebbc3f5e521b0cd5378335bbab990bd9465344f4c75dba",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/online"
+  },
+  "online_summary": {
+    "accuracy": {
+      "aggregate": {
+        "body_rate_rmse_rad_s": 0.9992020906556199,
+        "orientation_rmse_rad": 0.9983680824878991,
+        "primary": 0.9999126790973459,
+        "rotation_rate": 0.9996732879342668,
+        "tail": 0.9997456777798007,
+        "velocity_rmse_m_s": 1.0006237728782204
+      },
+      "families": {
+        "fixedwing": {
+          "body_rate_rmse_rad_s": 1.0,
+          "orientation_rmse_rad": 1.0,
+          "primary": 1.0,
+          "rotation_rate": 1.0,
+          "tail": 1.0,
+          "velocity_rmse_m_s": 1.0
+        },
+        "quad": {
+          "body_rate_rmse_rad_s": 0.9984048179705618,
+          "orientation_rmse_rad": 0.9967388281305646,
+          "primary": 0.999825365819632,
+          "rotation_rate": 0.9993466826093075,
+          "tail": 0.9994914202393931,
+          "velocity_rmse_m_s": 1.0012479348490444
+        }
+      }
+    },
+    "checks": {
+      "each_family_primary_ratio_max": true,
+      "equal_family_orientation_ratio_max": true,
+      "equal_family_primary_ratio_max": true,
+      "equal_family_rate_ratio_max": true,
+      "equal_family_tail_ratio_max": true,
+      "equal_family_velocity_ratio_max": true,
+      "fixedwing_median_time_ratio_max": true,
+      "quad_median_time_ratio_max": false,
+      "quad_parameter_ratio_max": true
+    },
+    "progress": {
+      "100toend": {
+        "aggregate": {
+          "body_rate_rmse_rad_s": 1.0099982450988376,
+          "orientation_rmse_rad": 1.0037977315517175,
+          "primary": 1.0139096573085051,
+          "rotation_rate": 1.0069626938513048,
+          "tail": 1.015031963705757,
+          "velocity_rmse_m_s": 1.017836217213278
+        },
+        "families": {
+          "fixedwing": {
+            "body_rate_rmse_rad_s": 1.0,
+            "orientation_rmse_rad": 1.0,
+            "primary": 1.0,
+            "rotation_rate": 1.0,
+            "tail": 1.0,
+            "velocity_rmse_m_s": 1.0
+          },
+          "quad": {
+            "body_rate_rmse_rad_s": 1.0200964551027316,
+            "orientation_rmse_rad": 1.0076098858683737,
+            "primary": 1.0280127931834502,
+            "rotation_rate": 1.0139738668082767,
+            "tail": 1.0302898873443653,
+            "velocity_rmse_m_s": 1.0359905650710353
+          }
+        },
+        "unavailable_cases": [
+          "quad-arm-135"
+        ]
+      },
+      "25to100": {
+        "aggregate": {
+          "body_rate_rmse_rad_s": 0.9984334397022273,
+          "orientation_rmse_rad": 0.9981003365458664,
+          "primary": 0.9985351197694822,
+          "rotation_rate": 0.9967334515362577,
+          "tail": 1.0009378293230031,
+          "velocity_rmse_m_s": 0.998636810191795
+        },
+        "families": {
+          "fixedwing": {
+            "body_rate_rmse_rad_s": 1.0,
+            "orientation_rmse_rad": 1.0,
+            "primary": 1.0,
+            "rotation_rate": 1.0,
+            "tail": 1.0,
+            "velocity_rmse_m_s": 1.0
+          },
+          "quad": {
+            "body_rate_rmse_rad_s": 0.9968693335156212,
+            "orientation_rmse_rad": 0.9962042818129717,
+            "primary": 0.9970723854130542,
+            "rotation_rate": 0.9934775734113813,
+            "tail": 1.0018765381698453,
+            "velocity_rmse_m_s": 0.9972754786700431
+          }
+        },
+        "unavailable_cases": []
+      },
+      "first25": {
+        "aggregate": {
+          "body_rate_rmse_rad_s": 0.998656425033662,
+          "orientation_rmse_rad": 0.9980958776548776,
+          "primary": 0.9995035688237578,
+          "rotation_rate": 1.0010085327314613,
+          "tail": 0.9971489134913195,
+          "velocity_rmse_m_s": 1.0003514312319721
+        },
+        "families": {
+          "fixedwing": {
+            "body_rate_rmse_rad_s": 1.0,
+            "orientation_rmse_rad": 1.0,
+            "primary": 1.0,
+            "rotation_rate": 1.0,
+            "tail": 1.0,
+            "velocity_rmse_m_s": 1.0
+          },
+          "quad": {
+            "body_rate_rmse_rad_s": 0.9973146552610141,
+            "orientation_rmse_rad": 0.9961953809916605,
+            "primary": 0.9990073840914284,
+            "rotation_rate": 1.002018082601193,
+            "tail": 0.994305955676919,
+            "velocity_rmse_m_s": 1.000702985967855
+          }
+        },
+        "unavailable_cases": []
+      }
+    },
+    "timing_families": {
+      "fixedwing": {
+        "median_ratio": 1.0024638579757679,
+        "p95_ratio": 1.0104083124184482
+      },
+      "quad": {
+        "median_ratio": 1.0609723034795973,
+        "p95_ratio": 1.0639287134457118
+      }
+    }
+  },
+  "posthoc_prior_summary": {
+    "baseline_vs_pre_projection_accumulator": {
+      "aggregate": {
+        "body_rate_rmse_rad_s": 1.0470166771876694,
+        "orientation_rmse_rad": 1.0009247926377784,
+        "primary": 1.026899550446223,
+        "rotation_rate": 1.057219079784721,
+        "tail": 1.018695586578813,
+        "velocity_rmse_m_s": 1.007168949341998
+      },
+      "families": {
+        "fixedwing": {
+          "body_rate_rmse_rad_s": 1.0966517978866757,
+          "orientation_rmse_rad": 1.0029595081861638,
+          "primary": 1.0550833496756238,
+          "rotation_rate": 1.1188344819556608,
+          "tail": 1.0376569251853405,
+          "velocity_rmse_m_s": 1.015090548256019
+        },
+        "quad": {
+          "body_rate_rmse_rad_s": 0.9996280719382823,
+          "orientation_rmse_rad": 0.9988942049403473,
+          "primary": 0.9994686078885224,
+          "rotation_rate": 0.9989969031944326,
+          "tail": 1.0000807327814984,
+          "velocity_rmse_m_s": 0.9993091692770069
+        }
+      }
+    },
+    "baseline_vs_v8": {
+      "aggregate": {
+        "body_rate_rmse_rad_s": 1.0050707979644968,
+        "orientation_rmse_rad": 1.002164502137912,
+        "primary": 0.9846836446956198,
+        "rotation_rate": 1.0360466730791507,
+        "tail": 0.9643619749603312,
+        "velocity_rmse_m_s": 0.9647100304722014
+      },
+      "families": {
+        "fixedwing": {
+          "body_rate_rmse_rad_s": 1.0168998345815121,
+          "orientation_rmse_rad": 1.010455259737564,
+          "primary": 0.9722992258245174,
+          "rotation_rate": 1.0809443042868996,
+          "tail": 0.9351153495312005,
+          "velocity_rmse_m_s": 0.9296547726630373
+        },
+        "quad": {
+          "body_rate_rmse_rad_s": 0.993379362026062,
+          "orientation_rmse_rad": 0.9939417699762135,
+          "primary": 0.9972258070130823,
+          "rotation_rate": 0.9930138903007542,
+          "tail": 0.9945233165251992,
+          "velocity_rmse_m_s": 1.0010871457452355
+        }
+      }
+    },
+    "candidate_vs_pre_projection_accumulator": {
+      "aggregate": {
+        "body_rate_rmse_rad_s": 1.0461812527972196,
+        "orientation_rmse_rad": 0.9992913659403769,
+        "primary": 1.026809880650543,
+        "rotation_rate": 1.056873673555232,
+        "tail": 1.018436509655527,
+        "velocity_rmse_m_s": 1.0077971940163832
+      },
+      "families": {
+        "fixedwing": {
+          "body_rate_rmse_rad_s": 1.0966517978866757,
+          "orientation_rmse_rad": 1.0029595081861638,
+          "primary": 1.0550833496756238,
+          "rotation_rate": 1.1188344819556608,
+          "tail": 1.0376569251853405,
+          "velocity_rmse_m_s": 1.015090548256019
+        },
+        "quad": {
+          "body_rate_rmse_rad_s": 0.9980334832018044,
+          "orientation_rmse_rad": 0.9956366392586539,
+          "primary": 0.9992940665073804,
+          "rotation_rate": 0.9983442411443276,
+          "tail": 0.9995721119618328,
+          "velocity_rmse_m_s": 1.0005562420143173
+        }
+      }
+    },
+    "candidate_vs_v8": {
+      "aggregate": {
+        "body_rate_rmse_rad_s": 1.0042688425830375,
+        "orientation_rmse_rad": 1.0005290523368673,
+        "primary": 0.9845976612309363,
+        "rotation_rate": 1.0357081841303928,
+        "tail": 0.9641167162817834,
+        "velocity_rmse_m_s": 0.9653117904245571
+      },
+      "families": {
+        "fixedwing": {
+          "body_rate_rmse_rad_s": 1.0168998345815121,
+          "orientation_rmse_rad": 1.010455259737564,
+          "primary": 0.9722992258245174,
+          "rotation_rate": 1.0809443042868996,
+          "tail": 0.9351153495312005,
+          "velocity_rmse_m_s": 0.9296547726630373
+        },
+        "quad": {
+          "body_rate_rmse_rad_s": 0.9917947411193432,
+          "orientation_rmse_rad": 0.9907003550361103,
+          "primary": 0.9970516573016328,
+          "rotation_rate": 0.9923651370570213,
+          "tail": 0.9940175220949629,
+          "velocity_rmse_m_s": 1.0023364372813413
+        }
+      }
+    }
+  },
+  "protocols": [
+    "docs/harness/nonlinear-temporal-v1.json",
+    "docs/harness/nonlinear-temporal-offline-v1.json"
+  ],
+  "revisions": {
+    "manifest_sha256": "7e939cb3242b8f06713ed3263f8ec16c36d9fe42a511e0fa5651f6db5e582932",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/revisions"
+  },
+  "saved_data": {
+    "offline-authorities.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-authorities.json",
+      "sha256": "a9d04dfec8bbdc55bff08de81ca5c86e0f6e14062eea9ff5352459824b49e199"
+    },
+    "offline-fit-authorities.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-fit-authorities.json",
+      "sha256": "f1531e6c026845f6e49d133e649da0742394331c66f31e61425bf7499ea27f89"
+    },
+    "offline-replayed.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-replayed.json",
+      "sha256": "dad854b1391515961cc1d8081695c6dd52e1b9e33abf9bcdd1b57a23605cae19"
+    },
+    "offline-verified.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/offline-verified.json",
+      "sha256": "856a4e1123f1bf698cc3eb636c3283dc0c8c2cc35681d5257abf014dcca4b964"
+    },
+    "online-verified.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/online-verified.json",
+      "sha256": "2813b6a5026c047686de4c26645a1d913d75a9778d216555ad42bf52927dfa3e"
+    },
+    "prior-comparison.json": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/prior-comparison.json",
+      "sha256": "6d07e9ac4cf1f95926ef77ef25942402776114e03b492b3cd70782c90a74e00b"
+    }
+  },
+  "scope": {
+    "attempts_per_fit": 1000,
+    "backend": "CPU arm64",
+    "dart_heldout_origins": 12,
+    "exclusive_blocks_per_arm": 127,
+    "fits_per_arm": 3,
+    "flight_metric_groups_per_arm": 140,
+    "flight_query_roster": 8064,
+    "independent_calibration_qualified": false,
+    "new_controller_trials": 0,
+    "online_updates_per_arm": 3137,
+    "portable_speed_qualified": false,
+    "seed": 0
+  },
+  "source": {
+    "corrected_fixtures": "8ee5f5d",
+    "offline_baseline": "5adf72c",
+    "offline_candidate": "0827275",
+    "online_audit": "3217ce8",
+    "online_baseline": "739e95c",
+    "online_candidate": "2c79d33",
+    "prior_comparison_audit": "85ca982",
+    "protocol": "d61577d",
+    "recipe_finalization": "8df45fc"
+  },
+  "verification": {
+    "derivative_directions": 40,
+    "finalized_replay": {
+      "arrays_unchanged": true,
+      "exact": true,
+      "fits": 0,
+      "optimizer_calls": 0,
+      "replayed_arrays": 17
+    },
+    "installed_wheel_passed": 25,
+    "original_replay": {
+      "exact": true,
+      "fits": 0,
+      "models": 3,
+      "optimizer_calls": 0,
+      "replayed_arrays": 17
+    },
+    "suite": {
+      "corrected_modules_passed": 19,
+      "distinct_passed": 488,
+      "initial_run": {
+        "failed": 5,
+        "passed": 483
+      },
+      "recipe_lifecycle_passed": 6
+    },
+    "test_logs": {
+      "glassbox-nonlinear-temporal-adoption.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-adoption.log",
+        "sha256": "a084d990fff823f21f221a7a2095f97e4ec9114a823a63f1e1d74c35234afb43"
+      },
+      "glassbox-nonlinear-temporal-corrections.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-corrections.log",
+        "sha256": "04017fd8af7ca05604651d00d99304fcaaa0f847bc095d87f7afc61a0917d6e6"
+      },
+      "glassbox-nonlinear-temporal-eval-baseline.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-eval-baseline.log",
+        "sha256": "6f9ea9bc024389c94949d7989e78c233981c9d4b6c68cca0c6b5203c15fa1530"
+      },
+      "glassbox-nonlinear-temporal-eval-candidate.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-eval-candidate.log",
+        "sha256": "34b153fcc423ad86d6b9d24e5be19437202b0bb04a63e12594802b532d01bd41"
+      },
+      "glassbox-nonlinear-temporal-final-fixture-tests.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-final-fixture-tests.log",
+        "sha256": "0d12678597a47df43db01d800588d7f58902bd7cc5f04ffb5334846c0ee32fa0"
+      },
+      "glassbox-nonlinear-temporal-fit-baseline-cascade.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-fit-baseline-cascade.log",
+        "sha256": "e675b544d2f336ee263ec390a4233554387b589d865142cad95caf5154aab5f0"
+      },
+      "glassbox-nonlinear-temporal-fit-baseline-crazyflow.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-fit-baseline-crazyflow.log",
+        "sha256": "28379af44b5035eede3ce1ca0616fcac252cbebcfec56e474488148ddefd16a8"
+      },
+      "glassbox-nonlinear-temporal-fit-baseline-dart.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-fit-baseline-dart.log",
+        "sha256": "567b0fbf64203febf817ca5c11adb5c84da4bf5efab810a4774780ef22fa7ab1"
+      },
+      "glassbox-nonlinear-temporal-fit-candidate-cascade.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-fit-candidate-cascade.log",
+        "sha256": "c21274b69afc23730aaf88257d458f00366f830d4559b4a84f3cc810f15e292a"
+      },
+      "glassbox-nonlinear-temporal-fit-candidate-crazyflow.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-fit-candidate-crazyflow.log",
+        "sha256": "1b00be05307af0bcdeb7d018c4434e62b4db87a6b8dbd4186e2b5b29c3d92a2e"
+      },
+      "glassbox-nonlinear-temporal-fit-candidate-dart.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-fit-candidate-dart.log",
+        "sha256": "c5f9e2dbdd4a8805ab3a55fed129385b13b74f9c671ac9edbc973f253646c19e"
+      },
+      "glassbox-nonlinear-temporal-full-tests.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-full-tests.log",
+        "sha256": "b259756baa71253e5cf4ff6b590b7608bce2119686d307546fdaea19c30e366d"
+      },
+      "glassbox-nonlinear-temporal-lifecycle.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-lifecycle.log",
+        "sha256": "9ac0567e6f87bcf1c02252efce1845256e5a4ea1c84c017211fb8fbb29b2d0b4"
+      },
+      "glassbox-nonlinear-temporal-pair.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-pair.log",
+        "sha256": "ea8b32c60dcdfc73338f35cdda1b178c54a4bb18df40f2a414fd2aa07175d6fd"
+      },
+      "glassbox-nonlinear-temporal-recipe-tests.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-recipe-tests.log",
+        "sha256": "9f546366c5cfa0045b4cf9633e31d354ae7086ff4b79671fa4bf85e63e5da4c6"
+      },
+      "glassbox-nonlinear-temporal-tests.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-nonlinear-temporal-tests.log",
+        "sha256": "a646fa052df8a69860e35704be9c7d4663489fa4b20eb9eb829148e3156ec271"
+      },
+      "glassbox-temporal-build.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-temporal-build.log",
+        "sha256": "7ce6acf0204572e3386c0bf6485dddb7e84607f7b9cfc835fdaaeda4320da83c"
+      },
+      "glassbox-temporal-final-offline-verification.json": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-temporal-final-offline-verification.json",
+        "sha256": "0564f6a9c8b3b2729e8e246f4ca84d447496f24db81f4b426965df6bc3a80dc6"
+      },
+      "glassbox-temporal-runner-help.txt": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-temporal-runner-help.txt",
+        "sha256": "b5b4046e2793578d5ea41bfa3d0cbe05894b7ed74480eb4a1d8d589c9f64b5fe"
+      },
+      "glassbox-temporal-wheel-tests-final.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-temporal-wheel-tests-final.log",
+        "sha256": "f8b29f635957df8b57446f512694c907e18babf66948a73599465b68b5384dcc"
+      },
+      "glassbox-temporal-wheel-tests.log": {
+        "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests/glassbox-temporal-wheel-tests.log",
+        "sha256": "c5aee414896d5b299a0ce4b1c814c17052e9cb369f686db1f90b921bc588a96f"
+      }
+    },
+    "test_pack": {
+      "manifest_sha256": "b4604de899ab2ae4cc671265577314f4eab6316b8d89469512a5138cde6704f1",
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/nonlinear-temporal-v1/tests"
+    }
+  }
+}

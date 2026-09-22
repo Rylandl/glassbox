@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Compress temporal inputs only to the nonlinear acceleration head. Preserve the
+full linear lag path and stable accumulators; reduce the four-command / 10 ms
+model from 8,714 to 5,450 parameters. Matched tests improve command-response and
+Dart forecast error with a modest forecast/runtime cost. This is not a speed
+improvement. Model/session formats change; no alternate model option is retained.
+See [the comparison](docs/nonlinear-temporal.md) for all results and the correction
+to earlier full-stream accuracy claims.
+
 Reuse the centered history projection across acceleration integration stages.
 Model capacity, saved accumulator archives and fitting settings remain unchanged.
 Whole-update snapshot medians improve 19.17% for quads and 4.85% for fixed wings;

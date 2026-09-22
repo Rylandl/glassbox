@@ -1,136 +1,99 @@
-# Network structure after the accumulator
+# Network structure after temporal compression
 
-The next priority is architectural efficiency: preserve useful dynamics with
-fewer independent coefficients and less arithmetic, and measure how much fitting
-work achieves a given accuracy. The user prefers this to prioritizing additional
-parallelization. Parameter count alone was a poor predictor of update cost: replacing
-recurrent memory removed only 14.0% of quad parameters but reduced median online
-update time by 47.6%. The same change improved equal-family online prediction
-error by 4.1% on the six known streams.
+The user prioritizes architectural improvements that can carry across hardware.
+We now have two completed changes: stable accumulators and compact nonlinear
+history. The first greatly reduced online cost; the second reduced parameter
+count with useful offline accuracy tradeoffs but **did not improve CPU speed**.
+Parameter count is an explanation of model size, not a proxy for complete update
+cost or learning efficiency.
 
-This is a source and parameter inventory, not a fresh component timing profile.
-The old v8 profile cannot identify the accumulator's remaining runtime shares.
-The paired whole-update measurements remain the authority for its actual speed.
-
-## What the model spends parameters on
-
-Counts come from the authenticated initial accumulator sessions in
-`artifacts/accumulator-migration-v1/online/candidate`. They depend on command count
-and sample interval, not vehicle-family dispatch.
+## Current parameter inventory
 
 | Component | 4 commands, 10 ms samples | 3 commands, 50 ms samples |
 | --- | ---: | ---: |
-| Dense projection into 32 nonlinear units | 6,240 | 1,696 |
-| Linear acceleration head | 1,170 | 318 |
+| Projection into 32 nonlinear units | 2,976 | 1,696 |
+| Full linear acceleration head | 1,170 | 318 |
 | Quadratic current-feature head | 918 | 720 |
 | Nonlinear output projection | 192 | 192 |
 | Accumulator input projection | 136 | 120 |
 | Biases and learned time constants | 58 | 57 |
-| Total | **8,714** | **3,103** |
+| Total | **5,450** | **3,103** |
 
-Each current feature vector contains body velocity, angular velocity, gravity
-direction, issued commands and filtered commands: `C = 9 + 2U`. The acceleration
-head also receives every sampled difference over the preceding 100 ms and eight
-accumulator values. Its input size is `(D + 1)C + 8`, where `D` is the number of
-100 ms delay samples. The model learns acceleration; shared gravity, rotations
-and integration turn that into future motion.
+Current features contain body velocity, angular velocity, gravity direction,
+issued commands and filtered commands: `C = 9 + 2U`. The linear head retains
+all preceding 100 ms lag differences and eight accumulators: `(D+1)C + 8`
+features. Only the nonlinear head uses `(min(4,D)+1)C + 8` features. Histories
+of four samples or fewer retain their coordinates; longer histories use fixed
+orthonormal constant-through-cubic temporal summaries. There is one formulation,
+with dimensions determined by input count and timing.
 
-## Recommended order
+The learned acceleration passes through shared gravity, rotations and integration
+to predict motion. Arbitrary linear lag response is retained. Nonlinear access
+to temporal components outside the four-dimensional basis is the explicit
+capacity cost. Finite-window polynomial projection is not a learned recurrence
+or a claim that generic history can always be represented in four coordinates.
 
-**Completed: reuse the unchanged history projection across integration stages.**
-The linear and nonlinear input heads repeatedly multiply the concatenation of
-current features, `past - current`, and memory. Algebraically this is
+## What the experiments actually establish
 
-```
-current @ (W_current - sum(W_lags))
-    + sum(past_lag @ W_lag)
-    + memory @ W_memory
-```
+The [accumulator migration](accumulator-migration.md) removed nonlinear recurrence
+from observed-history processing. It removed 14.0% of quad parameters and reduced
+median complete updates by 47.6% on its paired CPU benchmark. Its 4.11% online
+accuracy gain belongs to that pre-projection source.
 
-with normalization folded into each weight block. The implementation uses the
-equivalent centered expression `projection_at_start + (current - start) @
-effective_current_weight` to preserve small lag differences. It retains every
-lag, parameter and representable function. The [focused comparison](history-projection-reuse.md)
-measured **19.17% lower quad** and **4.85% lower fixed-wing** whole-update medians.
-All saved-model prediction/derivative comparisons pass. Small post-update
-differences exceed strict tolerances, and one latency tail worsens; both remain
-reported. The practical gain justified adoption.
+The [projection reuse](history-projection-reuse.md) then centered and reused the
+fixed history projection across integration stages. Whole-update snapshot medians
+fell 19.17% for quads and 4.85% for fixed wings. It retains the function class,
+but later full-stream evidence shows 2.69% higher aggregate error than the
+pre-projection accumulator, largely one fixed-wing case. Snapshot numerical
+closeness did not imply identical long online learning trajectories.
 
-**Next: compress only the nonlinear head's temporal inputs.**
-The nonlinear input projection accounts for 6,240 of the quad's 8,714 parameters.
-Test a compact temporal representation there while retaining all explicit lag
-inputs in the linear acceleration path. Keep the quadratic current-feature head,
-32 nonlinear units, eight accumulators and shared physical mechanics unchanged.
-This preserves arbitrary linear delayed response; nonlinear interactions among
-discarded temporal components are the explicit capacity tradeoff.
+The [temporal comparison](nonlinear-temporal.md) removes 37.46% more quad
+parameters while preserving aggregate online accuracy against the current full
+model. Crazyflow command responses improve 4.31%, its forecasts worsen 4.20%,
+and Dart 250 ms forecasts improve 14.99%. Fixed-wing two-lag predictions and
+fitted arrays match exactly. Updates are 6.10% slower: roughly 31.9 → 33.9 ms.
+Separate projections and their derivative work cost time despite fewer weights;
+we have not isolated their share with a new component profile. The complete
+measurement, rather than a guessed bottleneck, determines the speed claim.
 
-The proposed first candidate uses `R = min(4, D)` fixed orthonormal summaries of
-the 100 ms lag differences, shared across feature channels. For more than four
-lags, constant through cubic temporal components are a concrete starting point;
-for four or fewer, keep the original coordinates. Four is an engineering
-hypothesis to test, not a known optimal memory dimension. The basis and its
-normalization must be fixed before fitting. This is a finite-window projection,
-not a new learned recurrence or an implementation of HiPPO. [HiPPO](https://arxiv.org/abs/2008.07669)
-provides related motivation for polynomial history compression; its theoretical
-and empirical results do not establish this candidate's flight performance.
+Both online models use one proposal and 16 CG iterations per observation.
+The compact model's quad error after 100 updates is 2.80% higher. Offline
+work-to-accuracy is mixed too. We adopted the compact architecture for size and
+physical response/Dart accuracy, not faster fitting or a universal improvement.
+Initialization preserved original draw scales, physical coefficients and initial
+predictions; compact normalizers have explicit compensation. The result does
+not repeat the earlier initialization-strength error.
 
-For four commands and ten lags, the nonlinear input width becomes
-`17 + 4*17 + 8 = 93`, down from 195. Its input weights fall from 6,240 to 2,976;
-total learned parameters would fall **8,714 → 5,450 (37.46%)**. Forming the temporal
-summaries costs arithmetic too: a dense count gives 680 multiplications for the
-projection plus 2,176 for its nonlinear lag weights, versus 5,440 for the current
-nonlinear lag projection. These are local operation counts, not whole-update
-speed predictions. The three-command / two-lag configuration retains its input
-dimension and 3,103 parameters. Dimensions follow sample interval, not family.
+## Next: conditioning at the fixed update budget
 
-The old rank-two experiment compressed the linear, nonlinear and recurrent-memory
-heads together and learned an unconstrained basis. It improved aggregate error
-but lost angular accuracy and did not establish faster updates. It neither proves
-that all compression fails nor isolates nonlinear history capacity. This narrower
-candidate retains the linear path and accumulator architecture, uses more temporal
-components where available, and avoids a freely learned basis/head rescaling
-ambiguity. Those distinctions motivate the experiment; they do not guarantee it.
+The named next gap is **accuracy achieved by the bounded online solver**. Earlier
+64-PCG experiments reduced fixed-wing angular error by roughly 56–58% relative
+to 16 iterations for both architectures. Full-stream sensitivity to small
+rounding changes reinforces this concern. The current preconditioner captures
+damping and the explicit prior diagonal, but not forecast-Jacobian correlations.
+That is stronger evidence than assuming the network still needs fewer weights.
 
-Control initialization and normalization explicitly. Keep the original full linear
-and quadratic ridge initializer and current/memory projection scales; reducing a
-matrix dimension must not strengthen random initialization again. Define temporal
-summaries before their own normalization, with separate compensation for linear
-and nonlinear input scales. Per-lag scaling cannot in general be pushed through
-a truncated temporal projection. Preserve the same initial physical prediction
-where possible and report any changed latent activation statistics. No fitting
-or model implementation has been run for this proposal.
+First inspect residual convergence and parameter-block correlations at saved
+quad and fixed-wing states. Then freeze one feature-Gram or block preconditioner
+candidate, retaining the 16-iteration budget and generic model. Its construction,
+factorization and derivative work count in the whole update. Verify prediction
+and command-response accuracy over complete causal streams, alongside solver
+residuals; lowering a numerical residual is not by itself physical improvement.
 
-Freeze matched data, fitting budgets and aggregate weights before implementation.
-Measure causal online error, held-out forecast and command-response errors, and
-full update cost. Include model size, arithmetic and derivative work as explanations
-for portability; measure learning progress against observations and solver work
-so a slower or harder fit cannot masquerade as efficiency. Use existing quad and
-fixed-wing evidence and report its known-configuration limits. A hardware-portability
-claim ultimately needs measurements on another backend. Keep frozen losses visible
-and make an overall adoption decision; broad controller reruns should answer a
-specific remaining question rather than follow every minor regression.
+This changes optimizer structure, not the model's vehicle scope. If correlations
+instead identify a useful generic parameterization change, freeze it separately
+rather than mixing interventions. Do not launch another width/rank sweep or
+spend extra iterations and call it efficiency. A practical improvement must earn
+its arithmetic cost on complete updates; portability requires another backend.
 
-**Secondary execution opportunity: parallelize the observed command filter.**
-Its history still uses a sequential scan, although it is a linear exponential
-filter with fixed coefficients during each prediction. A stable parallel prefix
-or convolution can produce all filtered history values while retaining gradients
-through the learned time constants. Preserve its real first-command initial
-condition and small/large-time-constant behavior. This is another way to remove
-sequential work without discarding information or adding a user option.
+## Secondary opportunities
 
-**Separate accuracy opportunity: improve solver conditioning.**
-The earlier controlled experiment showed that 64 PCG iterations reduced
-fixed-wing angular error by roughly 56–58% relative to 16 for both architectures.
-The current preconditioner contains damping and the explicit prior diagonal; it
-does not capture the forecast Jacobian's correlations. Adjacent lag features are
-also likely correlated. A measured block or feature-Gram preconditioner is a
-better-motivated next accuracy experiment than blindly widening or narrowing the
-network. Its construction cost must count in the entire update.
+The observed command filter is a linear exponential recurrence. A stable parallel
+prefix or convolution could remove sequential history work while retaining its
+initial condition and gradients through learned time constants. This is a useful
+execution optimization, secondary to the user's current architectural priority.
 
-## Keep the decision small
-
-Work on one hypothesis at a time. The completed projection reuse was algebraic;
-saved-revision comparisons were sufficient for that scope. Nonlinear history
-compression changes the function class and needs matched learning experiments.
-Keep improvements only when their practical benefit outweighs complexity; an
-isolated benchmark loss is evidence to interpret, not an automatic veto.
+Reproducing the old refined offline fit, improving long-horizon accuracy,
+independent calibration and live recovery are separate gaps. Keep one iteration
+focused and retain losses alongside gains; neither a small regression nor a
+smaller parameter count decides adoption by itself.
