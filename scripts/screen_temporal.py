@@ -30,6 +30,21 @@ CHANGED = {
 }
 
 
+def learning_phases(data, info, reference):
+    result = {}
+    for label, sl in (
+        ("first25", slice(0, 25)),
+        ("25to100", slice(25, 100)),
+        ("100toend", slice(100, None)),
+    ):
+        result[label] = (
+            summarize({k: v[sl] for k, v in data.items()}, info, reference[sl])
+            if len(reference[sl])
+            else None
+        )
+    return result
+
+
 def initial_activation(model, batch):
     import jax
     import jax.numpy as jnp
@@ -385,18 +400,10 @@ def verify(output, authority):
                 / baseline_scores["update"]["warm_p95_s"],
             )
         )
-        for label, sl in (
-            ("first25", slice(0, 25)),
-            ("25to100", slice(25, 100)),
-            ("100toend", slice(100, None)),
-        ):
-            progress.setdefault(label, []).append(
-                summarize(
-                    {k: v[sl] for k, v in runs["candidate"].items()},
-                    info,
-                    runs["baseline"]["prediction"][sl],
-                )
-            )
+        for label, score in learning_phases(
+            runs["candidate"], info, runs["baseline"]["prediction"]
+        ).items():
+            progress.setdefault(label, {})[name] = score
     require(
         sum(c["count"] for c in cases) == spec["online"]["rows"], "incomplete roster"
     )
@@ -444,11 +451,18 @@ def verify(output, authority):
         initialization=initialization,
         mean_work_per_observation=work,
         progress={
-            label: {
-                k: v
-                for k, v in aggregate(rows).items()
-                if k in ("cases", "families", "aggregate")
-            }
+            label: dict(
+                unavailable_cases=[
+                    name for name, score in rows.items() if score is None
+                ],
+                **{
+                    k: v
+                    for k, v in aggregate(
+                        [score for score in rows.values() if score is not None]
+                    ).items()
+                    if k in ("cases", "families", "aggregate")
+                },
+            )
             for label, rows in progress.items()
         },
         checks=checks,
@@ -482,6 +496,8 @@ def main():
             if args.mode == "pair"
             else verify(args.output, args.manifest_sha256)
         )
+        if args.mode == "verify":
+            write(args.output.parent / (args.output.name + "-verified.json"), result)
         print(
             json.dumps(
                 {
