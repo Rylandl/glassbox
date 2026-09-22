@@ -1,0 +1,15 @@
+{
+  "id": "readout-physical-so3-attribution-v1",
+  "gap": "Check whether the improved realized fixed-wing forecasts also reduce the complete learned attitude-to-rate recurrence toward the previously verified Cascade plant response.",
+  "sources": {
+    "candidate": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-physical-so3-v1/evaluation", "manifest_sha256": "ca3852b87698a14b1f2baf1ec88bedecc4e17dd12210c2594efd7511e10da57b"},
+    "plant": {"path": "/Users/ryland/autonomy/glassbox/artifacts/readout-attribution-truth-v1", "manifest_sha256": "30f8112609995cfdbe1a76391601ba8b8385c97454c3f829aa05024acdb29114"},
+    "recordings": {"path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation", "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"}
+  },
+  "cases": ["fixedwing-80", "fixedwing-81"],
+  "roster": "All 14 saved conditional origins and five recorded states/commands per origin. At each origin, load the new candidate's last causally updated readout, or the prefix model at the initial origin; do not fit. Use that one fixed readout for all five steps. Reconstruct history/filter/memory from the actual recorded past at each measured state. Differentiate physical right SO(3) attitude perturbation with world velocity, body rate, commands and latent history held fixed.",
+  "measurement": "Use the maintained physical rollout, not only the instantaneous head. Save the full 3x3 attitude-to-body-rate Jacobian after each individual 50 ms step from each measured state, and after a five-command 250 ms free rollout from each origin. Compare each matrix with the authenticated Cascade one-step and five-step matrices in the same physical tangent coordinates. Report median local Frobenius norm and mismatch, median 250 ms largest singular value and mismatch, and per-origin gains. Also preserve candidate absolute physical 250 ms rate RMSE; local derivative agreement does not substitute for forecast accuracy.",
+  "checks": "Authenticate source packs, require exact origin rows and all finite matrices; check JAX derivatives against centered physical finite differences at the first and middle origin to relative error <=0.0001. Save every matrix and all summary inputs; verify summaries from saved arrays without any fitting, model call or simulator call. Do not alter or rerun the candidate fit.",
+  "budget": {"fits": 0, "updates": 0, "maximum_wall_s": 180},
+  "interpretation": "The plant replay already passed its own truth gate. This is a local and 250 ms physical tangent check on one fixed-wing airframe, not a global stability proof or a held-out-vehicle test. A smaller derivative norm need not mean better directional agreement."
+}
