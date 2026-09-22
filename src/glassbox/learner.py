@@ -32,7 +32,7 @@ STATE_CHANNELS = (
     ),
 )
 RECIPE = {
-    "id": "shared-vehicle-supported-motion-v1",
+    "id": "shared-vehicle-accumulator-v1",
     "context_s": 0.5,
     "delay_s": 0.1,
     "horizon_s": 0.25,
@@ -42,6 +42,9 @@ RECIPE = {
     "steps": 1000,
     "width": 32,
     "memory": 8,
+    "memory_dynamics": "stable_nonlinear_driven_accumulators",
+    "memory_projection_initial_scale": "inverse_sqrt_full_head_feature_count",
+    "memory_initial_time_range_s": [0.01, 0.5],
     "learning_rate": 0.002,
     "ridge_fraction": 0.01,
     "seed": 0,
@@ -51,7 +54,7 @@ RECIPE = {
     "objective": "fixed_initial_training_channel_balance",
     "fitter_wall_time_limit_s": 7200,
 }
-_FORMAT = "glassbox-supported-dynamics-v1"
+_FORMAT = "glassbox-accumulator-dynamics-v1"
 _ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
 
 

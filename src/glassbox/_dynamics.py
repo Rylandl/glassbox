@@ -25,8 +25,8 @@ from glassbox._training import (
     trial_parameters,
 )
 
-FORMAT = "glassbox-shared-vehicle-sequence-supported-motion-v1"
-RECIPE_ID = "shared-vehicle-supported-motion-v1"
+FORMAT = "glassbox-shared-vehicle-sequence-accumulator-v1"
+RECIPE_ID = "shared-vehicle-accumulator-v1"
 GRAVITY = (0.0, 0.0, -9.80665)
 MAX_SUBSTEP_S = 0.025
 STEPS = 1000
@@ -44,6 +44,7 @@ _PARAMETERS = {
     "memory",
     "memory_bias",
     "raw_tau",
+    "raw_memory_tau",
 }
 _NORMS = {
     "body_mean",
@@ -89,6 +90,34 @@ def rotation_exp(vector):
 
 def time_constants(params):
     return 0.001 + jax.nn.softplus(params["raw_tau"])
+
+
+def memory_time_constants(params):
+    return 0.001 + jax.nn.softplus(params["raw_memory_tau"])
+
+
+def memory_drive(params, norms, features):
+    current = params["memory"].shape[0]
+    return jnp.tanh(
+        (features / norms["feature_scale"][:current]) @ params["memory"]
+        + params["memory_bias"]
+    )
+
+
+def memory_step(params, norms, features, hidden, dt_s):
+    """Exact constant-drive step of stable, bounded latent accumulators."""
+    exponent = -dt_s / memory_time_constants(params)
+    return jnp.exp(exponent) * hidden - jnp.expm1(exponent) * memory_drive(
+        params, norms, features
+    )
+
+
+def accumulated_memory(params, norms, features, dt_s):
+    """Zero-initial-state history reduction, without a sequential hidden scan."""
+    exponent = -dt_s / memory_time_constants(params)
+    ages = jnp.arange(features.shape[1] - 1, -1, -1, dtype=features.dtype)
+    weights = -jnp.expm1(exponent) * jnp.exp(ages[:, None] * exponent)
+    return jnp.einsum("tm,btm->bm", weights, memory_drive(params, norms, features))
 
 
 def _body_features(states, xp=jnp):
@@ -156,9 +185,7 @@ def physical_step(params, norms, states, commands, filtered, history, hidden, dt
     duration = dt_s / count
     tau = time_constants(params)
     gravity = jnp.asarray(GRAVITY, dtype=states.dtype)
-    _, start_features, start_z = _head(
-        params, norms, states, commands, filtered, history, hidden
-    )
+    start_features = current_features(states, commands, filtered, norms)
 
     def substep(_, carry):
         state, applied = carry
@@ -190,7 +217,7 @@ def physical_step(params, norms, states, commands, filtered, history, hidden, dt
         return state_next, applied_next
 
     state, applied = jax.lax.fori_loop(0, count, substep, (states, filtered))
-    hidden_next = jnp.tanh(start_z @ params["memory"] + params["memory_bias"])
+    hidden_next = memory_step(params, norms, start_features, hidden, dt_s)
     history_next = jnp.concatenate((history[:, 1:], start_features[:, None]), axis=1)
     return state, applied, history_next, hidden_next
 
@@ -205,16 +232,7 @@ def _history(params, norms, past, past_inputs, delay, dt_s):
         filter_step, past_inputs[:, 0], past_inputs.swapaxes(0, 1)
     )
     b = current_features(past[:, :-1], past_inputs, preceding.swapaxes(0, 1), norms)
-    hidden = jnp.zeros((len(past), params["memory"].shape[1]), dtype=past.dtype)
-    context = past_inputs.shape[1]
-    histories = jnp.stack([b[:, j - delay : j] for j in range(delay, context)])
-
-    def remember(memory, values):
-        current, previous = values
-        z = sampled_features(current, previous, memory) / norms["feature_scale"]
-        return jnp.tanh(z @ params["memory"] + params["memory_bias"]), None
-
-    hidden, _ = jax.lax.scan(remember, hidden, (b[:, delay:].swapaxes(0, 1), histories))
+    hidden = accumulated_memory(params, norms, b[:, delay:], dt_s)
     return applied, b[:, -delay:], hidden
 
 
@@ -283,9 +301,10 @@ class VehicleSequenceModel:
             w1=(feature, width),
             b1=(width,),
             w2=(width, 6),
-            memory=(feature, memory),
+            memory=(current, memory),
             memory_bias=(memory,),
             raw_tau=(m,),
+            raw_memory_tau=(memory,),
         )
         ns = dict(
             body_mean=(9,),
@@ -478,9 +497,10 @@ def initialize(train):
         w1=rng.normal(size=(f, width)) / np.sqrt(f),
         b1=np.zeros(width),
         w2=np.zeros((width, 6)),
-        memory=rng.normal(size=(f, memory)) / np.sqrt(f),
+        memory=rng.normal(size=(9 + 2 * m, memory)) / np.sqrt(f),
         memory_bias=np.zeros(memory),
         raw_tau=np.full(m, np.log(np.expm1(0.049))),
+        raw_memory_tau=np.log(np.expm1(np.geomspace(0.01, 0.5, memory) - 0.001)),
     )
     return VehicleSequenceModel(train.dt_s, context, delay, params, norms)
 

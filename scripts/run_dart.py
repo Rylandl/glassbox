@@ -123,6 +123,18 @@ def shift_seed(plan, steps=3):
     return np.concatenate((plan[steps:], np.repeat(plan[-1:], steps, axis=0)))
 
 
+def selected_model(baseline, protocol):
+    if "model" not in protocol:
+        return baseline / "models/dart.npz"
+    choice = protocol["model"]
+    path = Path(choice["path"])
+    require(
+        path.is_absolute() and digest(path) == choice["sha256"],
+        "frozen model identity differs",
+    )
+    return path
+
+
 def bind(baseline, dart, protocol, output):
     p, spec = read(protocol), read(baseline / "dart/spec.json")
     verify_integrity(baseline, p["baseline_manifest_sha256"])
@@ -187,7 +199,8 @@ def bind(baseline, dart, protocol, output):
         source_sha256=source,
         protocol_sha256=digest(protocol),
         baseline_manifest_sha256=p["baseline_manifest_sha256"],
-        model_sha256=digest(baseline / "models/dart.npz"),
+        model_sha256=digest(selected_model(baseline, p)),
+        model_path=str(selected_model(baseline, p)),
         runtime=spec["runtime"],
         dart_source_sha256=sources,
         simulator_files=p["simulator_files"],
@@ -286,7 +299,7 @@ def _run(baseline, dart, output, protocol):
         baseline, dart, protocol, output
     )
     model, plant = (
-        LearnedDynamics.load(baseline / "models/dart.npz"),
+        LearnedDynamics.load(selected_model(baseline, p)),
         plants.CrazyflowPlant(**p["plant"]),
     )
     target = mission.Target(**p["target"])
@@ -516,7 +529,7 @@ def main():
     parser.add_argument(
         "--protocol",
         type=Path,
-        default=ROOT / "docs/harness/dart-lateral-precision-v1.json",
+        default=ROOT / "docs/harness/accumulator-dart-qualification-v1.json",
     )
     args = parser.parse_args()
     result = run(

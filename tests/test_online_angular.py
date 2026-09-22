@@ -27,9 +27,10 @@ def model_fixture(*, active):
         w1=(feature, width),
         b1=(width,),
         w2=(width, 6),
-        memory=(feature, memory),
+        memory=(current, memory),
         memory_bias=(memory,),
         raw_tau=(channels,),
+        raw_memory_tau=(memory,),
     )
     params = {
         name: rng.normal(0, 0.08, shape) if active else np.zeros(shape)

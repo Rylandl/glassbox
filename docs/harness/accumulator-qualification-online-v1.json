@@ -1,0 +1,51 @@
+{
+  "id": "accumulator-qualification-online-v1",
+  "gap": "Qualify accumulator with corrected initial projection scale for migration.",
+  "parent": {
+    "source_commit": "8cf2dd2",
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+    "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340",
+    "package_hashes_from": "docs/harness/online-cost-profile-v1.json"
+  },
+  "candidate": {
+    "change": "Retain every explicit lag input and replace only the eight-dimensional nonlinear memory recurrence with eight stable accumulators driven by nonlinear current-feature projections. drive_t=tanh((b_t/feature_scale[:C])@memory+memory_bias); a=exp(-dt/tau_memory); hidden_next=a*hidden+(1-a)*drive_t.",
+    "times": "tau_memory=.001+softplus(raw_memory_tau), initialized geometrically from .01 to .5 seconds in eight coordinates, identical across configurations. All projection, bias and time constants are learned. This is an engineering range, not measured or simulator-specified timescales.",
+    "history": "Hidden starts zero at the same delayed-history boundary as v8. For P observed command intervals and D delay rows, hidden_P=sum_{j=D}^{P-1} [-expm1(-dt/tau)]*exp(-(P-1-j)*dt/tau)*drive_j. Batched projection and weighted reduction replace the nonlinear scan. No cached learned hidden state survives parameter updates. Forecast hidden advances once from each sample-start feature and stays fixed across physical substeps, as before.",
+    "conditioning": "Existing measured RMS feature/quadratic/output normalization and all head compensations remain. The memory projection now has C rows and is compensated only by the current-feature scale ratio. Hidden remains bounded by one. Its normalization stays one; raw_memory_tau is unchanged by coordinate compensation.",
+    "dimensions": "C=9+2*M, feature=(D+1)*C+8, width32. Memory projection changes feature*8 to C*8 and adds eight time parameters. Quad M4,D10:8714 parameters; fixed-wing M3,D2:3103. No platform branch or user settings.",
+    "unchanged": "Full explicit lag representation, 500ms observed context, 100ms delay span, command filter, supported features, gravity and rigid-body mechanics, 32-unit nonlinear head, eight latent coordinates, prefix-only ridge initialization, cache selection, loss, prior, conditioning, sixteen PCG steps, trust radius and backtracking.",
+    "limits": "The recurrence class changes: nonlinear feedback among hidden coordinates is removed. Learned leaky responses need not represent sharp transport delays, though explicit lag heads remain. Compactness does not itself establish speed, accuracy, or arbitrary-system capability.",
+    "initialization": "Memory projection remains C by 8 but draws are divided by sqrt(feature), the original full acceleration-head feature count, rather than sqrt(C). This matches exactly the current rows of the original v8 memory initialization for every command count and sample interval. No new branch, fitted setting, budget change, or platform input."
+  },
+  "cases": [
+    "quad-arm-115",
+    "quad-arm-125",
+    "quad-arm-135",
+    "quad-change",
+    "fixedwing-80",
+    "fixedwing-81"
+  ],
+  "measurement": {
+    "paired": "Two persistent worker processes, baseline and candidate; both start paused. Coordinator grants exactly one worker permission to compute and waits until it pauses or exits before granting the other. Alternate baseline then candidate in blocks of25consecutive updates throughout all3137rows. All initialization, compilation, checkpoint and verification work also occurs under an exclusive grant. Save monotonic grant intervals and validate no overlap and identical block roster.",
+    "baseline": "All15package files byte-identical to adopted v8. Load the authenticated original initial session and reproduce every original prediction, post-update fingerprint and report exactly. No baseline retuning or new initialization.",
+    "candidate": "Initialize once per case from the identical original visible prefix; fit only the candidate architecture. Different initial parameters are expected. Score each target before exposing/assimilating it once. Retain all3137rows and all six cases, including floor truncation. No overlap with tests or other fitting.",
+    "timers": "Synchronized public prediction and complete observe plus public immutable model snapshot. Exclude source loading, prediction from update, journal, checkpoint and pause. Report first update per case separately; warm median,p95,max exclude only that first. No deletion of outliers. Initialization/load and actual trial counts remain visible.",
+    "runtime": "Same CPU/arm64 JAX runtime and performance environment for both arms, matching adopted v8 binding. No compiler, BLAS, precision, solver effort or thread setting changes. Ambientfloat32, explicitfloat64 fitting.",
+    "accuracy": "Primary: adopted v8 predictions on the same tapes, not startup-only predictions. Equal cases within family, equal velocity/rate weights and equal family weights in geometric ratios, denominator floor1e-9. Report velocity and rate separately, orientation, worst-decile errors, rotation/rate defect, all per-case regressions and absolute units."
+  },
+  "gates": {
+    "all_six_complete_finite_and_baseline_exact": true,
+    "equal_family_primary_ratio_max": 1.01,
+    "each_family_primary_ratio_max": 1.02,
+    "equal_family_velocity_ratio_max": 1.02,
+    "equal_family_rate_ratio_max": 1.02,
+    "equal_family_tail_ratio_max": 1.02,
+    "equal_family_orientation_ratio_max": 1.02,
+    "equal_family_rotation_rate_ratio_max": 1.02,
+    "quad_geometric_mean_case_warm_median_time_ratio_max": 0.75,
+    "quad_geometric_mean_case_warm_p95_time_ratio_max": 0.75,
+    "fixedwing_geometric_mean_case_warm_p95_time_ratio_max": 1.1
+  },
+  "decision": "Retain every frozen accuracy and speed check as a diagnostic, with unchanged limits. A pass permits offline forecast/response and Dart qualification. A failure triggers causal diagnosis and explicit report, not automatic dismissal of the architecture or alteration of this result. User has requested completion of qualification and migration, prioritizing generality and practical tradeoffs; no automatic adoption claim from online results alone. Subsequent offline/consumer harnesses will be frozen before those runs. Maintained implementation is replaced only after complete evidence is reviewed.",
+  "verification": "Commit protocol before implementation, complete scientific source before real model calls. First pass analytic closed-form-versus-sequential accumulator values/JVP/VJP, stable limiting behavior, generic input dimensions, exact split-step constant-drive semigroup, full-model conditioning compensation, physical and causal invariants and save/resume. Seal both workers, common source/runtime binding, initial/final sessions, every prediction/truth/timing and causal journal, block intervals and paired summary. Verify saved data without model/optimizer calls. Every failure remains retained; no threshold relaxation."
+}

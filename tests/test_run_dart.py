@@ -190,3 +190,20 @@ def test_array_comparison_retains_shape_dtype_and_numeric_differences():
     assert trial.array_comparison(value, value)["exact"]
     assert not trial.array_comparison(value, value.astype(np.float64))["exact"]
     assert trial.array_comparison(value + 0.5, value)["max_abs_difference"] == 0.5
+
+
+def test_model_binding_rejects_changed_or_relative_revision(tmp_path):
+    model = tmp_path / "revision.npz"
+    model.write_bytes(b"frozen model")
+    protocol = {"model": {"path": str(model), "sha256": trial.digest(model)}}
+    assert trial.selected_model(tmp_path, protocol) == model
+    model.write_bytes(b"different model")
+    with pytest.raises(ValueError, match="frozen model identity"):
+        trial.selected_model(tmp_path, protocol)
+    protocol["model"]["path"] = "revision.npz"
+    with pytest.raises(ValueError, match="frozen model identity"):
+        trial.selected_model(tmp_path, protocol)
+
+
+def test_historical_protocol_selects_its_original_revision(tmp_path):
+    assert trial.selected_model(tmp_path, {}) == tmp_path / "models/dart.npz"

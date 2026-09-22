@@ -199,9 +199,10 @@ def analytic_model(dt, *, varying_heads):
         w1=(feature, width),
         b1=(width,),
         w2=(width, 6),
-        memory=(feature, memory),
+        memory=(current, memory),
         memory_bias=(memory,),
         raw_tau=(commands,),
+        raw_memory_tau=(memory,),
     )
     params = {
         name: rng.normal(0, 0.003, shape) if varying_heads else np.zeros(shape)
