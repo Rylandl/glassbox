@@ -1,0 +1,21 @@
+{
+  "id": "readout-attitude-paths-v1",
+  "gap": "Separate the frozen readout's body-relative velocity and gravity-direction contributions to its excessive attitude-to-angular-acceleration derivative.",
+  "sources": {
+    "evaluation": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/readout-sensitivity-v1/evaluation",
+      "manifest_sha256": "fa60c00844222c05b6102f4fdd4652c3a878e76c392131505969ed3d7f8b2781"
+    },
+    "tapes": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+      "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"
+    }
+  },
+  "cases": ["fixedwing-80", "fixedwing-81"],
+  "arms": ["curvature", "candidate"],
+  "roster": "All 14 saved conditional origins and five measured states per origin, readout fixed at each origin; no refitting or altered forecast.",
+  "measurement": "At each measured state, differentiate the six-output acceleration head through current features with frozen lag, command filter and memory. Decompose its angular output derivative under a right SO(3) state perturbation by the exact chain rule: supported normalized body-relative velocity contribution plus normalized body-gravity-direction contribution. Rate and issued/applied command features are attitude-invariant in this partial derivative. Save every 3x3 component and their sum; this is an instantaneous-head derivative, not a decomposition of the full 50D five-step recurrence.",
+  "verification": "Authenticate the input packs; verify the component sum against an independent JAX derivative of angular acceleration under a physical attitude perturbation at every state, maximum absolute mismatch below 1e-8. Save source and runtime binding; verify all summaries from saved matrices without fitting.",
+  "budget": {"fits": 0, "updates": 0, "maximum_wall_s": 120},
+  "interpretation": "A large derivative component identifies what to regularize or represent differently, not the plant's true derivative or proof of a unique cause. Report opposing component cancellation and per-origin variation."
+}
