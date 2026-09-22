@@ -43,13 +43,20 @@ for the measured gain, not reasons to launch another fitting sweep.
 
 ## Next iteration
 
-**Parallelize the observed command-filter history calculation.** Its current
-sequential scan has fixed exponential coefficients during a prediction. Test a
-stable parallel prefix or convolution while preserving the first-command initial
-condition and derivatives through learned time constants. Freeze a focused
-comparison of saved predictions, derivatives and complete update cost before
-implementation. The [network review](network-review.md) explains the motivation.
+**Compress temporal inputs to the nonlinear acceleration head only.** Prioritize
+architectural efficiency that reduces the model's work and learning burden across
+hardware, following the user's direction. Keep the full linear lag path, quadratic
+current-feature head, shared mechanics and eight accumulators. The first proposed
+candidate uses up to four fixed orthonormal temporal summaries in the nonlinear
+branch. It would reduce the four-command / 10 ms model from 8,714 to 5,450 learned
+parameters; that is a design estimate, not a measured accuracy or speed result.
 
-Solver conditioning is the following opportunity. Reproducing the refined offline
-fit, reducing fixed-wing residuals, calibration and live recovery remain separate
-improvement work.
+The [network review](network-review.md) records the candidate, initialization and
+conditioning controls, and evaluation priorities. Freeze its actual numerical
+representation and matched fitting comparison before implementation. Judge
+prediction/response accuracy and work to achieve that accuracy alongside complete
+update latency; neither fewer weights nor one machine's timing is sufficient.
+
+Command-filter parallelization remains a secondary execution optimization. Solver
+conditioning, reproducing the refined offline fit, reducing fixed-wing residuals,
+calibration and live recovery remain separate improvement work.
