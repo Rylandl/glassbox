@@ -136,6 +136,7 @@ def run_case(case, factory, output):
     fit = factory(prefix)
     initialization_s = time.perf_counter() - started
     predictions, one, update_s = [], [], []
+    first_prediction_s = None
     origin_rows = set(case["origins"].tolist())
     for row in range(first, end_row + 1):
         model = fit.session.model
@@ -143,6 +144,7 @@ def run_case(case, factory, output):
         past = case["states"][row - h : row + 1]
         inputs = case["commands"][row - h : row]
         if row in origin_rows:
+            prediction_started = time.perf_counter()
             forecast = np.asarray(
                 fit.session.predict(
                     past,
@@ -155,6 +157,8 @@ def run_case(case, factory, output):
                 and np.isfinite(forecast).all(),
                 "invalid conditional forecast",
             )
+            if row == first:
+                first_prediction_s = time.perf_counter() - prediction_started
             predictions.append(forecast)
         if row == end_row:
             break
@@ -173,12 +177,16 @@ def run_case(case, factory, output):
         forecast=forecast,
         one=one,
         update_s=update_s,
+        initialization_s=np.asarray(initialization_s),
+        first_prediction_s=np.asarray(first_prediction_s),
     )
     return dict(
         candidate=scores(case, forecast, one),
         direct=scores(case, case["direct"], case["direct_one"]),
         full=scores(case, case["full"], None),
         initialization_s=initialization_s,
+        first_prediction_s=first_prediction_s,
+        first_update_s=float(update_s[0]),
         warm_update_median_s=float(np.median(update_s[1:])),
         updates=len(one),
     )
@@ -203,6 +211,12 @@ def verify_case(case, output, result):
             "full score mismatch")
     require(result["updates"] == len(saved["update_s"]), "update count mismatch")
     require(
+        result["initialization_s"] == float(saved["initialization_s"])
+        and result["first_prediction_s"] == float(saved["first_prediction_s"])
+        and result["first_update_s"] == float(saved["update_s"][0]),
+        "cold timing mismatch",
+    )
+    require(
         result["warm_update_median_s"] == float(np.median(saved["update_s"][1:])),
         "timing mismatch",
     )
@@ -212,7 +226,7 @@ def table(cases, results):
     lines = [
         "Errors are candidate / direct / full. Rate is rad/s; velocity is m/s.",
         "",
-        "| Case | Origins | First rate | 250 ms rate RMSE | 250 ms velocity RMSE | Worst rate | Init s / warm ms |",
+        "| Case | Origins | First rate | 250 ms rate RMSE | 250 ms velocity RMSE | Worst rate | Cold forecast s / first update ms / warm ms |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name in cases:
@@ -229,7 +243,9 @@ def table(cases, results):
             f"{triple(lambda arm: arm['horizons']['250']['body_rate_rmse_rad_s'])} | "
             f"{triple(lambda arm: arm['horizons']['250']['velocity_rmse_m_s'])} | "
             f"{triple(lambda arm: arm['worst_250_rate_rad_s'])} | "
-            f"{result['initialization_s']:.2f} / {result['warm_update_median_s'] * 1000:.2f} |"
+            f"{result['initialization_s'] + result['first_prediction_s']:.2f} / "
+            f"{result['first_update_s'] * 1000:.2f} / "
+            f"{result['warm_update_median_s'] * 1000:.2f} |"
         )
     return "\n".join(lines) + "\n"
 

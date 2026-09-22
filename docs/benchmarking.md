@@ -12,7 +12,8 @@ The default command runs the complete known-recording suite: all eight cases,
 4,187 causal updates and 263 previously frozen forecast origins through the
 end of each stream. This includes late flight conditions and the quad
 configuration change. The table keeps first-origin error visible beside
-all-origin 250 ms velocity/rate RMSE, worst body-rate error and update time.
+all-origin 250 ms velocity/rate RMSE, worst body-rate error, cold fit-plus-first-
+forecast time, first-update time and warm update time.
 All five physical horizons, orientation and native one-step scores remain in
 the saved summary. Candidate, prior direct readout and historical full learner
 are shown side by side; full-learner one-step scores are not invented when that
@@ -37,12 +38,19 @@ traced. Commit the candidate before using a full result for an engineering
 decision. A separate candidate-specific unit test is warranted only for a
 new derivative, causality or numerical claim.
 
-The original two-origin runner was validated against the archived physical
-SO(3) direct readout. The expanded full-stream runner has its own [validation
-index](online-readout-benchmark-validation.json); its forecasts and one-step
-streams are checked against the same archived evaluation.
+The original two-origin runner and expanded full-stream runner were validated
+against the archived physical SO(3) direct readout. The full run took **15.0 s**
+on this machine; all **263 conditional forecasts and 4,187 one-step predictions**
+match the archived arrays exactly. Its saved-data verifier passed. The
+[validation index](online-readout-benchmark-validation.json) preserves both
+versions' hashes.
 
 This benchmark uses known recordings and a fresh but nonzero causal prefix;
 it is not held-out-vehicle, counterfactual command-response or live Throw
 evidence. The runner itself has no model-family branch. Broader qualification
 remains a separate step after a fast model idea survives this screen.
+The quad-change recording's post-change response is weakly excited, so its
+presence does not by itself establish identification of a large configuration
+change. Existing offline paired command-response queries belong to separate
+fits and do not supply truth for this cold online episode; they are not mixed
+into this benchmark.
