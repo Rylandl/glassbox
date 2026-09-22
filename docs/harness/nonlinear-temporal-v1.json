@@ -1,0 +1,68 @@
+{
+  "id": "nonlinear-temporal-v1",
+  "gap": "Reduce nonlinear-head history parameterization while preserving the full linear delayed-response path.",
+  "baseline_commit": "19a0221",
+  "package_files": {
+    "src/glassbox/__init__.py": "ae2fc12240545a6c074649af99f93a41b2dc01d6614407006853104b67c0fac8",
+    "src/glassbox/_dynamics.py": "593225d3b9c15fbf16a62ede4775b525174d5cd6532fc702c63fd346e7a1c444",
+    "src/glassbox/_learner_arrays.py": "c7e33df1421b50b49ea24c65230360a231a9b72772536118a876e986a8e0d4c9",
+    "src/glassbox/_training.py": "68893a05e827686ea1883ec2e4c06d37c16995bbf68301d28393e7716a65f6be",
+    "src/glassbox/cli/__init__.py": "ee0147e8e574e5cd4187140b4aa19c4a338f48d492cbfbf8f8a57f5c81a08653",
+    "src/glassbox/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/glassbox/core/dynamics.py": "1bcb06a181e92ad91b3ade450138febd4f1c8a26c1dc4759ad2013605f59c57c",
+    "src/glassbox/core/geometry.py": "5398de6edeba68ff1dc1fea6064e509d31725f96c2d1368cbd87f058b9808cbb",
+    "src/glassbox/io/__init__.py": "5aaadf824431df13d997bcaa6bfed760989798991b7a71ca481a635ec0d732a3",
+    "src/glassbox/io/recordings.py": "ca030fd10c0619d14b423eed141e0071ad8c80d73d406bd7625e04d9ce9386bd",
+    "src/glassbox/learner.py": "3233483db85e7962f9ca7a712c2b276b172e4ab4162097bceb34fbf4ac689066",
+    "src/glassbox/online.py": "c1eaddeb4a20970b1931663aff83662978d71e5afe37cf8742999617eb2b1ba0",
+    "src/glassbox/recordings.py": "9e7f1ef7acab0ccd4f4e3a71458593d714497870083d42b660b2100eac462f9d",
+    "src/glassbox/workflows/__init__.py": "f3661c537b77d811e0140b64ca7884b5cfe1edc2f7a39607cef33bd1fa759e82",
+    "src/glassbox/workflows/forecast.py": "2671a257a59b591963d21690ac3e4c53e111f2e5a60d9a5d7adddddbe8141a9b"
+  },
+  "parent": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+    "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"
+  },
+  "initial_sessions": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/accumulator-migration-v1/online",
+    "manifest_sha256": "65be54facc67666bdc2a60d55e414b5b47574eed85523dd09c9efc04fac73024"
+  },
+  "candidate": {
+    "basis": "D<=4: identity. Otherwise form [1,t,t^2,t^3] at D equally spaced oldest-to-newest t in [-1,1], reduced NumPy QR with positive R diagonal, cached as float64 constants. R=min(4,D). No learned basis or new consumer setting.",
+    "features": "Linear head keeps current, all D past-current differences and eight incoming accumulators. Nonlinear head uses current, einsum(...dc,dr->...rc) of UNNORMALIZED lag differences, and the same accumulators. Each branch has its own feature scales. Quadratic current head and accumulators unchanged.",
+    "initialization": "Same prefix ridge initializer, full-head random Gaussian w1 draw divided by sqrt(original full feature count), zero w2, and same subsequent memory draw. Project physical lag coefficients (old w1 divided by old lag scales) onto Q, then multiply by candidate compact-feature scales. Preserve current and hidden rows exactly. No dimension-based increase in random amplitude. Store initial weights and prefix activation statistics. D<=4 retains exact coordinates and scales.",
+    "conditioning": "Candidate nonlinear_scale starts at compact-feature training std with same 1e-8/one fallback. Online scale grows to measured role-balanced RMS of compact features; compensate only w1 by its scale ratio. Full linear normalization, memory current normalization, output normalization and quadratic prior unchanged. Identity case requires nonlinear_scale equal feature_scale.",
+    "integration": "Retain centered projection reuse, physical substeps, filters and hidden timing. Compressed branch projects compact inputs; never expand learned compact weights back to dense weights during forecast. Identity case retains joint projection.",
+    "budget": "Same observations/cache/loss/16 PCG steps/trust/backtracking. No refit or tuning sweep. Expected parameters 5450 at M4,D10 and3103 at M3,D2.",
+    "formats": "Experimental archive identifiers separate incompatible compact model/session data from adopted full-history archives. No compatibility selector in package."
+  },
+  "cases": [
+    "quad-arm-115",
+    "quad-arm-125",
+    "quad-arm-135",
+    "quad-change",
+    "fixedwing-80",
+    "fixedwing-81"
+  ],
+  "online": {
+    "rows": 3137,
+    "baseline": "Load original accumulator initial sessions; rerun all targets with current projection-reuse source. Historical trajectories are not used as exact baseline truth, since arithmetic grouping changed. Compare candidate to this fresh baseline.",
+    "candidate": "One initialization per identical original prefix; no held-out target before prediction. Save every prediction/truth/origin/update timing and causal event, initial/final sessions, proposal decisions and work counts.",
+    "timing": "Two persistent processes alternate exclusive blocks of25 observations, baseline then candidate; startup, initialization and diagnostics also exclusive. Public observe plus immutable model snapshot and synchronization. Predict separately. Exclude first update from warm latency only, retain all outliers. No other heavy compute.",
+    "progress": "Report aggregate physical errors on first25, rows25:100, and rows100:end within each case, plus full stream. Equal cases per family, equal families and equal velocity/rate geometric ratios. Denominator floor1e-9. Report counts and mean optimizer/objective work. These are known recordings, not blind generalization.",
+    "initial_control": "Check unchanged initial parameter arrays except w1, unchanged existing normalizers, identical initial physical prediction within float32 2e-5 atol/rtol. Candidate has additional nonlinear_scale only. Identity cases all parameters and normalizers match ignoring format/additional equal scale."
+  },
+  "diagnostic_limits": {
+    "equal_family_primary_ratio_max": 1.02,
+    "each_family_primary_ratio_max": 1.05,
+    "equal_family_velocity_ratio_max": 1.05,
+    "equal_family_rate_ratio_max": 1.05,
+    "equal_family_tail_ratio_max": 1.05,
+    "equal_family_orientation_ratio_max": 1.05,
+    "quad_parameter_ratio_max": 0.65,
+    "quad_median_time_ratio_max": 0.95,
+    "fixedwing_median_time_ratio_max": 1.1
+  },
+  "decision": "These are diagnostic targets, not independent vetoes. Prefer a useful accuracy/work tradeoff with no substantial consistent loss. Preserve every failure and all raw results. No promotion on parameter count alone. If screen is promising, freeze matched offline fitting/forecast/response qualification before adoption; consumer reruns only for a concrete unresolved capability question. A clear overall loss ends this candidate without broad fitting. Current implementation remains until evidence supports replacement.",
+  "verification": "Commit implementation/harness before experiment. Analytic orthonormality/polynomial span, exact identity path, expanded-coefficient primal/JVP/VJP equivalence, initialization scale, compensation, variable dimensions, physical/causal invariants, finite derivatives and archive/resume. Authenticate payloads; independent saved-array audit of metrics, source truth, initial/cache/causal chains and exclusive schedule without fitting. First screen runs on CPU/arm64 only; no cross-hardware speed claim."
+}
