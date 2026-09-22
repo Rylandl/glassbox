@@ -16,42 +16,42 @@ controllers and simulators remain external.
 | Online fitting | Working **online v6** reduces equal-family velocity/rate error **21.94% against v4** and 78.93% against frozen startup across six known tapes. All 3,137 targets are scored before assimilation. Worst-decile errors improve 22.96%; angular outliers and individual regressions remain. See [online evidence](online-fitting.md). |
 | Updates and calibration | Offline updates preserve immutable revisions and development roles. Online sessions retain bounded causal caches. Development-selected calibration does not establish independent coverage; streaming sessions have no calibrated envelope. |
 | Scope | Rigid-body motion across recorded quad/fixed-wing configurations. Broad airframe, articulated-system and arbitrary-system readiness remain unproved. No current-learner online closed-loop recovery trial has run. |
-| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All 15 package source files remain byte-identical to adopted v6. All **288 tests pass**, and the complete saved baseline replays exactly. |
+| Preservation | Saved baseline contains the unchanged adopted models, recordings and replay evidence: 12,768 flight arrays, 40 Dart trajectories and 4,144 gradients. All 15 package source files remain byte-identical to adopted v6. All **334 tests pass**, and the complete saved baseline replays exactly. |
 
 ## Latest completed iteration
 
-**Causal proposal audit — completed; v6 retained.** The [read-only audit](online-proposal-audit.md)
-reconstructs all 46 selected fixed-wing updates exactly, including 28 complete
-adjacent session identities and ten predecessor-to-prediction links. Both the
-independent NumPy audit and source-bound derivative recomputation pass. No new
-learner was fitted and no diagnostic proposal was applied.
+**Backtracking the saved directions — completed; v6 retained.** The [frozen
+read-only test](online-backtracking.md) uses the same 46 fixed-wing snapshots
+and step scales 1, 1/2, 1/4, 1/8 and 1/16. Choosing the first step that passes the
+existing exact-loss/gain rule makes all 46 longer directions acceptable,
+compared with 14 unshortened. The original four-step updates already accepted
+46/46; this rescues longer directions, not incumbent acceptance.
 
-Four PCG steps achieve a median 30.25%/11.82% of the longer probe's measured
-local quadratic decrease under v6/v7. Yet a longer solve with the same forecast
-trust rule beats the original exact retained objective in only 11/46 snapshots
-and would be accepted in 14/46; 31/46 losses exceed the starting value. All longer
-trusted directions descend data and prior to first order, but exact data loss
-falls in only 15/46. The prior falls in all 46. This distinguishes unfinished
-linear solves from unreliable nonlinear steps; simply increasing PCG is not
-supported. Only four references converge at 64 iterations; 42 cap at 128.
+Selected retained loss beats the original four-step proposal in **34/46** cases
+(17/23 under each recipe), up from 11/46 before backtracking. Twelve selections
+still lose to four. Seven of ten anchor-producing updates improve, up from two.
+Selected data/prior losses decrease from their starting values in 45/46 and
+46/46 respectively. These are assimilated fitting objectives, not future
+prediction gains. Forty-two parent directions remain capped rather than
+converged; no counterfactual trajectory or new learner was fitted.
 
-The audit passes 58,568 arithmetic checks and all 46 derivative recomputations
-under frozen tolerances. All 288 tests pass; all 15 package files remain
-byte-identical to adopted v6. These are known fixed-wing training objectives,
-not held-out gains or evidence about quad optimizer behavior. The previous
-[v7 candidate](online-fit-v7.md) remains rejected: 13.30% aggregate improvement
-against v6 accompanied quad/angular regressions and failed its frozen gates.
+The experiment uses 184 new forward residual evaluations and zero new solver,
+derivative, conditioning or observe calls. Independent verification passes
+6,762 point plus 161 aggregate checks; all 230 residual recomputations pass
+frozen tolerances. All 334 tests pass. All 15 learner files and the parent's
+28-file source inventory remain unchanged. V7 remains rejected and v6 adopted.
 
 ## Next scientific gap
 
-**Nonlinear step control at bounded solve cost.** Freeze a small backtracking
-ladder along the saved longer directions and check exact data/prior/combined
-loss against the original four-step update. Determine whether shortening those
-directions makes their local improvement usable before changing the online
-solver. Keep the current prior, residuals and data fixed. V6 remains the sole
-learner; no new candidate has been fitted.
+**Forecast value and runtime of bounded online backtracking.** Freeze one
+v6-based candidate with 16 PCG steps and the same first-acceptable ladder. Keep
+the prior, residual model, conditioning, forecast trust radius and ordinary
+rejection/rollback/damping rules fixed; add no consumer tuning option. Sixteen
+is an engineering budget choice, not a proven optimum from the longer saved
+reference directions.
 
-Any resulting candidate requires a separately frozen six-tape evaluation against
-v6, retaining velocity/rate, orientation, tails, kinematic and timing comparisons.
-Known-tape improvement does not qualify blind generalization, calibrated
+Run the full six-tape prequential comparison against v6, retaining velocity/rate,
+orientation, tails, kinematic and timing results plus actual solver/residual-call
+counts. This moves the hypothesis to prediction evidence; no candidate has run
+yet. Known-tape improvement does not qualify blind generalization, calibrated
 uncertainty, real-time quad fitting or online closed-loop recovery.
