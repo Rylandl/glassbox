@@ -246,6 +246,8 @@ def summarize(data):
         "maximum_saved_jacobian_difference": float(data["saved_jacobian_difference"].max()),
         "maximum_nominal_step_difference": float(data["nominal_step_difference"].max()),
         "maximum_fd_relative_error": float(data["fd_relative_error"].max()),
+        "maximum_known_rate_identity_difference": float(data["known_rate_identity_difference"].max()),
+        "maximum_known_velocity_identity_difference": float(data["known_velocity_identity_difference"].max()),
         "maximum_forecast_relative_difference": float(data["forecast_relative_difference"].max()),
         "maximum_previous_curvature_jacobian_difference": float(
             data["previous_curvature_jacobian_difference"].max()
@@ -283,7 +285,8 @@ def analyze_case(case, spec, deadline):
     saved.update(rows=rows, truth=predicted["conditional_truth"], saved_jacobian_difference=[],
                  nominal_step_difference=[], fd_relative_error=[], forecast_relative_difference=[],
                  baseline_measured_full=previous["baseline_measured_jacobian"],
-                 previous_curvature_jacobian_difference=[])
+                 previous_curvature_jacobian_difference=[], known_rate_identity_difference=[],
+                 known_velocity_identity_difference=[])
     for arm in ARMS:
         saved[f"{arm}_prediction"] = []
     with jax.enable_x64(True):
@@ -314,6 +317,14 @@ def analyze_case(case, spec, deadline):
                         known = np.asarray(jacobian(params, norms, at, command, dt_s=fitted.dt_s, known=True))
                         arrays[f"{path}_full"].append(full)
                         arrays[f"{path}_known"].append(known)
+                        expected_rate = np.zeros_like(known[3:6])
+                        expected_rate[:, 3:6] = np.eye(3)
+                        saved["known_rate_identity_difference"].append(float(np.max(np.abs(
+                            known[3:6] - expected_rate
+                        ))))
+                        saved["known_velocity_identity_difference"].append(float(np.max(np.abs(
+                            known[:3, :3] - np.eye(3)
+                        ))))
                         nominal_full = step(params, norms, at, command, dt_s=fitted.dt_s)
                         nominal_known = known_step(params, norms, at, command, dt_s=fitted.dt_s)
                         saved["nominal_step_difference"].append(max(
@@ -334,9 +345,6 @@ def analyze_case(case, spec, deadline):
                             saved["fd_relative_error"].append(finite_difference(
                                 params, norms, at, command, dt_s=fitted.dt_s, known=False, expected=full
                             ))
-                            saved["fd_relative_error"].append(finite_difference(
-                                params, norms, at, command, dt_s=fitted.dt_s, known=True, expected=known
-                            ))
                     carry = step(params, norms, carry, command, dt_s=fitted.dt_s)
                     forecast.append(np.asarray(carry[0])[0])
                 forecast = np.asarray(forecast)
@@ -354,6 +362,8 @@ def analyze_case(case, spec, deadline):
     assert result["previous_curvature_jacobian_difference"].max() < 1e-8
     assert result["nominal_step_difference"].max() < 1e-11
     assert result["fd_relative_error"].max() < 2e-5
+    assert result["known_rate_identity_difference"].max() < 1e-10
+    assert result["known_velocity_identity_difference"].max() < 1e-10
     assert result["forecast_relative_difference"].max() < 1e-3
     return result
 
