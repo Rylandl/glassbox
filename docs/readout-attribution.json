@@ -1,0 +1,41 @@
+{
+  "id": "readout-attribution",
+  "scope": "No-fit attribution on the two known fixed-wing recordings; no Glassbox production source or public interface changed.",
+  "protocol_commits": {
+    "recurrence": "c52d67f",
+    "plant_truth": "7a5790a",
+    "attitude_feature_paths": "0a68b1b"
+  },
+  "completed_analysis_source": "d6509c6",
+  "attempts": [
+    {
+      "artifact": "/Users/ryland/autonomy/glassbox/artifacts/readout-attribution-attempt1",
+      "result": "Stopped after the first case before saving data because ordinary finite differences cannot verify an intentionally stop-gradiented derivative. No fit or update was run.",
+      "correction_commit": "89222b5"
+    },
+    {
+      "artifact": "/Users/ryland/autonomy/glassbox/artifacts/readout-attribution-v1",
+      "manifest_sha256": "5366e4c7d413f933370cb4ea61ea59579e887e552d4ff3a66db0d01479ac4324",
+      "result": "Complete and saved-array verified."
+    },
+    {
+      "artifact": "/Users/ryland/autonomy/glassbox/artifacts/readout-attribution-truth-v1",
+      "manifest_sha256": "30f8112609995cfdbe1a76391601ba8b8385c97454c3f829aa05024acdb29114",
+      "result": "Complete and saved-array verified. Cascade internal state recovered by near-exact replay."
+    },
+    {
+      "artifact": "/Users/ryland/autonomy/glassbox/artifacts/readout-attitude-paths-v1",
+      "manifest_sha256": "637a6b37ef5dd9ceed45d6aef48bcd9b9411dc95a1f1266778c09badd12b30e3",
+      "result": "Complete and saved-array verified."
+    }
+  ],
+  "accounting": {
+    "new_fits": 0,
+    "new_online_updates": 0,
+    "candidate_weight_changes": 0,
+    "plant_replays": 2,
+    "conditional_origins_per_case": 14,
+    "steps_per_origin": 5
+  },
+  "next_gap": "Matched quad 10/50 ms sampling fixture before one physical SO(3) sensitivity fit."
+}

@@ -143,45 +143,52 @@ add no fitting. The [index](readout-sensitivity.json) retains protocols, all
 physical scores, timing and provenance. Experimental code is archived through
 `17e4921` in Git.
 
+## Latest diagnosis: plant-referenced attitude attribution
+
+The [no-fit attribution](readout-attribution.md) reuses every saved fixed-wing
+forecast origin and reconstructs Cascade's complete actuator/aerodynamic state
+through near-exact replay. Its median local attitude-to-rate derivative is about
+**2.9** in the plant, **56/59** in the sensitivity readout and **209/379** in
+the maintained full learner (recordings 80/81). The corresponding 250 ms
+attitude-to-rate gains are about **3.9**, **6,912/6,275** and **468/1,933**.
+These are physical tangent derivatives, not forecast errors or global stability
+proofs. Both learned models have a large plant-referenced sensitivity mismatch;
+the fast head amplifies it most across five steps.
+
+In the latest readout, replacing only learned attitude-to-rate Jacobian rows by
+known-propagation rows lowers median five-step attitude-to-rate gain to
+**0.102/0.143** of original on rolled states, at every origin in both cases.
+Removing latent-to-physical feedback instead usually raises the gain. An exact
+instantaneous-head chain rule finds the omitted body-gravity-direction feature
+is the larger attitude-derivative path in both recordings; body-relative
+velocity also contributes. This localizes the next architecture test without
+deleting history, making a vehicle branch or using simulator truth in the fit.
+No new fit or online update occurred. Three authenticated packs verify from
+saved arrays. The first no-fit verifier stopped because a stop-gradient
+derivative cannot be checked by ordinary finite differences; its corrected
+criteria and attempt are retained in the [index](readout-attribution.json).
+
 ## Next iteration
 
-**Attribute the remaining recursive error before another fit.** The last
-experiment reduced the angular-rate self-derivative by about 70% while leaving
-the full recurrence gain and fixed-wing 250 ms loss largely intact. That supports
-testing attitude coupling, but does not yet isolate it as the cause. Use the
-saved models at *all* fixed-wing forecast origins to separate learned
-attitude-to-force/rate response, known frame/kinematic terms and delayed-state
-feedback in the physical and full augmented Jacobians. Check finite differences,
-measured and free-running states, five-step products and per-origin physical
-error. No fit or acceptance threshold should be inferred from a local spectral
-radius alone. If the simulator can branch from the same complete plant state,
-compare model perturbation responses with its truth; otherwise report the lack
-of counterfactual truth explicitly.
+**Remove the family/sample-interval confound.** Collect one physical Crazyflow
+quad trajectory whose issued commands are held for each 50 ms interval. Expose
+identical physical motion to the unchanged learner at 10 and 50 ms observation
+schedules, with fits starting after the same elapsed prefix time. Freeze the
+recording, causal update count, complete-update timing and 50–250 ms physical
+forecast scoring before collection. Naively decimating a tape with 10 ms command
+changes would not isolate observation interval. The two current fixed-wing
+recordings remain one airframe, not independent generalization trials.
 
-Then collect a paired quad 10/50 ms observation test from one physical simulator
-trajectory with issued commands held for each 50 ms interval. The two learners
-must start from the same elapsed prefix time. This separates sample interval
-from vehicle family without adding an input to the model. A different command
-history created by naive decimation would not answer the question.
-
-Only after those measurements, freeze one architectural fit. If the measured
-attitude response is abnormal, test a physically consistent SO(3)
-state-sensitivity penalty. If the evidence does not support that mechanism, or
-the penalty fails to improve recursive error, test a bounded short-trajectory
-fitting correction that targets the equation-error/rollout gap directly. Both
-paths remain generic and episode-only. Compare against the two saved
-fast-readout definitions and the full learner on 50–250 ms physical errors,
-full update cost and derivative behavior. No global plant contraction, fleet
-prior or strength sweep is implied.
-Set absolute task-relevant error targets alongside reference ratios; the full
-learner also has large errors on some recorded trajectories.
-
-No fleet-trained features, class priors, reused normalizers or fitted revisions
-may enter any arm. Every learned quantity must come from that episode. Family
-and sample interval remain confounded (10/50 ms), as do initialization counts.
-A matched quad tape with commands held for 50 ms is still needed to isolate the
-observation interval; naive decimation with changing commands does not do that.
-Cold-start availability still includes 0.5 s history plus 0.25 s initialization data;
-the quad tapes begin scoring 1.25 s after release. Warm-update speed is not live
-catch qualification. Counterfactual response, sensor-noise robustness, calibrated
-uncertainty and controller recovery remain separate gaps in Glassbox/Dart/Throw.
+Then freeze **one generic physical SO(3) sensitivity fit** for the fast readout.
+An attitude perturbation must change body-relative velocity and gravity
+direction together; penalize the six physical acceleration-output derivatives
+under these directions while preserving the shared direct solve. Keep both fast
+readouts and the full learner as controls. Compare absolute physical velocity,
+rate and orientation errors at every 50–250 ms horizon, per-family flags,
+initialization and whole-update cost. A local derivative reduction alone will
+not qualify it. If realized rollout does not improve, test a bounded short-
+trajectory fitting correction, given the previous recursive-loss control.
+Neither path introduces a fleet prior, system-specific branch or global
+contraction assumption. Cold-start scoring still begins only 1.25 s after
+release on the quad tapes; controller recovery and calibrated error envelopes
+remain separate unmet criteria.
