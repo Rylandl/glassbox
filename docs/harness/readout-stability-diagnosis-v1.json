@@ -1,0 +1,47 @@
+{
+  "id": "readout-stability-diagnosis-v1",
+  "gap": "Localize the fast readout recursive angular failure before changing its architecture or adding an acceptance gate.",
+  "baseline_commit": "180a050",
+  "sources": {
+    "full": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/cold-readout-curvature-full-v1/evaluation",
+      "manifest_sha256": "adef6d7fe24fcab8c07bacc9f3868432fc1c3281a9fcf87c61926ad1f90032cb"
+    },
+    "tapes": {
+      "path": "/Users/ryland/autonomy/glassbox/artifacts/online-fit-v8/evaluation",
+      "manifest_sha256": "cd2c29d08cbe2e6345fe47551d8cf74e182aff8aa17178f61728fc114e05b340"
+    }
+  },
+  "cases": [
+    "fixedwing-80",
+    "fixedwing-81"
+  ],
+  "roster": "Every saved conditional origin:14per recording,5steps each; no outcome-based selection.",
+  "budget": {
+    "baseline_replay_updates": 450,
+    "candidate_fits": 0,
+    "model_changes": 0,
+    "wall_limit_s": 600
+  },
+  "replay": "The pack lacks intermediate full-learner weights. Reproduce its unchanged225updates per case with fresh original prefix; require exact one-step and conditional predictions and final arrays. Save reference model at every conditional origin. Recover candidate readout from initial or immediately preceding saved mean; require exact saved float32 forecast replay. This is baseline fitting replay, not a new optimized candidate or a claim that all reference weights were already saved.",
+  "diagnostics": {
+    "horizon": "Report velocity,body-rate,orientation error separately at50,100,150,200,250ms for both arms and every ablation. Preserve per-origin errors and exclude neither initial nor extreme cases from primary aggregates.",
+    "jacobian": "Float64 local discrete map in9physical tangent coordinates [world velocity,body rate,right SO(3) rotation tangent], plus filtered commands,lag-feature rows,and memory as augmented state. Report9x9 fixed-latent partial Jacobian and full augmented recurrence Jacobian along both measured and free-rollout trajectories, parameters fixed at the origin. Save spectral radii, largest singular values and ordered five-step derivative-product gains. Spectral radius away from equilibrium or of a partial block is not a stability proof. Singular values use natural physical coordinates (m/s,rad/s,rad), normalized lag features and unitless memory; report scale dependence. Numerical FD directions required on analytic and actual snapshots.",
+    "leverage": "Candidate only: phi^T G^-1 phi, G=lambda I+Phi_past^T Phi_past, excluding target/future rows. Also report regularized-system leverage using saved last penalty. Obtain precision square roots by QR on stacked sqrt(lambda)I,observed Phi,and optional sqrt(penalty)I, rather than explicitly invert G. Compare features at the start of each forecast interval on measured and rolled trajectories with their respective recurrent state; identical at origin. Report error associations descriptively, not calibrated Bayesian coverage or proof of epistemic correctness.",
+    "ablations": "Candidate with quadratic rate coefficients zeroed; nonlinear output rate coefficients zeroed; linear delayed-feature rate coefficients zeroed (only lag-difference rows, retain instantaneous and memory terms). Matched output swaps: candidate force/full-learner angular acceleration and the reverse. Swaps evaluate each branch with its own normalization,features,filter and memory state while integrating a common physical state; copying coefficients between different feature maps is invalid. No fitted weights or strengths selected from outcomes. Compare all variants at all horizons; lower error after deleting dynamics is not a ready replacement.",
+    "bounds": "Document existing supported_motion saturation before products, plus the two25ms integration substeps at50ms. Save motion-support excursion ratios for measured/rolled state. Do not label a finite forecast error a proof of mathematical unboundedness.",
+    "policy": "No learned prior or pretraining; no generic strict-contraction assumption. Fixed regularization strength relative to average error is intentional regularization, not a decaying prior."
+  },
+  "future_flags": {
+    "aggregate_one_step_ratio_max": 1.15,
+    "aggregate_250ms_primary_ratio_max": 1.25,
+    "each_family_250ms_primary_ratio_max": 1.5,
+    "each_family_250ms_velocity_ratio_max": 1.5,
+    "each_family_250ms_body_rate_ratio_max": 1.5,
+    "median_update_ratio_max": 0.5,
+    "finite_required": true,
+    "interpretation": "Future architecture experiments must freeze and report these alongside physical scores. Historical flags remain unchanged; flags inform engineering judgement."
+  },
+  "interval_probe": "Before claiming a family effect, add a matched quad10/50ms recording with issued commands held across each50ms interval. Naively decimating a10ms tape changes the effective within-interval inputs and is not a clean separation. This diagnostic does not fit a resampled candidate.",
+  "verification": "Commit before execution; focused tests for tangent Jacobians, leverage vs solve, identical-model output-swap reduction, and frozen-rate ablations. Authenticate sources and results; exact prediction replay as above; save Jacobians,leverage,ablated rollouts and all scores for independent no-fit scoring. Record any replay or numerical failure; preserve all attempts."
+}
