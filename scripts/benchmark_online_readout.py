@@ -77,6 +77,23 @@ def source_case(spec, name, suite):
     truth = np.stack(
         [states[row + 1 : row + horizon + 1] for row in origins]
     )
+    response = None
+    if name in spec.get("response_probes", {}):
+        probe = spec["response_probes"][name]
+        saved = arrays(roots["response"] / probe["file"])
+        rows = saved["rows"].astype(int)
+        require(
+            np.array_equal(saved["commands"], commands[rows])
+            and rows[0] >= first
+            and rows[-1] < len(commands),
+            "response probe does not match the recorded command tape",
+        )
+        selected = (rows >= first) & (rows <= end_row)
+        response = dict(
+            rows=rows[selected],
+            truth=saved["jacobian"][selected],
+            epsilon=float(probe["epsilon"]),
+        )
     return dict(
         name=name,
         identity=identity,
@@ -93,6 +110,7 @@ def source_case(spec, name, suite):
         direct_one=previous["one"][: end_row - first],
         full=full_forecasts[:count],
         full_one=full_one[: end_row - first],
+        response=response,
     )
 
 
@@ -122,6 +140,27 @@ def scores(case, forecast, one):
     return result
 
 
+def response_scores(truth, jacobian):
+    require(jacobian.shape == truth.shape, "response shape")
+    require(np.isfinite(jacobian).all(), "nonfinite response")
+    relative = np.linalg.norm(jacobian - truth, axis=(1, 2)) / np.linalg.norm(
+        truth, axis=(1, 2)
+    )
+    return dict(relative_error=relative.tolist(), mean_relative_error=float(np.mean(relative)))
+
+
+def response_jacobian(session, past, inputs, command, epsilon):
+    columns = []
+    for channel in range(len(command)):
+        low, high = command.copy(), command.copy()
+        low[channel] = max(0.0, low[channel] - epsilon)
+        high[channel] = min(1.0, high[channel] + epsilon)
+        minus = np.asarray(session.predict(past, inputs, low[None]))[0, 3:6]
+        plus = np.asarray(session.predict(past, inputs, high[None]))[0, 3:6]
+        columns.append((plus - minus) / (high[channel] - low[channel]))
+    return np.stack(columns, axis=1)
+
+
 def run_case(case, factory, output):
     first, end_row = int(case["origins"][0]), case["end_row"]
     prefix = SequenceCollection(
@@ -142,7 +181,7 @@ def run_case(case, factory, output):
     started = time.perf_counter()
     fit = factory(prefix)
     initialization_s = time.perf_counter() - started
-    predictions, one, update_s = [], [], []
+    predictions, one, update_s, response = [], [], [], []
     first_prediction_s = None
     origin_rows = set(case["origins"].tolist())
     for row in range(first, end_row + 1):
@@ -167,6 +206,16 @@ def run_case(case, factory, output):
             if row == first:
                 first_prediction_s = time.perf_counter() - prediction_started
             predictions.append(forecast)
+        if case["response"] is not None and row in case["response"]["rows"]:
+            response.append(
+                response_jacobian(
+                    fit.session,
+                    past,
+                    inputs,
+                    case["commands"][row],
+                    case["response"]["epsilon"],
+                )
+            )
         if row == end_row:
             break
         step = np.asarray(
@@ -178,6 +227,7 @@ def run_case(case, factory, output):
         fit.observe(row, case["commands"][row], case["states"][row + 1])
         update_s.append(time.perf_counter() - started)
     forecast, one, update_s = map(np.asarray, (predictions, one, update_s))
+    response = np.asarray(response)
     np.savez_compressed(
         output / f"{case['name']}.npz",
         origins=case["origins"],
@@ -186,6 +236,7 @@ def run_case(case, factory, output):
         update_s=update_s,
         initialization_s=np.asarray(initialization_s),
         first_prediction_s=np.asarray(first_prediction_s),
+        response=response,
     )
     return dict(
         candidate=scores(case, forecast, one),
@@ -196,6 +247,10 @@ def run_case(case, factory, output):
         first_update_s=float(update_s[0]),
         warm_update_median_s=float(np.median(update_s[1:])),
         updates=len(one),
+        response=(
+            response_scores(case["response"]["truth"], response)
+            if case["response"] is not None else None
+        ),
     )
 
 
@@ -217,6 +272,11 @@ def verify_case(case, output, result):
     require(result["full"] == scores(case, case["full"], case["full_one"]),
             "full score mismatch")
     require(result["updates"] == len(saved["update_s"]), "update count mismatch")
+    if case["response"] is not None:
+        require(
+            result["response"] == response_scores(case["response"]["truth"], saved["response"]),
+            "response score mismatch",
+        )
     require(
         result["initialization_s"] == float(saved["initialization_s"])
         and result["first_prediction_s"] == float(saved["first_prediction_s"])
@@ -255,6 +315,13 @@ def table(cases, results):
             f"{result['first_update_s'] * 1000:.2f} / "
             f"{result['warm_update_median_s'] * 1000:.2f} |"
         )
+    if any(results[name].get("response") is not None for name in cases):
+        lines.extend(("", "Counterfactual next-step body-rate response error, relative Frobenius norm:"))
+        for name in cases:
+            score = results[name].get("response")
+            if score is not None:
+                values = ", ".join(f"{value:.3f}" for value in score["relative_error"])
+                lines.append(f"{name}: {values} (mean {score['mean_relative_error']:.3f})")
     return "\n".join(lines) + "\n"
 
 
@@ -293,7 +360,7 @@ def main():
             "total origin count mismatch",
         )
         require((args.output / "table.md").read_text() == table(summary["cases"], summary["results"]), "table mismatch")
-        print("Verified saved forecasts, controls, scores and table without fitting.")
+        print("Verified saved forecasts, controls, responses, scores and table without fitting.")
         return
     require(args.candidate and ":" in args.candidate, "supply module:factory")
     spec = read(SPEC)
@@ -333,7 +400,7 @@ def main():
         write(args.output / "failure.json", dict(error=repr(error)))
         raise
     finally:
-        print("manifest_sha256", seal(args.output, "glassbox-online-readout-benchmark-v1"))
+        print("manifest_sha256", seal(args.output, spec["id"]))
     print((args.output / "table.md").read_text())
 
 

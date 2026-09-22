@@ -18,8 +18,15 @@ The table also shows matched native one-step body-rate error for candidate,
 prior direct readout and historical full learner. All five physical horizons,
 orientation and one-step velocity scores remain in the saved summary. Native
 one-step intervals differ by case (10 or 50 ms), so compare within a row rather
-than pooling them across families. The optional four-case smoke screen still
-uses two early origins to find obvious failures quickly.
+than pooling them across families. The optional five-case smoke screen still
+uses two early origins to find obvious failures quickly. It includes arm 125 so
+the command-response probe runs in the same command. That probe branches the
+exactly replayed Crazyflow plant at six recorded states (two in smoke),
+perturbs each issued command by ±0.01 with endpoint clipping, and compares the
+resulting 10 ms body-rate Jacobian with the candidate at the same recorded
+state and command history. Plant truth is saved before fitting and never
+passed to the candidate. The relative Frobenius error is shown separately from
+factual rollout errors. Fixed-wing counterfactual response truth is still open.
 
 ```sh
 ./.venv/bin/python scripts/benchmark_online_readout.py run \
@@ -51,8 +58,9 @@ table: its direct readout has **0.049 rad/s** native one-step rate error, but
 **62.867 rad/s** 250 ms rate RMSE across its three scored origins.
 
 This benchmark uses known recordings and a fresh but nonzero causal prefix;
-it is not held-out-vehicle, counterfactual command-response or live Throw
-evidence. The runner itself has no model-family branch. Broader qualification
+the arm-125 probe adds local counterfactual command-response evidence, but the
+suite is not held-out-vehicle or live Throw evidence. The runner itself has no
+model-family branch. Broader qualification
 remains a separate step after a fast model idea survives this screen.
 The quad-change recording's post-change response is weakly excited, so its
 presence does not by itself establish identification of a large configuration
