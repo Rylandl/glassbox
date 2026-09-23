@@ -68,14 +68,18 @@ qualified cold-start Throw timeline.
 The source pack for the new flights is
 `artifacts/fresh-causal-v1/source`, authenticated by manifest SHA-256
 `43b2093288668697489e7d3e4394e3e1b65f1bb0081fba5436f6e0f8716be3ec`.
-The old source/evaluation manifests are pinned in
-`scripts/qualify_heldout_causal.py`. Scores and all fitted revisions are in
+The historical source/evaluation manifest SHA-256 values are respectively
+`5a60009ea431da8609186cb4cf3bd45419991724215ceeabf385b2cd9084ea80`
+and `e516c24e78544cd3d758cb7b448aae432f5ebfe920b0c4eb3c9fd64d279cb713`.
+Scores and all fitted revisions are in
 `artifacts/fresh-causal-v1/evaluation`,
 `artifacts/fresh-causal-prior-v1`, `artifacts/heldout-causal-v1` and
-`artifacts/heldout-causal-prior-v1`. The exact source and scoring code is in
-`d891490`; the selected prior is in `9ddd3fb`. The new recordings were examined
-when choosing the prior, so the **updated** model's result is development-set
-evidence rather than untouched validation. One flight per new condition,
+`artifacts/heldout-causal-prior-v1`. The frozen one-off scorers and collector
+are in Git commits `a85a72e` and `d891490`; the selected prior is in `9ddd3fb`.
+They were removed from the maintained working tree after verification. The new
+recordings were examined when choosing the prior, so the **updated** model's
+result is development-set evidence rather than untouched validation. One flight
+per new condition,
 perfect simulator observations, factual command sequences, refits at every
 origin and no live controller trial leave noise tolerance, counterfactual
 response and cold-start publication behavior unqualified.
