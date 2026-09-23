@@ -1,0 +1,14 @@
+{
+  "id": "early-excitation-benchmark-v1",
+  "online_benchmark_sha256": "a9477159b61689e22fa3db8dd14e235e1b86c482f31783848cd7b771d3c32b4d",
+  "dither_path": "/Users/ryland/autonomy/glassbox/artifacts/readout-early-quad-v1",
+  "dither_manifest_sha256": "006e073a613a6b0e1916193135d0eda99769e5b6312fc1d25d01c87e3452259e",
+  "recording": "quad-arm-125",
+  "origin_row": 125,
+  "prefix_begin_row": 50,
+  "dt_s": 0.01,
+  "horizon_ms": 250,
+  "response_epsilon": 0.01,
+  "branches": ["original", "dither"],
+  "scope": "A paired protocol with different command histories and states. Fit each branch only through row 125, then measure its own 250 ms factual forecast and its own exact-plant next-step command-response Jacobian. The dither branch is not a matched-state treatment effect."
+}
