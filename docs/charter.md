@@ -28,10 +28,12 @@ learner; its results do not qualify cold-start Throw performance.
 
 The model is the product. Its public workflow is `fit(recordings)`,
 `model.predict(...)` and `model.update(recordings)`, with fingerprinted save/load
-and immutable revisions. A bounded `OnlineFit` session assimilates contiguous
-observations into that same dynamics formulation; its mutable optimizer state is
-separate from saved immutable revisions. Other projects own controllers, planners
-and simulators.
+and immutable revisions. `OnlineFit` assimilates contiguous observations into
+that same dynamics formulation; its mutable optimizer state is separate from
+saved immutable revisions. Assimilation may run in the background and publish
+new immutable revisions intermittently. Prediction uses a published revision;
+publication time and the causal data available at publication are part of
+fresh-start evaluation. Other projects own controllers, planners and simulators.
 Glassbox retains a small generic motion adapter and a saved-evidence verifier;
 it does not maintain a competing controller framework or model catalog.
 
@@ -54,6 +56,14 @@ but weigh generality, accuracy, runtime and maintainability together. Broken
 contracts, invalid numerical behavior and substantial consistent capability losses
 need resolution; an isolated benchmark loss can become follow-up work. Distinguish
 architecture changes from fitting provenance before attributing a regression.
+
+On 2026-09-23 the user clarified that per-observation fitting time on the
+current CPU is not an architecture gate. Prefer the model with stronger causal
+full-state and command-response predictions, even if fitting belongs in a
+background job that periodically publishes revisions. Report fit time and
+publication cadence, and assess Throw by what model was actually available at
+each point in the episode; do not grant a freshly fitted prefix zero elapsed
+time. Predictor cost and consumer-specific deadlines remain measurements.
 
 Future online architecture evaluations freeze and report per-family 250 ms
 forecast flags, with velocity and body-rate components shown separately, alongside

@@ -86,13 +86,15 @@ is not yet an online implementation. The public learner remains unchanged.
 
 ## Next iteration
 
-The named gap is now **efficient full-state realization of the causal
-applied-actuator model**. The episode-only research fit demonstrated large
-factual and command-response gains but takes seconds, predicts angular rate
-only, and has a fixedwing-80 regression. The next iteration should use the
-same shared actuator state and physical rate equation in the maintained
-learner, find an incremental fit with bounded per-observation cost, and
-evaluate full-state forecasts and derivatives on the existing frozen suite.
+The named gap is now **full-state qualification of the causal applied-actuator
+model**. The episode-only research fit demonstrated large factual and
+command-response gains but predicts angular rate only and has a fixedwing-80
+regression. The next iteration should evaluate the same shared actuator state
+and physical rate equation as a full-state forecast on the existing frozen
+suite, including velocity, orientation and derivatives. Fit time is measured,
+but a bounded per-observation CPU update is not an adoption gate; background
+fits may publish new immutable revisions intermittently. The model actually
+available at each episode time determines live performance.
 It should retain a zero-momentum solution for nonrotating actuation and learn
 all parameters from the current episode. Do not add vehicle branches,
 consumer tuning or guards.
