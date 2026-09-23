@@ -316,7 +316,10 @@ small in physical units but proportionally large. The experimental fitter
 takes 0.16–5.96 seconds per prefix and predicts body rate only; it is not yet
 the public `OnlineFit` model, a full-state forecast, or a qualified cold-start
 Throw implementation. This noise-free simulator screen also does not establish
-measurement-noise tolerance. A per-input response-speed extension improved
+measurement-noise tolerance. The relaxation family was motivated by the
+pinned Crazyflow rotor equation; its linear limit and signed input warp make
+it a shared model family, but these data do not establish that it covers other
+actuator laws. A per-input response-speed extension improved
 fixedwing-80's second origin to 0.332 rad/s but weakened quad and high-spin
 forecasts and took longer, so the simpler shared-speed model remains the
 research candidate. The next iteration should make its low-dimensional

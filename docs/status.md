@@ -73,7 +73,8 @@ per prefix and forecasts body rate only. It has **not** replaced the public
 model; the full online suite, full-state prediction, derivative contract,
 noise tolerance and live Throw recovery are unqualified. Its 50-row angular
 fit also differs from the public learner's 25-row fit, so the gain is not a
-pure isolated architecture effect.
+pure isolated architecture effect. The response law was motivated by the
+Crazyflow rotor equation, so unseen actuator laws still need evidence.
 
 ## Next iteration
 
