@@ -32,15 +32,20 @@ hold-rate reference consistently; no model change was adopted.
 The corrected simulator truth and public baseline verify from sealed arrays
 without fitting. The [held-out arm qualification](heldout-quad.md) remains the
 aggregate reference; known-recording performance is [documented separately](public-rate-memory.md).
+Exploratory joint inertia and single-response prototypes reduced the worst
+0.85 endpoint as far as 4.86 rad/s, but lost known quad accuracy or inferred
+invalid inertia. The public learner is unchanged; the numerical result alone
+does not qualify a replacement. Details are in [the diagnostic](high-spin-angular.md).
 
 ## Next iteration
 
-The next gap remains **high-spin angular generalization**, now narrowed to an
-identifiable angular-momentum recurrence with hidden actuator response. Fit
-constant physical terms and changing disturbances from the current episode
-without assuming an unpowered segment or exposing vehicle metadata. Use the
-frozen 50–250 ms factual and counterfactual measurements for fast development,
-then qualify any candidate on fresh high-spin configurations and the known
-fixed-wing/quad suite. The 0.85/1.40 recordings are development evidence, not
-blind holdouts. Cold-start latency, live Throw controller integration,
-fixed-wing counterfactual response and unseen classes remain separate.
+The next gap remains **high-spin angular generalization**: fit a positive-
+definite inertia and one causal applied-command state as persistent episode
+quantities, with a small state-dependent torque residual. Use causal trajectory
+and command-response loss, rather than only the last 25 one-step increments,
+and measure whether the episode actually excites each input direction. Keep
+the same frozen 50–250 ms factual/counterfactual benchmark and known
+fixed-wing/quad suite; qualify a successful candidate on fresh high-spin
+configurations. The 0.85/1.40 recordings are development evidence, not blind
+holdouts. Cold-start latency, live Throw controller integration, fixed-wing
+counterfactual response and unseen classes remain separate.

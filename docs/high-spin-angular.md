@@ -74,14 +74,31 @@ that segment existing. Jointly fitting unrestricted inertia and control terms
 from all data produced unstable or implausible inertia on other origins. No
 candidate from this screen was adopted into the public model.
 
+A further exploratory screen replaced the independent issued/delayed command
+maps with one causal applied-command map and a trace-normalized learned inertia
+tensor. At the 0.85 row-150 origin, fitting the available prefix reduced the
+250 ms rate error from 27.360 to 7.68 rad/s, but some 1.40 fits produced
+non-positive inertia. Jointly adding an actuator angular-momentum term reached
+4.86 rad/s at that origin in one setting, while worsening known quad origins:
+arm-125 smoke row 125 went from 3.31 to 8.67 rad/s and arm-135 row 141 from
+0.81 to 3.88 rad/s. These were exploratory NumPy/SciPy fits, not public-model
+revisions or a qualified common recipe. A sweep of the assumed command time
+constant changed high-spin errors by tens of rad/s and sometimes made learned
+inertia nearly singular. That constant cannot be selected using the future
+forecast being scored.
+
 The next architecture should represent rigid-body angular momentum and
 unobserved actuator response in one episode-fitted formulation, while keeping
-constant physical parameters separate from changing disturbances. It must
-identify them without requiring a passive prelude, vehicle metadata, a
-pretrained prior, or a per-platform rule. First screen its causal 50–250 ms
-response and forecast on the frozen known suite, then collect new high-spin
-configurations before an adoption decision. A single favorable 0.85 endpoint
-is insufficient.
+constant physical parameters separate from changing disturbances. Positive-
+definite inertia and one shared actuator state must be learned from the causal
+prefix, with trajectory error and command-response error evaluated together.
+The recent command window is poorly conditioned and the following commands
+change substantially; absent independent input excitation, the learner must
+retain uncertainty rather than infer a precise torque map. The method cannot
+require a passive prelude, vehicle metadata, a pretrained prior, or a
+per-platform rule. Screen causal 50–250 ms response and forecast on the frozen
+known suite, then collect new high-spin configurations before adoption. A
+single favorable 0.85 endpoint is insufficient.
 
 The truth and baseline evaluation are small sealed packs:
 
