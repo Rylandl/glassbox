@@ -81,13 +81,15 @@ updates took about 0.92 ms fixed-wing and 1.7 ms quad, but cold compilation
 and first updates remain much slower. The first underexcited command-response
 probe still has 1.071 relative error.
 
-No new live Throw or Dart controller trial or genuinely held-out configuration
-evaluation has been run for this revision. The earlier **3.669 mm**
+No new live Throw or Dart controller trial has been run for this revision. Two
+newly collected Crazyflow arm configurations show that the 1.40 arm predicts
+well, while the 0.85 arm
+has a severe 250 ms high-spin rate error. The earlier **3.669 mm**
 full-history accumulator result and **0.720 mm** refined-v8 result belong to
 different revisions. See the [current result](docs/public-rate-memory.md) for
-physical errors and artifact provenance, and [status](docs/status.md) for the
-next gap. Earlier temporal, migration and projection results remain historical
-evidence.
+known-recording evidence, the [held-out arm result](docs/heldout-quad.md) for
+new-configuration evidence, and [status](docs/status.md) for the next gap.
+Earlier temporal, migration and projection results remain historical evidence.
 
 [Development guide](CONTRIBUTING.md) · [Documentation](docs/README.md) ·
 [Apache-2.0 license](LICENSE)
