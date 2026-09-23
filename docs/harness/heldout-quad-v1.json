@@ -1,0 +1,27 @@
+{
+  "id": "heldout-quad-v1",
+  "gap": "Qualify the public episode-fitted model on Crazyflow arm geometries not used in model development.",
+  "streams": {
+    "quad": {
+      "source_repository": "/Users/ryland/projects/glassbox-throw",
+      "source_commit": "9bd74c1",
+      "behavior_glassbox_commit": "d10bb24e4d30f3be212d0101d1f433c0004ecedb",
+      "cases": [
+        {"id": "quad-arm-085-heldout", "arm_ratio": 0.85},
+        {"id": "quad-arm-140-heldout", "arm_ratio": 1.40}
+      ]
+    }
+  },
+  "measurement": {
+    "source": "Run the pinned pass6 behavior controller and Crazyflow 0.3.2 plant at 100 Hz. The candidate never controls the source flights and receives only motion, issued commands and timestamps.",
+    "prefix_begin_row": 50,
+    "first_prediction_row": 125,
+    "forecast_stride_rows": 25,
+    "horizon_ms": [50, 100, 150, 200, 250],
+    "primary": "Physical 250 ms body-rate and world-velocity RMSE on causal conditional forecasts, with native one-step errors and each origin retained.",
+    "reference": "Hold measured world velocity and body rate from each forecast origin. This is a no-fit sanity reference, not a model-based incumbent.",
+    "runtime": "Record initialization, first forecast, first update and warm update times separately; startup history and fitting time count.",
+    "failure": "Retain every requested flight, floor contact, truncated run, insufficient 125-row prefix, nonfinite prediction and source mismatch. Missing forecasts are not scored as success.",
+    "scope": "New arm lengths within one Crazyflow quad family. Recorded issued future commands make this a model test, not a live controller trial or unseen vehicle-class result. Counterfactual response truth is not available in these tapes."
+  }
+}
