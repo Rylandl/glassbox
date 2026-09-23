@@ -1,5 +1,13 @@
 # Causal actuator model: full-state qualification
 
+**Historical comparison, superseded for adoption decisions.** This run fitted
+the readout on each benchmark prefix but reconstructed actuator state and fitted
+inertia using earlier rows on several quad recordings. The incumbent's frozen
+online runner began at row 50 (row 10 for paired coarse), so the candidate had
+additional causal data. The [current status](status.md) reports the corrected
+matched-prefix and timed-publication comparisons. The numbers below remain the
+original saved result; they should not be described as equal-data evidence.
+
 The episode-fitted causal actuator model is now the **selected architecture for
 public integration**. It is not yet the maintained learner. The decision rests
 on full-state predictions at every frozen origin in the eight-case online
