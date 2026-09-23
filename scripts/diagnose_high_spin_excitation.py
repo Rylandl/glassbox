@@ -1,7 +1,10 @@
 """Replay high-spin tapes with a frozen independent-input excitation pattern."""
 
 import argparse
+import hashlib
+import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -108,11 +111,21 @@ def score(states, factual, response, response_truth, row):
 
 
 def run(output):
-    from glassbox_throw.plant import CrazyflowPlant, CrazyflowPlantConfig
-
     spec = read(PROTOCOL)
     source = Path(spec["source"]["path"])
     authenticate(source, spec["source"]["manifest_sha256"])
+    plant_source = Path(spec["source"]["plant_source_path"])
+    require(
+        hashlib.sha256(plant_source.read_bytes()).hexdigest()
+        == spec["source"]["plant_source_sha256"],
+        "pinned simulator adapter differs",
+    )
+    plant_spec = importlib.util.spec_from_file_location("_frozen_glassbox_throw_plant", plant_source)
+    plant_module = importlib.util.module_from_spec(plant_spec)
+    sys.modules[plant_spec.name] = plant_module
+    plant_spec.loader.exec_module(plant_module)
+    CrazyflowPlant = plant_module.CrazyflowPlant
+    CrazyflowPlantConfig = plant_module.CrazyflowPlantConfig
     measure = spec["measurement"]
     config = CrazyflowPlantConfig(control_frequency_hz=100)
     output.mkdir(parents=True, exist_ok=False)
