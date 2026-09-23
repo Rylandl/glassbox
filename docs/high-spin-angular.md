@@ -207,3 +207,53 @@ PYTHONPATH=src:scripts python scripts/qualify_high_spin_response.py verify \
   --output artifacts/high-spin-response-v1/baseline \
   --manifest-sha256 6fd3999cc0094c48a5fe0421d93fb32e1fab679506bfacd7cd879c9f2b813fb2
 ```
+
+## Causal shared-actuator screen, 2026-09-23
+
+An exploratory episode-only fit tested the proposed coupling directly. It
+used one nonlinear first-order command state for force and angular motion, a
+positive-definite trace-normalized inertia tensor, per-input angular-momentum
+coefficients, and a torque readout with linear and quadratic actuator terms.
+The command exponent and rise/fall time constants were learned from rows
+50–149, including observed force and 250 ms rate trajectories. All forecasts
+below start at the common row-150 control state and use its next 25 commands;
+the excited fit uses only its separate causal prefix. These are **smoke
+scores**, not a frozen qualification of a committed model.
+
+| Fit prefix | 0.85-arm 250 ms rate error | 1.40-arm 250 ms rate error |
+| --- | ---: | ---: |
+| Original | 10.21 rad/s | 2.48 rad/s |
+| Independently excited | 15.23 rad/s | 1.74 rad/s |
+
+The fit reduced error at one difficult origin, but its learned command
+exponent repeatedly hit the upper bound and the excited 0.85 fit was worse
+than the public model's 11.64 rad/s. A simpler coupled linear solve also
+regressed the frozen known-quad smoke origins: arm-125 reached 6.51/5.76
+rad/s and arm-135 reached 14.73/9.13 rad/s at their first two origins.
+Neither fit qualifies as a replacement. A 250 ms training-trajectory loss
+lowered past loss while worsening these future forecasts, so training rollout
+fit by itself did not solve the identifiability problem.
+
+The initial zero-command second is informative: fitting Euler's equation to
+*observed* rates in that unpowered prefix recovered normalized inertia
+diagonal `(.735, .824, 1.441)`, matching the simulator's hidden inertia to
+about 0.001. Retaining this estimate and restricting actuator momentum to
+one known body axis improved the 0.85 original/excited row-150 errors to
+9.20/4.49 rad/s at one fixed lag, but arm-125 row 125 was 5.13 and arm-135
+row 125 was 9.08 rad/s. That one-axis assumption and the unusually long
+unpowered prefix make this a diagnostic, not the generic learner.
+
+The remaining error is concentrated in applied actuation. On the original
+0.85 branch, the constrained torque readout fitted with a causal command
+filter had a mean held-out roll-moment residual of −29.18 in normalized
+inertia units on the *measured* future trajectory. Feeding the same fit
+family the simulator's hidden motor speeds instead reduced that residual to
+−3.27. Hidden speed is an oracle ablation, not an input to Glassbox. The
+original powered commands also had a smaller fourth centered singular value
+than the independently excited prefix (0.37 versus 1.03), so the latter
+better spans input combinations visited in the forecast. Neither one-step
+force fitting nor short causal validation selected a reliable nonlinear
+command curve and lag across the cases. The next experiment should identify
+the shared hidden response from *joint force and angular observations* before
+allowing an uncertain torque map to absorb it; it must retain cross-axis
+physics and be screened on fixed-wing as well as quad data.

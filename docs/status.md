@@ -14,7 +14,7 @@ The Throw requirement excludes any pretraining.
 | Online identification | The public learner completed 4,187 causal updates and 263 frozen forecast origins. Fixed-wing 250 ms body-rate RMSE is 0.345/0.597 rad/s; quad arm-115/125/135 is 0.841/0.551/6.237. Warm CPU updates were about 0.92 ms fixed-wing and 1.7 ms quad; cold compilation and first updates are far slower. [Current result](public-rate-memory.md). |
 | Command response | Arm-125 six-probe mean relative error is 0.331, but the first underexcited probe remains 1.071. The separately excited branch reaches 0.417 at a different state; this does not establish better recovery. Fixed-wing counterfactual truth remains absent. [Current result](public-rate-memory.md). |
 | New configurations | On two newly collected arm geometries, 1.40 reaches 0.455 rad/s 250 ms rate RMSE across 35 origins, while 0.85 reaches 19.827 rad/s across two high-spin origins, worse than the 9.073 rad/s hold-rate reference. [Held-out result](heldout-quad.md). |
-| High-spin diagnosis | The worst 0.85 origin has 0.247 relative 50 ms response error but 27.360 rad/s 250 ms rate error. Independent-input training cuts those to 0.151 and 11.642 at the same target. Native inertial and rotor-momentum terms are large at this origin; an oracle with hidden inertia and motor state reaches about 1 rad/s, while causal fixed-lag surrogates remain much worse. No replacement qualified. [Diagnostic result](high-spin-angular.md). |
+| High-spin diagnosis | The worst 0.85 origin has 0.247 relative 50 ms response error but 27.360 rad/s 250 ms rate error. Independent-input training cuts those to 0.151 and 11.642 at the same target. Native inertial and rotor-momentum terms are large; an oracle with hidden motor state reaches about 1 rad/s. A causal shared-actuator, coupled-inertia screen reached 10.21/15.23 rad/s on the original/excited 0.85 prefixes and did not qualify. [Diagnostic result](high-spin-angular.md). |
 | Offline and Dart | `fit/predict/update` use the new angular structure and lifecycle tests pass. No matched offline accuracy fit or live Dart/Throw controller trial has been run for this revision; preceding compact-model results are [historical](nonlinear-temporal.md). |
 | Scope | One fixed-wing airframe across two recordings, known quad conditions and two new arm configurations; a paired quad flight was gentle. High-spin recovery, long-horizon fidelity, fresh-start real-time operation, calibrated envelopes, unseen vehicle classes and live Throw recovery remain open. |
 
@@ -51,22 +51,28 @@ momentum over 250 ms. A torque map given the simulator's true inertia and
 motor trajectory rolled out within 0.97–1.26 rad/s when rotor momentum was
 included, versus 4.58–8.20 without it. These are oracle diagnostics, not
 causal learner results; the model remains unchanged.
+The subsequent [causal shared-actuator screen](high-spin-angular.md#causal-shared-actuator-screen-2026-09-23)
+fit nonlinear command memory, coupled inertia, actuator momentum and force
+from the same episode. Its 0.85 control/excited matched-state errors were
+10.21/15.23 rad/s; the excited fit regressed against the public 11.64, and
+simpler coupled solves regressed known quad smoke origins. The unpowered
+prefix identified the normalized inertia accurately from observations, but
+the hidden applied-actuator trajectory was not recovered well enough from
+commands and motion. No public code or benchmark contract changed.
 
 ## Next iteration
 
-The named gap remains **high-spin angular generalization**. The current
-axis-local 25-transition fit omits cross-axis angular momentum, uses a fixed
-actuator lag separate from the force head, and throws away earlier command
-information. The new [structural check](high-spin-angular.md#structural-check-at-the-difficult-250-ms-origin)
-shows that native inertia and rotor momentum matter greatly at the failed
-origin, but its oracle inputs are not available to Glassbox. The next single
-model experiment is a shared causal actuator representation and
-angular-momentum equation with positive-definite inertia fitted from the
-current episode; static control effects should retain information beyond the
-short local residual. Reuse the frozen factual and command-response suite,
-including excited prefixes and known fixed-wing recordings, to screen that
-architecture without vehicle branches or extra acceptance guards. A better
-oracle score alone is not adoption evidence. Qualify a successful causal
-candidate on fresh high-spin configurations. Cold-start latency, live Throw
-controller integration, fixed-wing counterfactual response and unseen classes
-remain separate.
+The named gap remains **high-spin angular generalization**, now narrowed to
+**causal applied-actuator identification**. Coupled rigid-body physics has
+substantial oracle capacity, and the episode's unpowered motion identifies
+inertia. Joint one-step and trajectory fits still let the nonlinear actuator
+state trade off against torque coefficients, producing incompatible future
+responses from similar prefix losses. The next single-model experiment should
+make the actuator state observable from the combined force and angular
+measurements, then fit the coupled torque readout. It must learn all response
+parameters from the same episode, preserve a zero-momentum solution for
+systems without rotating actuation, and screen fixed-wing and known quad
+recordings before full qualification. Use the existing frozen suite; do not
+add platform branches, consumer tuning or more acceptance guards. Cold-start
+latency, live Throw control, fixed-wing counterfactual response and unseen
+classes remain separate.
