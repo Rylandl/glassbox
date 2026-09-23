@@ -232,7 +232,10 @@ regressed the frozen known-quad smoke origins: arm-125 reached 6.51/5.76
 rad/s and arm-135 reached 14.73/9.13 rad/s at their first two origins.
 Neither fit qualifies as a replacement. A 250 ms training-trajectory loss
 lowered past loss while worsening these future forecasts, so training rollout
-fit by itself did not solve the identifiability problem.
+fit by itself did not solve the identifiability problem. Increasing the weight
+of the force observations to a measurement-scale loss changed the 0.85
+original/excited errors to 15.60/17.18 rad/s, so the weak force weight in the
+first fit was not the explanation.
 
 The initial zero-command second is informative: fitting Euler's equation to
 *observed* rates in that unpowered prefix recovered normalized inertia
