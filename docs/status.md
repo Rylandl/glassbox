@@ -14,7 +14,7 @@ The Throw requirement excludes any pretraining.
 | Online identification | The public learner completed 4,187 causal updates and 263 frozen forecast origins. Fixed-wing 250 ms body-rate RMSE is 0.345/0.597 rad/s; quad arm-115/125/135 is 0.841/0.551/6.237. Warm CPU updates were about 0.92 ms fixed-wing and 1.7 ms quad; cold compilation and first updates are far slower. [Current result](public-rate-memory.md). |
 | Command response | Arm-125 six-probe mean relative error is 0.331, but the first underexcited probe remains 1.071. The separately excited branch reaches 0.417 at a different state; this does not establish better recovery. Fixed-wing counterfactual truth remains absent. [Current result](public-rate-memory.md). |
 | New configurations | On two newly collected arm geometries, 1.40 reaches 0.455 rad/s 250 ms rate RMSE across 35 origins, while 0.85 reaches 19.827 rad/s across two high-spin origins, worse than the 9.073 rad/s hold-rate reference. [Held-out result](heldout-quad.md). |
-| High-spin diagnosis | The worst 0.85 origin has 0.247 relative 50 ms response error but 27.360 rad/s 250 ms rate error. Independent-input training cuts those to 0.151 and 11.642 at the same target. Native inertial and rotor-momentum terms are large; an oracle with hidden motor state reaches about 1 rad/s. A causal shared-actuator, coupled-inertia screen reached 10.21/15.23 rad/s on the original/excited 0.85 prefixes and did not qualify. [Diagnostic result](high-spin-angular.md). |
+| High-spin diagnosis | The public learner's worst 0.85 origin has 0.247 relative 50 ms response error and 27.360 rad/s 250 ms rate error. A committed causal nonlinear-relaxation research fitter reaches 0.0093 and 0.409 at that origin without hidden rotor state or prior training; both 1.40-arm origins improve too. It is not yet an online/full-state model. [Diagnostic result](high-spin-angular.md#causal-nonlinear-relaxation-screen-2026-09-23). |
 | Offline and Dart | `fit/predict/update` use the new angular structure and lifecycle tests pass. No matched offline accuracy fit or live Dart/Throw controller trial has been run for this revision; preceding compact-model results are [historical](nonlinear-temporal.md). |
 | Scope | One fixed-wing airframe across two recordings, known quad conditions and two new arm configurations; a paired quad flight was gentle. High-spin recovery, long-horizon fidelity, fresh-start real-time operation, calibrated envelopes, unseen vehicle classes and live Throw recovery remain open. |
 
@@ -60,19 +60,31 @@ prefix identified the normalized inertia accurately from observations, but
 the hidden applied-actuator trajectory was not recovered well enough from
 commands and motion. No public code or benchmark contract changed.
 
+The next [causal nonlinear-relaxation screen](high-spin-angular.md#causal-nonlinear-relaxation-screen-2026-09-23)
+fit a shared nonlinear applied-command state from **observed force and angular
+motion**. Its frozen research code is committed at `2ba4f70` on
+`codex/causal-relaxation-screen`. On the four original-prefix high-spin
+origins, 250 ms rate error fell from public 6.135/27.360/2.228/1.189 to
+1.942/0.409/0.351/0.142 rad/s, and 50 ms command-response error fell at
+all four origins. The known-quad smoke endpoints improved, while
+fixedwing-80 regressed at both early origins and the gentle paired quad
+regressed slightly in absolute terms. The candidate fits for 0.16–5.96 s
+per prefix and forecasts body rate only. It has **not** replaced the public
+model; the full online suite, full-state prediction, derivative contract,
+noise tolerance and live Throw recovery are unqualified. Its 50-row angular
+fit also differs from the public learner's 25-row fit, so the gain is not a
+pure isolated architecture effect.
+
 ## Next iteration
 
-The named gap remains **high-spin angular generalization**, now narrowed to
-**causal applied-actuator identification**. Coupled rigid-body physics has
-substantial oracle capacity, and the episode's unpowered motion identifies
-inertia. Joint one-step and trajectory fits still let the nonlinear actuator
-state trade off against torque coefficients, producing incompatible future
-responses from similar prefix losses. The next single-model experiment should
-make the actuator state observable from the combined force and angular
-measurements, then fit the coupled torque readout. It must learn all response
-parameters from the same episode, preserve a zero-momentum solution for
-systems without rotating actuation, and screen fixed-wing and known quad
-recordings before full qualification. Use the existing frozen suite; do not
-add platform branches, consumer tuning or more acceptance guards. Cold-start
-latency, live Throw control, fixed-wing counterfactual response and unseen
-classes remain separate.
+The named gap is now **efficient full-state realization of the causal
+applied-actuator model**. The episode-only research fit demonstrated large
+factual and command-response gains but takes seconds, predicts angular rate
+only, and has a fixedwing-80 regression. The next iteration should use the
+same shared actuator state and physical rate equation in the maintained
+learner, find an incremental fit with bounded cost, and evaluate full-state
+forecasts and derivatives on the existing frozen suite. It should retain a
+zero-momentum solution for nonrotating actuation and learn all parameters from
+the current episode. Do not add vehicle branches, consumer tuning or guards.
+Cold-start latency, live Throw control, measurement-noise tolerance and unseen
+classes remain separate qualification work.

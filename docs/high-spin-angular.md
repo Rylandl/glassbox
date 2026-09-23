@@ -260,3 +260,64 @@ command curve and lag across the cases. The next experiment should identify
 the shared hidden response from *joint force and angular observations* before
 allowing an uncertain torque map to absorb it; it must retain cross-axis
 physics and be screened on fixed-wing as well as quad data.
+
+## Causal nonlinear relaxation screen, 2026-09-23
+
+The [committed research screen](../scripts/screen_causal_relaxation.py) at
+`2ba4f70` tested one shared actuator state. A monotone signed command warp
+feeds a positive-rate nonlinear relaxation with learned rise/fall coefficients;
+the same latent state enters the observed-force and rigid-body moment solves.
+The moment equation contains Euler inertial coupling and a per-input angular
+momentum vector, which can fit to zero. An isotropic normalized inertia prior
+is updated from low-command free motion using one weighted solve. All fitted
+quantities use completed states and issued commands from that episode; no
+simulator rotor state, geometry, vehicle label or fleet fit enters the learner.
+The nonlinear coefficients were selected by joint force/moment prefix loss,
+with force components scaled by their **initial prefix reconstruction error**
+so unmodeled fixed-wing lift did not dominate the actuator identification.
+
+On the sealed [high-spin response truth](../artifacts/high-spin-response-v1/truth/manifest.json),
+both factual 250 ms rate forecasts and finite-difference command effects
+improved at all four original-prefix origins. The response column is relative
+error in the 50 ms body-rate Jacobian for a one-step issued-command change.
+
+| Arm / origin | Public 250 ms rate | Candidate 250 ms rate | Public 50 ms response | Candidate 50 ms response |
+| --- | ---: | ---: | ---: | ---: |
+| 0.85 / 125 | 6.135 | 1.942 | 0.361 | 0.0355 |
+| 0.85 / 150 | 27.360 | 0.409 | 0.247 | 0.0093 |
+| 1.40 / 125 | 2.228 | 0.351 | 0.566 | 0.0871 |
+| 1.40 / 150 | 1.189 | 0.142 | 0.137 | 0.0180 |
+
+The separate independently excited prefixes, forecast from the original
+row-150 state and future commands, reach 0.374 rad/s on arm 0.85 and 0.051
+rad/s on arm 1.40; the public matched-state values are 11.642 and 0.845.
+This is a causal **architecture screen**, not a public-model revision or
+live-controller result. The four response origins are the same development
+configurations used during diagnosis, not blind held-out vehicles.
+
+The existing five-case smoke suite includes fixed-wing, known quad arms and
+one gentle paired quad. Its ten 250 ms angular endpoints compare as follows;
+both methods fit from the same causal origins, but this research fitter uses
+a longer prefix and seconds of optimization, so it is **not** a matched
+online-runtime comparison.
+
+| Case | Public first / second, rad/s | Candidate first / second, rad/s |
+| --- | ---: | ---: |
+| fixedwing-80 | 0.165 / 0.052 | 0.277 / 0.490 |
+| fixedwing-81 | 1.193 / 0.197 | 0.157 / 0.148 |
+| quad-arm-125 | 3.313 / 1.705 | 0.778 / 0.103 |
+| quad-arm-135 | 7.452 / 0.809 | 0.751 / 0.360 |
+| paired-quad-fine | 0.0015 / 0.0010 | 0.0118 / 0.0053 |
+
+The large fixedwing-80 second-origin loss remains real, though the aggregate
+fixed-wing and difficult-quad endpoints improve. The paired-quad losses are
+small in physical units but proportionally large. The experimental fitter
+takes 0.16–5.96 seconds per prefix and predicts body rate only; it is not yet
+the public `OnlineFit` model, a full-state forecast, or a qualified cold-start
+Throw implementation. This noise-free simulator screen also does not establish
+measurement-noise tolerance. A per-input response-speed extension improved
+fixedwing-80's second origin to 0.332 rad/s but weakened quad and high-spin
+forecasts and took longer, so the simpler shared-speed model remains the
+research candidate. The next iteration should make its low-dimensional
+actuator fit incremental, couple it to the full-state learner, and run the
+frozen full suite without adding a vehicle branch or consumer option.
