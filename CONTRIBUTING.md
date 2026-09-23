@@ -48,8 +48,10 @@ Controllers, simulators and telemetry conversion belong to their own projects.
 The [current public-rate report](docs/public-rate-memory.md) records the frozen
 online benchmark, exact source and artifact identities, physical errors and
 saved-data verification commands. No fitting is needed to audit scores. The
-[temporal comparison](docs/nonlinear-temporal.md) is historical evidence for the
-preceding model; use its recorded source for original archive replay.
+[held-out arm report](docs/heldout-quad.md) does the same for two new Crazyflow
+geometries. The [temporal comparison](docs/nonlinear-temporal.md) is historical
+evidence for the preceding model; use its recorded source for original archive
+replay.
 
 ## Verify historical accumulator evidence
 

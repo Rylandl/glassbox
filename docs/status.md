@@ -13,26 +13,26 @@ The Throw requirement excludes any pretraining.
 | Maintained model | Generic gravity, rigid-body kinematics and frames; learned three-axis force readout and episode-fitted command/rate response. Four-command/10 ms model has 4,340 parameters; three-command/50 ms has 2,512. [Current result](public-rate-memory.md). |
 | Online identification | The public learner completed 4,187 causal updates and 263 frozen forecast origins. Fixed-wing 250 ms body-rate RMSE is 0.345/0.597 rad/s; quad arm-115/125/135 is 0.841/0.551/6.237. Warm CPU updates were about 0.92 ms fixed-wing and 1.7 ms quad; cold compilation and first updates are far slower. [Current result](public-rate-memory.md). |
 | Command response | Arm-125 six-probe mean relative error is 0.331, but the first underexcited probe remains 1.071. The separately excited branch reaches 0.417 at a different state; this does not establish better recovery. Fixed-wing counterfactual truth remains absent. [Current result](public-rate-memory.md). |
+| New configurations | On two newly collected arm geometries, 1.40 reaches 0.455 rad/s 250 ms rate RMSE across 35 origins, while 0.85 reaches 19.827 rad/s across two high-spin origins, worse than the 9.073 rad/s hold-rate reference. [Held-out result](heldout-quad.md). |
 | Offline and Dart | `fit/predict/update` use the new angular structure and lifecycle tests pass. No matched offline accuracy fit or live Dart/Throw controller trial has been run for this revision; preceding compact-model results are [historical](nonlinear-temporal.md). |
-| Scope | One fixed-wing airframe across two recordings and known quad configurations/conditions; a paired quad flight was gentle. Long-horizon fidelity, fresh-start real-time operation, calibrated envelopes, held-out configurations and live Throw recovery remain open. |
+| Scope | One fixed-wing airframe across two recordings, known quad conditions and two new arm configurations; a paired quad flight was gentle. High-spin recovery, long-horizon fidelity, fresh-start real-time operation, calibrated envelopes, unseen vehicle classes and live Throw recovery remain open. |
 
 ## Latest result
 
-The [public rate-memory integration](public-rate-memory.md) put the experimental
-angular structure into one public model and replaced sample-count command lag
-with a fixed physical-time lag. The fixed-wing 250 ms rate errors improved from
-the experimental wrapper's 0.509/0.634 to 0.345/0.597 rad/s; quad rate results
-are essentially unchanged. The cleaned public implementation reproduced every
-saved benchmark forecast and response exactly. Both final packs verified from
-saved data without refitting. The hard arm-135 and first underexcited response
-remain substantial errors.
+The [held-out arm qualification](heldout-quad.md) found a sharp boundary. A new
+1.40-arm flight has good aggregate 250 ms rate/velocity forecasts, but the
+0.85-arm flight reaches 19.827 rad/s rate RMSE over two high-spin origins,
+worse than holding the current rate. Its one-step fits remain sharp while
+frozen-origin error compounds. Both sealed packs verify without fitting. The
+public rate-memory integration and known-recording performance remain
+[documented separately](public-rate-memory.md).
 
 ## Next iteration
 
-The next gap is **fresh-start consumer and configuration qualification**. Run a
-Throw workflow from an empty episode with startup data and cold compilation
-time counted; determine whether the measured first-update delay is acceptable
-or needs architectural removal. Test a genuinely held-out configuration with
-the frozen physical-error and response protocol. Keep live control success,
-model residuals and derivative fidelity as separate claims. Do not infer
-generality from the known eight recordings or the gentle paired flight.
+The next gap is **high-spin angular generalization**. Diagnose whether generic
+cross-axis inertial coupling or a more identifiable command-response lag
+explains the 0.85 failure, then test one structural change against the frozen
+known-recording suite and fresh configurations. The 0.85 flight is now
+development evidence, not a blind holdout for that change. Cold-start latency,
+live Throw controller integration, fixed-wing counterfactual response and
+unseen vehicle classes remain separate qualifications.
