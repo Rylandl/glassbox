@@ -9,20 +9,22 @@ import time
 from pathlib import Path
 
 import numpy as np
-
 from benchmark_online_readout import (
     GIT,
-    SPEC as ONLINE_SPEC,
     authenticate_sources,
     read,
     response_jacobian,
     source_case,
     write,
 )
+from benchmark_online_readout import (
+    SPEC as ONLINE_SPEC,
+)
 from collect_throw import authenticate, seal
 from evaluate_online import metrics
-from glassbox import STATE_CHANNELS, SequenceCollection, SequenceSegment
 from verify_baseline import observed, require
+
+from glassbox import STATE_CHANNELS, SequenceCollection, SequenceSegment
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "docs/early-excitation-benchmark.json"
