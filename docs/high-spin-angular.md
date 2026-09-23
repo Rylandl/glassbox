@@ -325,3 +325,26 @@ forecasts and took longer, so the simpler shared-speed model remains the
 research candidate. The next iteration should make its low-dimensional
 actuator fit incremental, couple it to the full-state learner, and run the
 frozen full suite without adding a vehicle branch or consumer option.
+
+### Fit-cost iteration
+
+The same research model was refactored at `068fafd` on
+`codex/causal-relaxation-incremental`: its actuator recurrence is compiled,
+observed force/moment terms are cached across nonlinear trials, and the three
+nonnegative damping coefficients use a small exact active-set solve. On 120
+sampled parameter settings across fixed-wing and quad prefixes, force
+residuals matched the earlier solve exactly and moment residuals differed by
+at most `6.1e-9`. The full frozen smoke and response screen retained the
+headline behavior: the difficult 0.85 row-150 rate error was 0.410 rather
+than 0.409 rad/s, and its 50 ms command-response error remained 0.0093.
+The largest response change in the four-origin check was the 1.40 row-125
+relative error, 0.0871 to 0.0994.
+
+On the 0.85 row-150 prefix, a fresh process after imports took 0.47 s for the
+first fit, including actuator-kernel compilation, and 0.33 s for a repeated
+fit, versus roughly 4–5 s for the prior Python implementation. These are
+research-prefix fits, not online updates. An exploratory causal replay of
+two warm-started optimizer iterations after each of rows 101–150 took about
+49 ms per update and reached 1.10 rad/s at the difficult endpoint. That is
+better than the public 27.36 rad/s but worse than the 0.41 rad/s batch fit,
+and far too slow for each 10 ms observation. No public model code changed.

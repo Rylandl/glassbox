@@ -76,6 +76,14 @@ fit also differs from the public learner's 25-row fit, so the gain is not a
 pure isolated architecture effect. The response law was motivated by the
 Crazyflow rotor equation, so unseen actuator laws still need evidence.
 
+The [fit-cost iteration](high-spin-angular.md#fit-cost-iteration) at `068fafd`
+kept the same research model and reduced the difficult-prefix fit from
+roughly 4–5 s to 0.47 s on its first call after imports and 0.33 s warm.
+Its 250 ms rate and 50 ms response scores at the worst 0.85 origin remained
+0.410 rad/s and 0.0093 relative error. A simple two-step warm-started replay
+still took about 49 ms per 10 ms observation and reached 1.10 rad/s, so this
+is not yet an online implementation. The public learner remains unchanged.
+
 ## Next iteration
 
 The named gap is now **efficient full-state realization of the causal
@@ -83,9 +91,10 @@ applied-actuator model**. The episode-only research fit demonstrated large
 factual and command-response gains but takes seconds, predicts angular rate
 only, and has a fixedwing-80 regression. The next iteration should use the
 same shared actuator state and physical rate equation in the maintained
-learner, find an incremental fit with bounded cost, and evaluate full-state
-forecasts and derivatives on the existing frozen suite. It should retain a
-zero-momentum solution for nonrotating actuation and learn all parameters from
-the current episode. Do not add vehicle branches, consumer tuning or guards.
+learner, find an incremental fit with bounded per-observation cost, and
+evaluate full-state forecasts and derivatives on the existing frozen suite.
+It should retain a zero-momentum solution for nonrotating actuation and learn
+all parameters from the current episode. Do not add vehicle branches,
+consumer tuning or guards.
 Cold-start latency, live Throw control, measurement-noise tolerance and unseen
 classes remain separate qualification work.
