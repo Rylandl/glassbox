@@ -19,7 +19,7 @@ from glassbox._dynamics import (
     state_without_current_command,
     time_constants,
 )
-from screen_positive_damping_hybrid import PositiveDampingHybrid
+from screen_causal_rate import CausalRateFit
 
 
 def joint_step(params, norms, state, command, force_applied, history, hidden,
@@ -135,7 +135,7 @@ class JaxRateSession:
         return np.asarray(prediction)
 
 
-class JaxHybrid(PositiveDampingHybrid):
+class JaxHybrid(CausalRateFit):
     def __init__(self, prefix):
         super().__init__(prefix)
         self.session = JaxRateSession(self)
