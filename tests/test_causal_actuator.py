@@ -95,6 +95,21 @@ def test_nonphysical_inertia_is_rejected():
         )
 
 
+def test_optimizer_log_bound_roundoff_is_accepted():
+    with np.load(FIXTURES / "causal-fixedwing-80-row31.npz") as saved:
+        data = {key: saved[key] for key in saved.files}
+    for q in (np.exp(np.log(1e-7)), np.exp(np.log(10.0))):
+        model = CausalActuatorModel(
+            float(data["dt_s"]),
+            q,
+            data["coeff"],
+            data["inertia"],
+            data["force"],
+            data["torque"],
+        )
+        assert model.q > 0
+
+
 def _analytic_segment(reverse=False):
     dt_s, count = 0.02, 40
     time = np.arange(count) * dt_s

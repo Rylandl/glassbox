@@ -41,8 +41,7 @@ def latent_trace(commands, q, coeff, dt_s):
     root = jnp.sqrt(q)
     # Rationalized square-root difference has the correct derivative at u=0.
     targets = commands / (
-        (jnp.sqrt(jnp.abs(commands) + q) + root)
-        * (jnp.sqrt(1 + q) - root)
+        (jnp.sqrt(jnp.abs(commands) + q) + root) * (jnp.sqrt(1 + q) - root)
     )
 
     def update(state, target):
@@ -130,7 +129,7 @@ class CausalActuatorModel:
             not np.isfinite(self.dt_s)
             or self.dt_s <= 0
             or q.shape != ()
-            or not 0 < q <= 10
+            or not 0 < q <= 10 * (1 + 1e-12)
             or coeff.shape != (4,)
             or np.any(coeff <= 0)
             or inertia.shape != (3, 3)
@@ -171,7 +170,9 @@ class CausalActuatorModel:
             or len(past) < 1
             or len(future) < 1
         ):
-            raise ValueError("forecast needs state and complete aligned command history")
+            raise ValueError(
+                "forecast needs state and complete aligned command history"
+            )
         dtype = x.dtype
         commands = jnp.concatenate((past, future))
         trace = latent_trace(
@@ -181,8 +182,7 @@ class CausalActuatorModel:
             self.dt_s,
         )
         J, Cf, Ct = (
-            jnp.asarray(a, dtype=dtype)
-            for a in (self.inertia, self.force, self.torque)
+            jnp.asarray(a, dtype=dtype) for a in (self.inertia, self.force, self.torque)
         )
 
         def advance(state, pair):
