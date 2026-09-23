@@ -99,7 +99,9 @@ class ReadoutProblem:
         self.force_base = np.column_stack(
             (np.ones(n), np.zeros((n, 2 * m)), v, v * speed)
         )
-        pf = np.r_[0.0, np.full(2 * m, 0.001), np.full(6, 0.01)]
+        # A zero-command, zero-speed force is the data-independent prior. An
+        # unpenalized intercept can cancel large slopes on short prefixes.
+        pf = np.r_[0.01, np.full(2 * m, 0.001), np.full(6, 0.01)]
         self.force_penalty = np.diag(np.sqrt(pf))
         self.force_response = np.vstack((self.force_truth, np.zeros((len(pf), 3))))
 
@@ -432,12 +434,52 @@ class BackgroundFit:
 
     def wait_for_publication(self, timeout=None):
         with self._lock:
+            if self._future is None and self._cursor > self._published_cursor:
+                self._start()
             future = self._future
         if future is not None:
             future.result(timeout=timeout)
         with self._lock:
             self._poll()
             return self._published_cursor
+
+    def snapshot(self):
+        with self._lock:
+            self._poll()
+            return (
+                np.stack(self._states),
+                np.stack(self._commands),
+                self._cursor,
+                self._published_cursor,
+                self._model,
+                dict(self._report),
+            )
+
+    @classmethod
+    def from_snapshot(
+        cls, states, commands, dt_s, start_row, published_cursor, model, report
+    ):
+        if (
+            not isinstance(model, CausalActuatorModel)
+            or model.dt_s != dt_s
+            or model.input_count != commands.shape[1]
+            or states.shape != (len(commands) + 1, 15)
+            or not start_row <= published_cursor <= start_row + len(commands)
+        ):
+            raise ValueError("invalid saved background fit")
+        obj = cls.__new__(cls)
+        obj._states = [row.copy() for row in states]
+        obj._commands = [row.copy() for row in commands]
+        obj._dt_s = float(dt_s)
+        obj._cursor = start_row + len(commands)
+        obj._published_cursor = published_cursor
+        obj._model = model
+        obj._report = dict(report)
+        obj._executor = ThreadPoolExecutor(max_workers=1)
+        obj._future = None
+        obj._fitting_cursor = None
+        obj._lock = RLock()
+        return obj
 
     def close(self):
         self._executor.shutdown(wait=True)

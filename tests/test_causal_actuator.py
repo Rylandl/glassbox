@@ -110,6 +110,21 @@ def test_optimizer_log_bound_roundoff_is_accepted():
         assert model.q > 0
 
 
+def test_short_fixedwing_fit_does_not_use_a_large_force_cancellation():
+    """Frozen row-21 fit must remain usable at row 31 before another revision lands."""
+    with np.load(FIXTURES / "causal-fixedwing-80-early.npz") as saved:
+        data = {key: saved[key] for key in saved.files}
+    model, _ = fit_episode(
+        data["training_states"], data["training_commands"], float(data["dt_s"])
+    )
+    with jax.enable_x64(True):
+        forecast = np.asarray(
+            model.forecast(data["start"], data["past_inputs"], data["future_inputs"])
+        )
+    assert np.linalg.norm(model.force[0]) < 2.0
+    assert np.linalg.norm(forecast[-1, :3] - data["target_velocity"]) < 0.7
+
+
 def _analytic_segment(reverse=False):
     dt_s, count = 0.02, 40
     time = np.arange(count) * dt_s
