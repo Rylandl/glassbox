@@ -26,11 +26,33 @@ does not qualify a newly proposed model on unseen configurations.
 
 The 0.85 row-150 command map is much closer over the first 50 ms than its
 factual 250 ms forecast. Its response error also grows over the forecast. A
-wrong instantaneous command coefficient alone does not explain the failure;
-state evolution and hidden actuator dynamics matter. Response error at row 125
-is less orderly, and the long-arm row 125 response is inaccurate despite a
-better-than-hold factual forecast. Neither factual forecasts nor local response
-alone are a sufficient qualification.
+wrong instantaneous command coefficient alone does not explain the failure.
+Response error at row 125 is less orderly, and the long-arm row 125 response is
+inaccurate despite a better-than-hold factual forecast. Neither factual
+forecasts nor local response alone are a sufficient qualification.
+
+A follow-up decomposition locates the roll-axis failure more precisely. At
+row 150 the fitted equation has a **+141.3 rad/s² constant term, large opposing
+issued/delayed-command coefficients, and zero roll damping and rate-memory
+gain**. The last 25 fitting transitions give 0.009 rad/s RMS roll-increment
+error per 10 ms step; feeding the *measured* next 25 states and recorded
+commands into the frozen equation raises that to 1.171 rad/s per step. Its
+future roll acceleration averages +121.5 rad/s² versus +16.2 measured. The
+resulting +26.32 rad/s roll error is already present under teacher forcing;
+this axis does not need a free-rollout state excursion or numerical instability
+to fail. The nine-column constant/issued/delayed-command design on the 25 fit
+rows has condition number about 785, so distinct coefficient combinations can
+explain the recent tape but imply very different later responses.
+
+An oracle decomposition of the pinned simulator on that recorded trajectory
+finds about +54.8 rad/s² average roll acceleration from applied thrust,
+countered by −9.8 from propeller gyroscopic torque and −29.6 from rigid-body
+inertial coupling. The public roll head has no cross-axis rate term to
+represent that changing cancellation. These oracle quantities diagnose the
+failure; none is supplied to Glassbox. A deliberately maximal sustained roll
+command from the same state can reach much higher rates in this simulator, so
+the error is a failure **conditioned on the recorded commands**, not a hard
+actuator-envelope violation.
 
 Focused exploratory screens tested fixed command-lag changes, direct-command
 shrinkage, fit-window length, trajectory fitting, generic gyroscopic quadratic

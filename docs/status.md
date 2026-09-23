@@ -23,9 +23,12 @@ The Throw requirement excludes any pretraining.
 The [high-spin response diagnosis](high-spin-angular.md) shows that the worst
 0.85 origin's initial command map is substantially closer than its 250 ms
 recursion: relative response error is 0.247 at 50 ms and 0.899 at 250 ms,
-while the factual 250 ms body-rate error is 27.360 rad/s. Explicit episode-fit
-inertia helps but does not yet beat the hold-rate reference consistently, and
-other apparently good fits fail different origins. No model change was adopted.
+while the factual 250 ms body-rate error is 27.360 rad/s. Its fitted roll head
+has no rate feedback and a large constant canceled by command terms on the
+recent fit rows. It fails on later **measured** states, so the immediate cause
+is a non-generalizing frozen acceleration equation, not numerical rollout
+instability. Explicit episode-fit inertia helps but does not yet beat the
+hold-rate reference consistently; no model change was adopted.
 The corrected simulator truth and public baseline verify from sealed arrays
 without fitting. The [held-out arm qualification](heldout-quad.md) remains the
 aggregate reference; known-recording performance is [documented separately](public-rate-memory.md).
