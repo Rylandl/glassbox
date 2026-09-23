@@ -129,16 +129,66 @@ refitting. Their manifest SHA-256 values are `d41d08de98ff02f4480a1c79150711d530
 `6913661d2530baba01fc1c3e19b123a3d4707721083d3a1b8097106e4ff7c054`,
 and `54ca6159bb60fa9e9053efb0688d5e4981868f338f0946ae2a3849b70dd281a5`.
 
-The next model iteration should retain control-effect information across the
-episode without treating a fixed 25- or 50-row window as a physical law. A
-single regularized, state-aware torque map can accumulate independently
-excited directions while a compact state residual adapts to changing flight
-conditions; a positive-definite inertia and causal actuator state remain
-shared physical structure. Fit and evaluate command response alongside
-trajectories so a lower factual error cannot hide a wrong control effect.
-No passive prelude, vehicle metadata, pretrained prior or platform branch is
-allowed. Test on the existing frozen suite and both replay packs, then qualify
-on fresh high-spin configurations before adoption.
+## Structural check at the difficult 250 ms origin
+
+An exploratory forensic replay used the same pinned 0.85-arm simulator and
+matched original row-150 forecast target. The simulator reproduced every
+recorded state to `1e-5`. At that target, the omitted rigid-body Euler term
+accounts for **−7.40 rad/s** of roll-rate change over the next 250 ms, and
+propeller angular momentum for another **−2.42 rad/s**. The corresponding
+terms on the 1.40-arm target are only −0.14 and +0.06 rad/s. These are
+contributions to the native equation, not independent corrections to a fitted
+model's error; the present coefficients can absorb some of them on the
+training trajectory.
+
+The frozen public head has a 27.36 rad/s endpoint error on the original
+prefix and 11.64 after the independent-input prefix. Summing its one-step
+errors while feeding it the **measured** future rates gives 28.06 and 12.68
+rad/s respectively. Thus most of the failure is in the equation evaluated on
+the real trajectory, before free-rollout drift. The public 50-step observed
+history reconstructs its own lag state within `0.0002` at the origin, ruling
+out history truncation as the main error.
+
+For a structural upper-bound test, the roll/pitch/yaw torque map was refitted
+on each branch's preceding 50 transitions while supplying the simulator's
+**true inertia, true applied motor trajectory, rotor spin directions and
+propeller inertia**. Only the torque map was estimated from the prefix. The
+rate was then rolled out freely from the common target; the true *future*
+motor trajectory was supplied to isolate the missing dynamics. This is not a
+deployable Glassbox forecast or evidence that those hidden quantities can be
+identified from issued commands alone.
+
+| Fit prefix | Oracle dynamics excluding rotor momentum | Including rotor momentum |
+| --- | ---: | ---: |
+| Original | 8.20 rad/s | 0.97 rad/s |
+| Independently excited | 4.58 rad/s | 1.26 rad/s |
+
+In another oracle sensitivity check, true inertia and rotor-momentum physics
+were retained, but motor speed was reconstructed causally using the
+simulator's static command-to-RPM conversion and a single first-order RPM
+filter. With an 80 ms filter the original-prefix endpoint error was 12.88
+rad/s; at 50 ms it was 4.75 rad/s. Both are well above the 0.97 rad/s result
+with the true motor trajectory. These checks use otherwise hidden simulator
+parameters and must not be read as candidate-model scores. They show why
+merely adding an Euler term to the current fixed-lag, axis-local head is
+unlikely to close the gap.
+
+The maintained angular head fits each axis separately from 25 increments,
+with two independent command maps, a fixed 80 ms command lag and diagonal
+rate feedback. Its force head uses a separate 50 ms command lag, and neither
+head uses the other's evidence to estimate applied actuation. The angular
+head has no cross-axis angular-momentum term or velocity-dependent moment;
+the latter is an additional structural limit for fixed-wing flight across
+airspeed and angle of attack, although this high-spin replay does not test
+that limit. The next candidate should share a causal actuator representation
+between force and torque, express rate dynamics through a positive-definite
+episode-fitted inertia and an actuator-momentum term that can fit to zero,
+and retain control-response information across the episode. Its low-dimensional
+local residual can adapt without refitting the whole command map from the
+last 25 samples. This is one generic rigid-body recipe: no motor count, mixer,
+vehicle class, simulator state or pretrained core is input to the learner.
+The candidate must beat the frozen factual and command-response evidence with
+only causal episode observations before replacing the public head.
 
 The truth and baseline evaluation are small sealed packs:
 
