@@ -1,0 +1,30 @@
+{
+  "id": "high-spin-excitation-v2",
+  "purpose": "Test actuator-timescale independent excitation after the fast pattern improved but did not solve the high-spin forecast.",
+  "source": {
+    "path": "/Users/ryland/autonomy/glassbox/artifacts/heldout-quad-v1/source",
+    "manifest_sha256": "5a60009ea431da8609186cb4cf3bd45419991724215ceeabf385b2cd9084ea80",
+    "simulator": "Crazyflow 0.3.2 through glassbox-throw at source commit 9bd74c1",
+    "plant_source_path": "/Users/ryland/projects/glassbox-throw/src/glassbox_throw/plant.py",
+    "plant_source_sha256": "c61522094c6b35423c42dc5e62fa244cfafc043a7056d9b4d4f80666673009c8"
+  },
+  "cases": [
+    {"id": "quad-arm-085-heldout", "arm_ratio": 0.85},
+    {"id": "quad-arm-140-heldout", "arm_ratio": 1.40}
+  ],
+  "measurement": {
+    "dt_s": 0.01,
+    "replay_through_row": 100,
+    "excitation_end_row": 150,
+    "forecast_end_row": 175,
+    "prefix_begin_row": 50,
+    "amplitudes": [0.0, 0.15],
+    "excitation_hold_rows": 6,
+    "excitation_blocks": 8,
+    "probe_delta": 0.05,
+    "excitation": "At rows 100 through 147, add amplitude times the four-column Hadamard sign pattern. Hold each sign pattern for six rows (60 ms), reverse its sign after four blocks, and clip each issued command to [0,1]. Rows 148 and 149 use the original commands. The eight blocks request a zero-mean perturbation per channel. No learner state or simulator hidden state selects a perturbation.",
+    "forecast": "Fit public OnlineFit only on the completed branch prefix through row 150. Forecast rows 151 through 175 under the same recorded future issued commands. Report physical 50, 100 and 250 ms rate errors against branch truth and hold-rate reference.",
+    "response": "At row 150, branch the simulator from its exact state and hidden motor condition, perturb one issued command channel by plus/minus 0.05 for one interval, replay the recorded future commands and score the public learner's matched finite-difference 50 and 250 ms body-rate response.",
+    "scope": "Controlled simulator diagnosis only. Branches reach different states, so comparisons across them isolate neither excitation nor dynamics causally at the same state. The fast-pattern v1 is a separate frozen experiment. No simulator hidden state or arm metadata is supplied to Glassbox."
+  }
+}

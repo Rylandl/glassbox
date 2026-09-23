@@ -43,8 +43,10 @@ def replay(plant_type, config, ratio, raw, issued, amplitude, measure):
             command = issued[row].copy()
             if measure["replay_through_row"] <= row < measure["excitation_end_row"]:
                 index = row - measure["replay_through_row"]
-                sign = 1 if index % 8 < 4 else -1
-                command = np.clip(command + amplitude * sign * PATTERN[index % 4], 0, 1)
+                block = index // measure.get("excitation_hold_rows", 1)
+                if block < measure.get("excitation_blocks", float("inf")):
+                    sign = 1 if block % 8 < 4 else -1
+                    command = np.clip(command + amplitude * sign * PATTERN[block % 4], 0, 1)
             if row == measure["excitation_end_row"]:
                 snapshot = plant.snapshot()
             commands.append(command)
@@ -167,9 +169,11 @@ def verify(output, expected):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("run", "verify"))
+    parser.add_argument("--protocol", type=Path, default=PROTOCOL)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--manifest-sha256")
     args = parser.parse_args()
+    PROTOCOL = args.protocol
     if args.mode == "run":
         run(args.output)
     else:
