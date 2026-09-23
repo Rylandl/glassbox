@@ -8,6 +8,9 @@ from screen_rollout_readout import ColdTrajectoryReadout
 class CausalRateFit:
     """Estimate prompt and delayed command effects with positive rate damping."""
 
+    def window_transitions(self):
+        return 25
+
     def __init__(self, prefix):
         self.force = ColdTrajectoryReadout(prefix)
         segment = prefix.segments[0]
@@ -24,7 +27,7 @@ class CausalRateFit:
         return command + (applied - command) * np.exp(-self.dt / self.tau)
 
     def fit_rate(self):
-        count = min(25, len(self.commands))
+        count = min(self.window_transitions(), len(self.commands))
         rows = np.arange(len(self.commands) - count, len(self.commands))
         applied = np.asarray(self.applied)
         command = self.commands[rows]
