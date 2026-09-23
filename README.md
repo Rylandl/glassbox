@@ -46,9 +46,9 @@ revision.save("updated-model.npz")
 returns a new revision and leaves the original unchanged; improvement must be
 measured on separate recordings.
 
-For a contiguous live stream, `OnlineFit(prefix)` retains optimizer state and
-assimilates one completed transition at a time, with bounded replay and fitting
-work. It uses the same dynamics formulation. See the
+For a contiguous live stream, `OnlineFit(prefix)` retains causal fitting state
+and assimilates one completed transition at a time, with bounded replay and
+fitting work. It uses the same dynamics formulation. See the
 [streaming contract](docs/learner.md#streaming-identification) and current measured
 limits in [status](docs/status.md).
 
@@ -67,30 +67,27 @@ not a quick test or physical validation.
 
 ## Current evidence
 
-The single maintained model combines shared rigid-body physics, full linear lag
-response, compact nonlinear history and eight learned stable accumulators.
-Each configuration gets its own fit; there is no vehicle-family selector or
-smaller-model option. Four-command / 10 ms models now use **5,450 parameters**,
-down from 8,714.
+The single maintained model combines shared rigid-body physics, a learned
+three-axis force readout, an episode-fitted angular-rate response, compact
+nonlinear history and eight stable accumulators. Each configuration gets its
+own fit; there is no vehicle-family selector or smaller-model option.
+Four-command / 10 ms models use **4,340 parameters**, down from 5,450 in the
+preceding model.
 
-The matched architectural comparison preserves aggregate online accuracy and
-improves Crazyflow command-response error **4.31%** and Dart 250 ms forecast
-error **14.99%**. Crazyflow forecast error is **4.20% higher**, and quad whole
-updates are **6.10% slower** on the measured CPU (**31.9 → 33.9 ms**). Fixed-wing
-results are unchanged in the tested two-lag configuration. Compactness did not
-produce a CPU speedup; real-time fitting and other hardware remain unqualified.
+On the frozen 4,187-update public online benchmark, 250 ms body-rate error was
+0.345/0.597 rad/s on two fixed-wing recordings and 0.841/0.551/6.237 rad/s on
+three quad arm conditions. The hard arm condition remains inaccurate. Warm CPU
+updates took about 0.92 ms fixed-wing and 1.7 ms quad, but cold compilation
+and first updates remain much slower. The first underexcited command-response
+probe still has 1.071 relative error.
 
-No new Dart controller trial was run for this architecture. The earlier
-**3.669 mm** full-history accumulator result and **0.720 mm** refined-v8 result
-belong to different revisions. Held-out forecast improvements do not establish
-submillimeter control. Long-horizon fidelity, independent error coverage and live
-closed-loop identification remain open.
-
-See [the temporal comparison](docs/nonlinear-temporal.md) for matched fits,
-physical errors and archive provenance, [status](docs/status.md) for remaining
-gaps, and [the network review](docs/network-review.md) for the next priority.
-Earlier migration and projection results remain historical evidence; current
-full-stream evaluation corrects their combined accuracy interpretation.
+No new live Throw or Dart controller trial or genuinely held-out configuration
+evaluation has been run for this revision. The earlier **3.669 mm**
+full-history accumulator result and **0.720 mm** refined-v8 result belong to
+different revisions. See the [current result](docs/public-rate-memory.md) for
+physical errors and artifact provenance, and [status](docs/status.md) for the
+next gap. Earlier temporal, migration and projection results remain historical
+evidence.
 
 [Development guide](CONTRIBUTING.md) · [Documentation](docs/README.md) ·
 [Apache-2.0 license](LICENSE)

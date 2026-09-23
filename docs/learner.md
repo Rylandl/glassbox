@@ -81,20 +81,24 @@ callbacks do not establish physical command-response fidelity. Means beyond
 
 ## Dynamics structure
 
-Shared gravity, frame transforms and rigid-body integration surround one learned
-acceleration model. The model combines a linear head, quadratic current-feature
-head and 32-unit nonlinear head. The linear head retains every sampled feature
+Shared gravity, frame transforms and rigid-body integration surround two learned
+outputs of one fixed formulation. Body-frame force uses linear, quadratic and
+32-unit nonlinear features. The linear force head retains every sampled feature
 difference over the preceding 100 ms. The nonlinear head uses up to four fixed
 orthonormal temporal summaries; histories of four or fewer samples keep their
-original coordinates. Eight bounded latent accumulators and issued-command
-filters have learned positive time constants. The basis and dimensions follow
-sample timing, with no consumer choice or vehicle-family dispatch.
+original coordinates. Eight bounded latent accumulators and force-path command
+filters have learned positive time constants.
 
-The accumulators use a nonlinear drive of observed motion and commands, followed
-by stable exponential accumulation. Recorded history can be reduced in parallel;
-future memory advances once per observation interval. All parameters are learned
-per configuration, with command count inferred from the recordings. There are
-no hardcoded actuator roles or vehicle-family equations.
+Angular acceleration uses an episode-fitted readout of current issued commands,
+a passive command state, current body rate and a passive rate state. Each rate
+axis has nonnegative damping and rate-memory coefficients. The passive states
+use fixed 0.08 s and 0.1 s time constants. They are reconstructed from the
+observed history and advance with predicted motion during a rollout. The
+accumulators use a nonlinear drive of observed motion and commands, followed by
+stable exponential accumulation. Recorded history can be reduced in parallel;
+future memory advances once per observation interval. Learned coefficients and
+normalization come only from this configuration's observations. There are no
+hardcoded actuator roles, vehicle-family equations or consumer options.
 
 ## Evidence and persistence
 
@@ -114,11 +118,10 @@ independent coverage evidence. Streaming snapshots have no calibrated envelope.
 `envelope` raises an explicit error when calibration is unavailable. Do not treat
 absent uncertainty as zero uncertainty.
 
-Compact nonlinear history changes the saved model and streaming-session formats.
-The current recipe is `shared-vehicle-temporal-v1`. Historical v8 and full-history
-accumulator archives require their recorded source checkout or a new fit;
-relabeling an old archive does not convert its dynamics. The public fit/predict/update workflow
-and recording semantics remain the same.
+The current recipe is `shared-vehicle-rate-memory-v2`. Earlier temporal,
+full-history and v8 model archives require their recorded source checkout or a
+new fit; relabeling an archive does not convert its dynamics. The public
+fit/predict/update workflow and recording semantics remain the same.
 
 ## Update and evaluate
 
@@ -146,14 +149,14 @@ Current physical results and their limits are documented in [status](status.md).
 
 ## Streaming identification
 
-`OnlineFit(prefix)` is a stateful fitting session for an ongoing, contiguous
-recording. It uses the same shared-physics dynamics engine as offline revisions.
-It does not require a previously fitted model or a vehicle-family label.
+`OnlineFit(prefix)` is a stateful fitting session for one ongoing, contiguous
+recording. It uses the same dynamics rollout as offline revisions and starts from
+observations in the current episode, without a fitted model or vehicle label.
 
 Supply a `SequenceCollection` containing one segment with the normal channel and
 configuration metadata. Startup needs 0.5 seconds of real observed context plus
-0.25 seconds of completed transitions (rounded to the sampling grid, with at
-least three training transitions). The fitter uses the last such prefix when
+0.25 seconds of completed transitions, rounded to the sampling grid, with at
+least three training transitions. The fitter uses the last such prefix when
 more data are supplied. It cannot predict from observations that have not arrived.
 
 ```python
@@ -171,48 +174,25 @@ The cursor is the absolute source row of the next issued command, including the
 segment's `start_row`. An observation consumes exactly that transition; duplicate,
 backward and skipped indices are rejected. Start a new session across a gap.
 Prediction uses the same observed-history and issued-command meaning as above.
-Its numerical kernel is already compiled with model parameters passed as data.
-Wrapping a mutable session in an outer `jax.jit` closure captures its parameters
-at trace time; controllers that compile their own objective must pass changing
-model parameters as traced arguments, or deliberately use a fixed snapshot.
-The session is mutable; it does not rewrite previously saved sessions or model
-snapshots. Saves include the optimizer state, bounded replay data and cursor
-needed to continue deterministically. The current session format is
-`glassbox-online-fit-v8`; older mutable sessions are rejected. Immutable model
-archives retain their existing format. `report["last_proposal"]` holds the latest
-bounded decision evidence, with null values for nonfinite diagnostic scalars;
-`objective_calls` counts the current loss plus the actually attempted trials.
+Controllers compiling their own JAX objective must pass changing model parameters
+as traced arguments or deliberately use a fixed immutable snapshot; closing over
+a mutable session captures its parameters at trace time.
 
-Startup initializes the existing model from one-step ridge windows. Thereafter
-each observation permits one damped Gauss-Newton proposal on 50 ms recursive
-prediction windows. Sixteen preconditioned conjugate-gradient iterations use
-matrix-free curvature products; acceptance checks the complete bounded startup
-and recent replay caches, with equal weight to each role. A fixed prediction-change bound and an
-actual-versus-predicted improvement check control the step. The bounded proposal
-tries scales 1, 1/2, 1/4, 1/8 and 1/16 and stops at the first acceptable step.
-Before that proposal, one causal cache pass can grow feature, quadratic and
-output scales. Compensating
-parameter changes preserve the recurrent prediction function before optimization;
-this changes the optimizer's coordinates without adding model equations. Raw
-body/input/state normalization and motion bounds stay fixed. The fixed loss
-scale is shared within each physical group: velocity, angular rate and rotation.
-Three equally weighted radial Huber terms prevent startup-axis variance from
-selecting which direction matters. Rotation uses chordal matrix distance, with
-small-angle radian units. A fixed physical quadratic-head curvature prior uses
-measured motion/issued-command scales and known unit-gravity geometry. Its exact
-gradient and diagonal curvature enter the solve; acceptance uses data plus prior
-loss, and the trust bound still measures forecast change. It does not constrain
-all recurrent nonlinearities or establish calibrated uncertainty. Changed
-scales are committed only with an accepted proposal. Rejected proposals retain
-the full previous model and increase damping.
-There is no controller, actuator-telemetry input, simulator coefficient access,
-platform dispatch or user-selected learning budget.
+The force readout is initialized from one-step ridge windows and an initial
+trajectory correction. Each completed observation updates fixed-size sufficient
+statistics, fits a regularized linear readout with motion/attitude sensitivity,
+and retains bounded bootstrap and recent forecast windows. Angular coefficients
+are refit from at most 25 completed transitions with nonnegative damping and
+rate-memory terms. Both fits use only current-episode observations. The model
+snapshot exposed by `session.model` is immutable; the session itself is mutable.
+Its archive includes sufficient statistics, bounded replay, rate-memory state,
+cursor and model parameters for deterministic continuation. The current session
+format is `glassbox-online-rate-memory-v1`; older sessions are rejected rather
+than silently migrated. `session.report` records the fixed recipe, cursor, window
+counts and missing calibration evidence.
 
 This procedure has no development split or calibrated error envelope. Training
-loss is not an independent accuracy measure. The active
-[online-fitting protocol](harness/online-fit-v8.json) measures predictions before
-assimilating their targets, against authenticated saved v6 online predictions,
-an identical session frozen after startup and a no-fit kinematic predictor.
-It separately measures update latency; a bounded proposal count alone does not
-establish real-time fitting. Initial evidence and remaining limits belong in
-[status](status.md), not in the API's guarantees.
+loss is not independent accuracy evidence. The current [frozen public benchmark]
+(public-rate-memory.md) measures predictions before assimilation and reports
+physical errors and warm/cold update timing. It does not yet establish real-time
+fresh-start operation, unseen-configuration accuracy or closed-loop recovery.

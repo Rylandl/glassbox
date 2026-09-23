@@ -1,6 +1,9 @@
 # Online fitting: bounded solve and backtracking
 
-**Online v8 is the sole maintained streaming fitter.** It reduces equal-family
+**Historical result.** Online v8 was the maintained streaming fitter at the
+time of this experiment. The current public fitter is documented in
+[the learner contract](learner.md#streaming-identification) and
+[public rate-memory result](public-rate-memory.md). V8 reduces equal-family
 one-step velocity/rate error **41.76% against adopted v6** across all 3,137 causal
 forecasts: 53.19% on quads and 27.54% on fixed wings. All twelve primary case/metric
 comparisons improve. The prospectively frozen primary gate passes (ratio 0.58240,
