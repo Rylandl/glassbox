@@ -243,6 +243,11 @@ def _optimize(problem, command_tapes, dt, J, joint):
         rf, rt, Cf, Ct = problem.solve(r)
         # Common physical-scale residuals, with simple complexity shrinkage.
         value = np.mean((rf / force_scale) ** 2) + np.mean((rt / 1.0) ** 2)
+        # A weak, data-decaying zero/full-command prior on actuator rise/fall
+        # time constants. Either direction remains free when data supports it.
+        zero_asymmetry = np.log(coeff[2] / coeff[0])
+        full_asymmetry = np.log((coeff[2] + 2 * coeff[3]) / (coeff[0] + 2 * coeff[1]))
+        value += 0.03 / problem.n * (zero_asymmetry**2 + full_asymmetry**2)
         if detail:
             return value, q, coeff, r, rf, rt, Cf, Ct, J
         return value
