@@ -6,6 +6,8 @@
   iteration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
+- [Public rate-memory result](public-rate-memory.md): current online accuracy,
+  command response, runtime, verification and limits.
 - [Cold-start readout screen](cold-readout.md): rejected fast linear estimator,
   preserved speed/accuracy evidence and the next isolated experiment.
 - [Readout structural screen](readout-structure.md): learned gravity-path

@@ -45,11 +45,11 @@ Controllers, simulators and telemetry conversion belong to their own projects.
 
 ## Verify current evidence
 
-The [temporal index](docs/nonlinear-temporal.json) records the adopted compact
-model, freshly matched full-model fits, finalized revision paths and test logs.
-Its [report](docs/nonlinear-temporal.md) includes saved-data verification commands.
-No fitting is needed to audit scores. Current code loads the separately finalized
-revisions; use the recorded experimental source for original archive replay.
+The [current public-rate report](docs/public-rate-memory.md) records the frozen
+online benchmark, exact source and artifact identities, physical errors and
+saved-data verification commands. No fitting is needed to audit scores. The
+[temporal comparison](docs/nonlinear-temporal.md) is historical evidence for the
+preceding model; use its recorded source for original archive replay.
 
 ## Verify historical accumulator evidence
 
@@ -140,6 +140,7 @@ inside the package.
 
 - `learner.py`: fit, predict, update and immutable saved revisions.
 - `_dynamics.py`: shared mechanics, learned acceleration and memory.
+- `_rate.py`: generic episode-fitted angular response and passive memory.
 - `online.py`: causal streaming ingestion, bounded replay and fitting state.
 - `recordings.py`: timing, segment boundaries and window extraction.
 - `io/recordings.py`: recording archive persistence.

@@ -18,6 +18,12 @@ import jax.numpy as jnp
 import numpy as np
 
 from glassbox._learner_arrays import array_fingerprint
+from glassbox._rate import (
+    COMMAND_TAU_S,
+    RATE_MEMORY_TAU_S,
+    fit_rate,
+    rate_history,
+)
 from glassbox._training import (
     SequenceBatch,
     SequenceFitError,
@@ -26,8 +32,8 @@ from glassbox._training import (
     trial_parameters,
 )
 
-FORMAT = "glassbox-shared-vehicle-sequence-temporal-v1"
-RECIPE_ID = "shared-vehicle-temporal-v1"
+FORMAT = "glassbox-shared-vehicle-rate-memory-v2"
+RECIPE_ID = "shared-vehicle-rate-memory-v2"
 GRAVITY = (0.0, 0.0, -9.80665)
 MAX_SUBSTEP_S = 0.025
 STEPS = 1000
@@ -46,6 +52,7 @@ _PARAMETERS = {
     "memory_bias",
     "raw_tau",
     "raw_memory_tau",
+    "rate",
 }
 _NORMS = {
     "nonlinear_scale",
@@ -148,7 +155,7 @@ def current_features(states, commands, filtered, norms, xp=jnp):
     return xp.concatenate(
         (
             motion,
-            body[..., 6:],
+            xp.zeros_like(body[..., 6:]),
             (commands - norms["input_mean"]) / norms["input_scale"],
             (filtered - norms["input_mean"]) / norms["input_scale"],
         ),
@@ -202,6 +209,32 @@ def nonlinear_features(sampled, current, delay, xp=jnp):
     )
 
 
+def state_without_current_command(current, xp=jnp):
+    return xp.concatenate((current[..., :9], xp.zeros_like(current[..., 9:])), axis=-1)
+
+
+def additive_quadratic_features(current, xp=jnp):
+    """State products plus velocity-dependent, additive command effectiveness."""
+    state = state_without_current_command(current, xp)
+    i, j = xp.triu_indices(current.shape[-1])
+    velocity_command = (i < 3) & (j >= 9)
+    return quadratic_features(state, xp) + xp.where(
+        velocity_command, current[..., i] * current[..., j], 0
+    )
+
+
+def additive_readout_features(current, history, hidden, xp=jnp):
+    """Linear controls, velocity-control products, nonlinear state/history."""
+    state = state_without_current_command(current, xp)
+    sampled = sampled_features(state, history, hidden, xp)
+    linear = xp.concatenate(
+        (sampled[..., :9], current[..., 9:], sampled[..., current.shape[-1] :]),
+        axis=-1,
+    )
+    nonlinear = nonlinear_features(sampled, current.shape[-1], history.shape[-2], xp)
+    return linear, additive_quadratic_features(current, xp), nonlinear
+
+
 def _prepare_head(params, norms, anchor, history, hidden):
     """Project history once, centered to retain small lag differences."""
     current_width, delay = anchor.shape[-1], history.shape[-2]
@@ -227,79 +260,124 @@ def _prepare_head(params, norms, anchor, history, hidden):
             nonlinear[current_width : 5 * current_width].reshape(4, current_width, -1),
         )
         return base, jnp.concatenate((effective_linear, effective_nonlinear), axis=-1)
-    weights = jnp.concatenate((params["linear"], params["w1"]), axis=-1)
-    base = (
-        sampled_features(anchor, history, hidden) / norms["feature_scale"]
-    ) @ weights
-    scaled = (
-        weights[: (delay + 1) * current_width]
-        / norms["feature_scale"][: (delay + 1) * current_width, None]
+    sampled = sampled_features(anchor, history, hidden)
+    base = jnp.concatenate(
+        (
+            (sampled / norms["feature_scale"]) @ params["linear"],
+            (sampled / norms["nonlinear_scale"]) @ params["w1"],
+        ),
+        axis=-1,
     )
-    effective = scaled[:current_width] - scaled[current_width:].reshape(
-        delay, current_width, -1
-    ).sum(axis=0)
-    return base, effective
+    effective = []
+    for weights, scale in (
+        (params["linear"], norms["feature_scale"]),
+        (params["w1"], norms["nonlinear_scale"]),
+    ):
+        scaled = weights[: (delay + 1) * current_width] / scale[
+            : (delay + 1) * current_width, None
+        ]
+        effective.append(
+            scaled[:current_width]
+            - scaled[current_width:].reshape(delay, current_width, -1).sum(axis=0)
+        )
+    return base, jnp.concatenate(effective, axis=-1)
 
 
 def _acceleration(params, norms, current, projection):
-    q = quadratic_features(current) / norms["quadratic_scale"]
-    acceleration = projection[..., :6] + q @ params["quadratic"] + params["bias"]
-    acceleration += jnp.tanh(projection[..., 6:] + params["b1"]) @ params["w2"]
+    q = additive_quadratic_features(current) / norms["quadratic_scale"]
+    current_width = current.shape[-1]
+    control = (current[..., 9:] / norms["feature_scale"][9:current_width]) @ params[
+        "linear"
+    ][9:current_width]
+    acceleration = projection[..., :3] + control + q @ params["quadratic"] + params["bias"]
+    acceleration += jnp.tanh(projection[..., 3:] + params["b1"]) @ params["w2"]
     return acceleration * norms["output_scale"]
 
 
 def _head(params, norms, states, commands, filtered, history, hidden):
     b = current_features(states, commands, filtered, norms)
-    z = sampled_features(b, history, hidden) / norms["feature_scale"]
-    projection, _ = _prepare_head(params, norms, b, history, hidden)
+    z = additive_readout_features(b, history, hidden)[0] / norms["feature_scale"]
+    projection, _ = _prepare_head(
+        params, norms, state_without_current_command(b), history, hidden
+    )
     return _acceleration(params, norms, b, projection), b, z
 
 
-def physical_step(params, norms, states, commands, filtered, history, hidden, dt_s):
+def physical_step(
+    params, norms, states, commands, filtered, history, hidden,
+    rate_applied, rate_memory, dt_s,
+):
     """One observation interval; history and hidden memory do not substep."""
     count = max(1, math.ceil(dt_s / MAX_SUBSTEP_S))
     duration = dt_s / count
     tau = time_constants(params)
+    command_decay = jnp.exp(-duration / COMMAND_TAU_S)
+    rate_decay = jnp.exp(-duration / RATE_MEMORY_TAU_S)
     gravity = jnp.asarray(GRAVITY, dtype=states.dtype)
     start_features = current_features(states, commands, filtered, norms)
-    base, effective = _prepare_head(params, norms, start_features, history, hidden)
+    start_state = state_without_current_command(start_features)
+    base, effective = _prepare_head(params, norms, start_state, history, hidden)
 
-    def acceleration(state, applied):
+    def force_acceleration(state, applied):
         current = current_features(state, commands, applied, norms)
-        projection = base + (current - start_features) @ effective
+        projection = base + (state_without_current_command(current) - start_state) @ effective
         return _acceleration(params, norms, current, projection)
 
+    def rate_acceleration(state, applied, memory):
+        coefficient = params["rate"]
+        channels = commands.shape[-1]
+        rate = state[..., 3:6]
+        return (
+            coefficient[:, 0]
+            + jnp.einsum("...m,km->...k", commands, coefficient[:, 1 : channels + 1])
+            + jnp.einsum(
+                "...m,km->...k", applied, coefficient[:, channels + 1 : 2 * channels + 1]
+            )
+            - coefficient[:, -2] * rate
+            - coefficient[:, -1] * (rate - memory)
+        )
+
     def substep(_, carry):
-        state, applied = carry
+        state, applied, applied_rate, filtered_rate = carry
         v, omega = state[..., :3], state[..., 3:6]
         rotation = state[..., 6:].reshape((*state.shape[:-1], 3, 3))
-        first = acceleration(state, applied)
-        world_first = gravity + jnp.einsum("...ij,...j->...i", rotation, first[..., :3])
+        first_force = force_acceleration(state, applied)
+        first_rate = rate_acceleration(state, applied_rate, filtered_rate)
+        world_first = gravity + jnp.einsum("...ij,...j->...i", rotation, first_force)
         rotation_half = rotation @ rotation_exp(0.5 * duration * omega)
         velocity_half = v + 0.5 * duration * world_first
-        omega_half = omega + 0.5 * duration * first[..., 3:]
+        omega_half = omega + 0.5 * duration * first_rate
         applied_half = commands + (applied - commands) * jnp.exp(-0.5 * duration / tau)
+        applied_rate_half = commands + (applied_rate - commands) * jnp.sqrt(
+            command_decay
+        )
+        filtered_rate_half = omega + (filtered_rate - omega) * jnp.sqrt(rate_decay)
         state_half = jnp.concatenate(
             (velocity_half, omega_half, rotation_half.reshape((*state.shape[:-1], 9))),
             -1,
         )
-        middle = acceleration(state_half, applied_half)
+        middle_force = force_acceleration(state_half, applied_half)
+        middle_rate = rate_acceleration(state_half, applied_rate_half, filtered_rate_half)
         velocity_next = v + duration * (
-            gravity + jnp.einsum("...ij,...j->...i", rotation_half, middle[..., :3])
+            gravity + jnp.einsum("...ij,...j->...i", rotation_half, middle_force)
         )
-        omega_next = omega + duration * middle[..., 3:]
+        omega_next = omega + duration * middle_rate
         rotation_next = rotation @ rotation_exp(duration * omega_half)
         state_next = jnp.concatenate(
             (velocity_next, omega_next, rotation_next.reshape((*state.shape[:-1], 9))),
             -1,
         )
         applied_next = commands + (applied - commands) * jnp.exp(-duration / tau)
-        return state_next, applied_next
+        applied_rate_next = commands + (applied_rate - commands) * command_decay
+        filtered_rate_next = omega + (filtered_rate - omega) * rate_decay
+        return state_next, applied_next, applied_rate_next, filtered_rate_next
 
-    state, applied = jax.lax.fori_loop(0, count, substep, (states, filtered))
+    state, applied, rate_applied, rate_memory = jax.lax.fori_loop(
+        0, count, substep, (states, filtered, rate_applied, rate_memory)
+    )
     hidden_next = memory_step(params, norms, start_features, hidden, dt_s)
     history_next = jnp.concatenate((history[:, 1:], start_features[:, None]), axis=1)
-    return state, applied, history_next, hidden_next
+    return state, applied, history_next, hidden_next, rate_applied, rate_memory
 
 
 def _history(params, norms, past, past_inputs, delay, dt_s):
@@ -318,16 +396,20 @@ def _history(params, norms, past, past_inputs, delay, dt_s):
 
 def _rollout(params, norms, past, past_inputs, future_inputs, delay, dt_s):
     applied, history, hidden = _history(params, norms, past, past_inputs, delay, dt_s)
+    applied_rate, filtered_rate = rate_history(past, past_inputs, dt_s)
 
     def advance(carry, command):
-        state, applied, history, hidden = carry
+        state, applied, history, hidden, applied_rate, filtered_rate = carry
         result = physical_step(
-            params, norms, state, command, applied, history, hidden, dt_s
+            params, norms, state, command, applied, history, hidden,
+            applied_rate, filtered_rate, dt_s,
         )
         return result, result[0]
 
     _, prediction = jax.lax.scan(
-        advance, (past[:, -1], applied, history, hidden), future_inputs.swapaxes(0, 1)
+        advance,
+        (past[:, -1], applied, history, hidden, applied_rate, filtered_rate),
+        future_inputs.swapaxes(0, 1),
     )
     return prediction.swapaxes(0, 1)
 
@@ -376,16 +458,17 @@ class VehicleSequenceModel:
         nonlinear = (min(4, self.delay_steps) + 1) * current + memory
         quadratic = current * (current + 1) // 2
         ps = dict(
-            linear=(feature, 6),
-            quadratic=(quadratic, 6),
-            bias=(6,),
+            linear=(feature, 3),
+            quadratic=(quadratic, 3),
+            bias=(3,),
             w1=(nonlinear, width),
             b1=(width,),
-            w2=(width, 6),
+            w2=(width, 3),
             memory=(current, memory),
             memory_bias=(memory,),
             raw_tau=(m,),
             raw_memory_tau=(memory,),
+            rate=(3, 2 * m + 3),
         )
         ns = dict(
             body_mean=(9,),
@@ -396,7 +479,7 @@ class VehicleSequenceModel:
             feature_scale=(feature,),
             nonlinear_scale=(nonlinear,),
             quadratic_scale=(quadratic,),
-            output_scale=(6,),
+            output_scale=(3,),
             state_mean=(15,),
             state_scale=(15,),
         )
@@ -406,10 +489,8 @@ class VehicleSequenceModel:
             raise ValueError("vehicle arrays do not match dimensions")
         if any(np.any(v <= 0) for k, v in n.items() if k.endswith("_scale")):
             raise ValueError("vehicle scales must be positive")
-        if self.delay_steps <= 4 and not np.array_equal(
-            n["feature_scale"], n["nonlinear_scale"]
-        ):
-            raise ValueError("identity temporal coordinates require identical scales")
+        if np.any(p["rate"][:, -2:] < 0):
+            raise ValueError("angular damping and memory gains must be nonnegative")
         object.__setattr__(self, "params", p)
         object.__setattr__(self, "norms", n)
         object.__setattr__(self, "dt_s", float(self.dt_s))
@@ -532,19 +613,18 @@ def initialize(train):
         filtered.append(applied.copy())
         applied = command + (applied - command) * np.exp(-train.dt_s / 0.05)
     b = current_features(xall, uall, np.stack(filtered, 1), norms, np)
-    z = np.stack(
-        [
-            sampled_features(
-                b[:, context + t],
-                b[:, context + t - delay : context + t],
-                np.zeros((n, memory)),
-                np,
-            )
-            for t in range(horizon)
-        ],
-        1,
-    )
-    q = quadratic_features(b[:, context:], np)
+    features = [
+        additive_readout_features(
+            b[:, context + t],
+            b[:, context + t - delay : context + t],
+            np.zeros((n, memory)),
+            np,
+        )
+        for t in range(horizon)
+    ]
+    z = np.stack([item[0] for item in features], 1)
+    q = np.stack([item[1] for item in features], 1)
+    compact = np.stack([item[2] for item in features], 1)
     rotation = current[..., 6:].reshape(n, horizon, 3, 3)
     force = np.einsum(
         "...ji,...j->...i",
@@ -552,16 +632,14 @@ def initialize(train):
         (train.future_states[..., :3] - current[..., :3]) / train.dt_s
         - np.asarray(GRAVITY),
     )
-    angular = (train.future_states[..., 3:6] - current[..., 3:6]) / train.dt_s
-    target = np.concatenate((force, angular), -1)
+    target = force
     norms["output_scale"] = np.maximum(target.std((0, 1)), 0.0001)
     norms["feature_scale"] = np.where(z.std((0, 1)) > 1e-08, z.std((0, 1)), 1.0)
-    compact = nonlinear_features(z, 9 + 2 * m, delay, np)
     norms["nonlinear_scale"] = np.where(
         compact.std((0, 1)) > 1e-08, compact.std((0, 1)), 1.0
     )
     norms["quadratic_scale"] = np.where(q.std((0, 1)) > 1e-08, q.std((0, 1)), 1.0)
-    target = (target / norms["output_scale"]).reshape(n * horizon, 6)
+    target = (target / norms["output_scale"]).reshape(n * horizon, 3)
     linear = (z / norms["feature_scale"]).reshape(n * horizon, -1)
     quadratic = (q / norms["quadratic_scale"]).reshape(n * horizon, -1)
     design_affine = np.column_stack((linear, np.ones(n * horizon)))
@@ -572,7 +650,7 @@ def initialize(train):
     )
     design = np.column_stack((linear, quadratic, np.ones(n * horizon)))
     anchor = np.concatenate(
-        (affine[:-1], np.zeros((quadratic.shape[1], 6)), affine[-1:])
+        (affine[:-1], np.zeros((quadratic.shape[1], 3)), affine[-1:])
     )
     penalty = np.diag(np.r_[np.full(design.shape[1] - 1, ridge), 0.0])
     coefficients = np.linalg.solve(
@@ -586,11 +664,17 @@ def initialize(train):
         bias=coefficients[-1],
         w1=rng.normal(size=(f, width)) / np.sqrt(f),
         b1=np.zeros(width),
-        w2=np.zeros((width, 6)),
+        w2=np.zeros((width, 3)),
         memory=rng.normal(size=(9 + 2 * m, memory)) / np.sqrt(f),
         memory_bias=np.zeros(memory),
         raw_tau=np.full(m, np.log(np.expm1(0.049))),
         raw_memory_tau=np.log(np.expm1(np.geomspace(0.01, 0.5, memory) - 0.001)),
+        rate=fit_rate(
+            np.concatenate((train.past_states, train.future_states), axis=1),
+            np.concatenate((train.past_inputs, train.future_inputs), axis=1),
+            train.dt_s,
+            last=None,
+        ),
     )
     if delay > 4:
         current_width = 9 + 2 * m
@@ -687,6 +771,9 @@ def _fit_sequence(train, development, steps, check_every):
             par,
             first,
             second,
+        )
+        proposal["rate"] = proposal["rate"].at[:, -2:].set(
+            jnp.maximum(proposal["rate"][:, -2:], 0)
         )
         return proposal, first, second, value, norm, grad, finite
 

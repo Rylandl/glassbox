@@ -1,4 +1,4 @@
-"""A bounded, causal fitting session for the same shared-physics dynamics model."""
+"""Bounded episode-only readout fitting for the shared rigid-body model."""
 
 from __future__ import annotations
 
@@ -8,519 +8,46 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.flatten_util import ravel_pytree
+from jax.scipy.linalg import cho_solve
 
 from ._dynamics import (
     GRAVITY,
     VehicleSequenceModel,
+    _history,
     _rollout,
+    additive_readout_features,
     current_features,
     initialize,
     nonlinear_features,
-    quadratic_features,
+    rotation_exp,
     time_constants,
 )
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
-from ._training import SequenceBatch, validate_window_consistency
+from ._rate import fit_rate, step_memories, window_initial_memories
+from ._training import SequenceBatch
 from .learner import _contract, _validate_rotations, steps_for
-from .recordings import WindowKey
 
-_FORMAT = "glassbox-online-temporal-v1"
-_STEP_SCALES = (1.0, 0.5, 0.25, 0.125, 0.0625)
-_FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 _RECIPE = dict(
     bootstrap_s=0.25,
     horizon_s=0.05,
-    bootstrap_windows=32,
-    recent_windows=32,
-    batch_size=64,
-    proposals=1,
-    cg_iterations=16,
-    backtracking=dict(
-        scales=list(_STEP_SCALES),
-        selection="first finite trial with lower exact loss and gain ratio at least 0.1",
-        residual_evaluations="one current plus attempted trials only",
-    ),
-    preconditioner="damping plus exact quadratic-prior diagonal",
-    huber_delta=1.0,
-    loss=dict(
-        groups=[3, 3, 9],
-        weighting="equal velocity, body-rate and chordal rotation groups",
-        penalty="Huber of normalized group L2 norm",
-        scale="fixed bootstrap group hold-change RMS",
-        floor="0.01 times max(raw group origin spread, 1e-4)",
-        rotation_scale="sqrt(2) times chordal group scale",
-    ),
-    curvature_prior=dict(
-        head="explicit quadratic current-feature head only",
-        strength=0.01,
-        penalty="0.01/4 times squared scaled physical Hessian Frobenius norm",
-        motion_domain="max(1, role-balanced measured supported-motion RMS)",
-        gravity_domain="inverse immutable body gravity-direction scales",
-        command_domain="max(1, measured issued RMS), copied to filtered coordinates",
-        time_domain="same eligible measured positions as reconditioning",
-        output_domain="dt divided by fixed first-step velocity/rate group scales",
-        hessian_factors="2 on diagonal, sqrt(2) on upper off-diagonal",
-        acceptance="exact data plus prior loss; domain fixed within each proposal",
-        trust="forecast-only linearized prediction-change norm",
-    ),
-    initial_damping=1.0,
-    damping_bounds=[1e-8, 1e8],
-    minimum_gain_ratio=0.1,
-    trust_fraction=0.5,
-    minimum_trust_radius=1.0,
-    conditioning=dict(
-        calls_per_observation=1,
-        scales=["feature_scale", "nonlinear_scale", "quadratic_scale", "output_scale"],
-        statistic="role-balanced uncentered measured-cache RMS",
-        update="elementwise maximum with existing scales",
-        hidden_scales="fixed at 1",
-        compensation="exact feature/output row and column rescaling",
-        acceptance="commit coordinates only with an accepted finite proposal",
-    ),
+    rate_window_transitions=25,
+    command_time_constant_s=0.08,
+    angular_memory_time_constant_s=0.1,
+    force_readout="regularized_closed_form_with_motion_and_attitude_sensitivity",
+    initial_correction_s=0.25,
+    prior_strength=0.01,
 )
+_FORMAT = "glassbox-online-rate-memory-v1"
+_FIELDS = ("past_states", "past_inputs", "future_inputs", "future_states")
 
 
-@partial(jax.jit, static_argnames=("delay", "dt_s"))
-def _predict(params, norms, past, inputs, future, *, delay, dt_s):
-    return _rollout(params, norms, past, inputs, future, delay, dt_s)
-
-
-def _residual(params, norms, data, scale, delay, dt_s):
-    return (_rollout(params, norms, *data[:3], delay, dt_s) - data[3]) / scale
-
-
-def _group_squared(residual):
-    """Squared norms of velocity, body-rate and flattened rotation residuals."""
-    return jnp.stack(
-        [
-            jnp.sum(residual[..., a:b] ** 2, axis=-1)
-            for a, b in ((0, 3), (3, 6), (6, 15))
-        ],
-        axis=-1,
-    )
-
-
-def _huber(residual):
-    """Radial group-Huber values, with finite derivatives at zero residual."""
-    squared = _group_squared(residual)
-    return jnp.where(
-        squared <= 1, 0.5 * squared, jnp.sqrt(jnp.maximum(1.0, squared)) - 0.5
-    )
-
-
-@partial(jax.jit, static_argnames=("delay", "dt_s"))
-def _recondition(params, norms, data, weights, *, delay, dt_s):
-    """Grow coordinate scales from completed observations, preserving the map.
-
-    Measured histories and targets set feature statistics; no model trajectory or
-    future observation enters. The known tanh bound keeps hidden scales fixed.
-    An invalid transformation returns the original arrays and a false flag, so
-    callers can retain the normal proposal accounting while forcing rejection.
-    """
-    past, past_inputs, future_inputs, targets = data
-    states = jnp.concatenate((past, targets[:, :-1]), axis=1)
-    commands = jnp.concatenate((past_inputs, future_inputs), axis=1)
-    tau = time_constants(params)
-
-    def filter_step(applied, command):
-        return command + (applied - command) * jnp.exp(-dt_s / tau), applied
-
-    _, filtered = jax.lax.scan(filter_step, commands[:, 0], commands.swapaxes(0, 1))
-    features = current_features(states, commands, filtered.swapaxes(0, 1), norms)
-    current = features[:, delay:]
-    previous = jnp.stack(
-        [features[:, t - delay : t] for t in range(delay, features.shape[1])],
-        axis=1,
-    )
-    differences = (previous - current[:, :, None]).reshape(
-        (*current.shape[:2], delay * current.shape[2])
-    )
-    sampled = jnp.concatenate((current, differences), axis=-1)
-
-    def rms(values):
-        return jnp.sqrt(
-            jnp.sum(weights[:, None, None] * values**2, axis=(0, 1)) / values.shape[1]
-        )
-
-    feature_scale = jnp.concatenate(
-        (
-            jnp.maximum(norms["feature_scale"][: sampled.shape[-1]], rms(sampled)),
-            norms["feature_scale"][sampled.shape[-1] :],
-        )
-    )
-    compact = nonlinear_features(sampled, current.shape[-1], delay)
-    nonlinear_scale = jnp.concatenate(
-        (
-            jnp.maximum(norms["nonlinear_scale"][: compact.shape[-1]], rms(compact)),
-            norms["nonlinear_scale"][compact.shape[-1] :],
-        )
-    )
-    quadratic_scale = jnp.maximum(
-        norms["quadratic_scale"], rms(quadratic_features(current))
-    )
-    preceding = jnp.concatenate((past[:, -1:], targets[:, :-1]), axis=1)
-    rotation = preceding[..., 6:].reshape((*preceding.shape[:-1], 3, 3))
-    world_force = (targets[..., :3] - preceding[..., :3]) / dt_s - jnp.asarray(
-        GRAVITY, dtype=states.dtype
-    )
-    body_force = jnp.einsum("...ji,...j->...i", rotation, world_force)
-    angular = (targets[..., 3:6] - preceding[..., 3:6]) / dt_s
-    output_scale = jnp.maximum(
-        norms["output_scale"], rms(jnp.concatenate((body_force, angular), axis=-1))
-    )
-    sf = feature_scale / norms["feature_scale"]
-    sn = nonlinear_scale / norms["nonlinear_scale"]
-    sq = quadratic_scale / norms["quadratic_scale"]
-    so = norms["output_scale"] / output_scale
-    changed_params = dict(
-        params,
-        linear=sf[:, None] * params["linear"] * so[None, :],
-        quadratic=sq[:, None] * params["quadratic"] * so[None, :],
-        bias=params["bias"] * so,
-        w1=sn[:, None] * params["w1"],
-        w2=params["w2"] * so[None, :],
-        memory=sf[: params["memory"].shape[0], None] * params["memory"],
-    )
-    changed_norms = dict(
-        norms,
-        feature_scale=feature_scale,
-        nonlinear_scale=nonlinear_scale,
-        quadratic_scale=quadratic_scale,
-        output_scale=output_scale,
-    )
-    finite = jnp.all(
-        jnp.stack(
-            [
-                jnp.all(jnp.isfinite(value))
-                for value in jax.tree.leaves((changed_params, changed_norms))
-            ]
-        )
-    )
-    conditioned = jax.tree.map(
-        lambda new, old: jnp.where(finite, new, old),
-        (changed_params, changed_norms),
-        (params, norms),
-    )
-    return *conditioned, finite
-
-
-def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
-    """Diagonal of the quadratic-head prior in current parameter coordinates.
-
-    Domain lengths use completed measured positions and immutable raw scales.
-    Issued commands supply both command domains, so no learned filter parameter
-    can weaken the prior. Compensated reconditioning preserves its physical
-    value, although damping and the truncated solve remain coordinate dependent.
-    """
-    past, past_inputs, future_inputs, targets = data
-    states = jnp.concatenate((past, targets[:, :-1]), axis=1)
-    commands = jnp.concatenate((past_inputs, future_inputs), axis=1)
-    # Only supported motion and issued coordinates are used from this call.
-    # Supplying issued values for the unused filtered block avoids a filter pass.
-    current = current_features(states, commands, commands, norms)[:, delay:]
-    rms = jnp.sqrt(
-        jnp.sum(weights[:, None, None] * current**2, axis=(0, 1)) / current.shape[1]
-    )
-    count = commands.shape[-1]
-    issued = jnp.maximum(1.0, rms[9 : 9 + count])
-    domain = jnp.concatenate(
-        (
-            jnp.maximum(1.0, rms[:6]),
-            1.0 / norms["body_scale"][6:9],
-            issued,
-            issued,
-        )
-    )
-    i, j = jnp.triu_indices(domain.shape[0])
-    factor = jnp.where(i == j, 2.0, jnp.sqrt(2.0)) * domain[i] * domain[j]
-    coefficient = (
-        factor[:, None]
-        * dt_s
-        * norms["output_scale"][None, :]
-        / (norms["quadratic_scale"][:, None] * scale[0, :6])
-    )
-    diagonal = jax.tree.map(jnp.zeros_like, params)
-    diagonal["quadratic"] = 0.005 * coefficient**2
-    return ravel_pytree(diagonal)[0]
-
-
-@partial(jax.jit, static_argnames=("delay", "dt_s"))
-def _proposal(
-    params,
-    norms,
-    data,
-    scale,
-    weights,
-    damping,
-    *,
-    delay,
-    dt_s,
-    conditioning_finite=True,
-):
-    """Sixteen PCG iterations and first-acceptable bounded exact-loss backtracking.
-
-    Each physical group's normalized norm sets its Huber threshold. Residual
-    weights include the role weight and 1/(horizon*3); each group's IRLS factor
-    and the measured prior domain stay fixed throughout the proposal.
-    """
-    flat, unpack = ravel_pytree(params)
-    prior = _curvature_diagonal(
-        params, norms, data, scale, weights, delay=delay, dt_s=dt_s
-    )
-    preconditioner = damping + prior
-    raw, push = jax.linearize(
-        lambda value: _residual(unpack(value), norms, data, scale, delay, dt_s), flat
-    )
-    pull = jax.linear_transpose(push, jnp.zeros_like(flat))
-    weight = weights[:, None, None] / (raw.shape[1] * 3)
-    root_weight = jnp.sqrt(weight)
-    factors = 1 / jnp.sqrt(jnp.maximum(1.0, _group_squared(raw)))
-    irls = jnp.repeat(factors, np.array([3, 3, 9]), axis=-1, total_repeat_length=15)
-    gradient = pull(weight * irls * raw)[0] + prior * flat
-
-    def cg_step(_, carry):
-        delta, residual, direction, rho, finite = carry
-        projected = push(direction)
-        curvature = pull(weight * irls * projected)[0] + preconditioner * direction
-        denominator = jnp.vdot(direction, curvature)
-        valid = jnp.all(jnp.isfinite(curvature)) & jnp.all(jnp.isfinite(projected))
-        valid &= jnp.isfinite(rho) & jnp.isfinite(denominator)
-        valid &= (rho == 0) | ((rho > 0) & (denominator > 0))
-        active = valid & (rho > 0)
-        alpha = jnp.where(active, rho / jnp.where(active, denominator, 1.0), 0.0)
-        delta = jnp.where(active, delta + alpha * direction, delta)
-        following = jnp.where(active, residual - alpha * curvature, residual)
-        preconditioned = following / preconditioner
-        next_rho = jnp.vdot(following, preconditioned)
-        valid &= jnp.all(jnp.isfinite(preconditioned)) & jnp.isfinite(next_rho)
-        valid &= next_rho >= 0
-        beta = jnp.where(active, next_rho / jnp.where(active, rho, 1.0), 0.0)
-        direction = jnp.where(
-            active, preconditioned + beta * direction, jnp.zeros_like(direction)
-        )
-        return delta, following, direction, next_rho, finite & valid
-
-    initial_residual = -gradient
-    initial_direction = initial_residual / preconditioner
-    initial_finite = jnp.all(jnp.isfinite(prior)) & jnp.all(prior >= 0)
-    initial_finite &= jnp.all(jnp.isfinite(preconditioner))
-    initial_finite &= jnp.all(preconditioner > 0)
-    delta, _, _, _, finite = jax.lax.fori_loop(
-        0,
-        16,
-        cg_step,
-        (
-            jnp.zeros_like(flat),
-            initial_residual,
-            initial_direction,
-            jnp.vdot(initial_residual, initial_direction),
-            initial_finite,
-        ),
-    )
-    linearized = root_weight * push(delta)
-    radius = jnp.maximum(1.0, 0.5 * jnp.linalg.norm(root_weight * raw))
-    shrink = jnp.minimum(1.0, radius / jnp.maximum(jnp.linalg.norm(linearized), 1e-30))
-    delta, linearized = delta * shrink, linearized * shrink
-    linear_decrease = -jnp.vdot(gradient, delta)
-    quadratic_cost = 0.5 * (
-        jnp.sum(irls * linearized**2) + jnp.vdot(delta, prior * delta)
-    )
-    current_loss = jnp.sum(weight * _huber(raw)) + 0.5 * jnp.vdot(flat, prior * flat)
-    direction_finite = finite & jnp.all(
-        jnp.stack(
-            [
-                jnp.all(jnp.isfinite(value))
-                for value in (
-                    flat,
-                    raw,
-                    gradient,
-                    delta,
-                    linearized,
-                    radius,
-                    shrink,
-                    linear_decrease,
-                    quadratic_cost,
-                    current_loss,
-                )
-            ]
-        )
-    )
-    scales = jnp.asarray(_STEP_SCALES, dtype=flat.dtype)
-
-    def pending(carry):
-        index, accepted, *_ = carry
-        return (index < len(_STEP_SCALES)) & ~accepted
-
-    def attempt(carry):
-        index, _, _, _, _, _, losses, predictions, finite_trials = carry
-        alpha = scales[index]
-        trial = flat + alpha * delta
-        trial_raw = _residual(unpack(trial), norms, data, scale, delay, dt_s)
-        loss = jnp.sum(weight * _huber(trial_raw)) + 0.5 * jnp.vdot(
-            trial, prior * trial
-        )
-        predicted = alpha * linear_decrease - alpha**2 * quadratic_cost
-        trial_finite = jnp.all(
-            jnp.stack(
-                [
-                    jnp.all(jnp.isfinite(value))
-                    for value in (trial, trial_raw, loss, predicted)
-                ]
-            )
-        )
-        gain = jnp.where(predicted > 0, (current_loss - loss) / predicted, -jnp.inf)
-        accepted = conditioning_finite & direction_finite & trial_finite
-        accepted &= (loss < current_loss) & (predicted > 0) & (gain >= 0.1)
-        return (
-            index + 1,
-            accepted,
-            trial,
-            loss,
-            predicted,
-            trial_finite,
-            losses.at[index].set(loss),
-            predictions.at[index].set(predicted),
-            finite_trials.at[index].set(trial_finite),
-        )
-
-    (
-        count,
-        accepted,
-        trial,
-        trial_loss,
-        predicted,
-        trial_finite,
-        losses,
-        predictions,
-        valid,
-    ) = jax.lax.while_loop(
-        pending,
-        attempt,
-        (
-            jnp.asarray(0),
-            jnp.asarray(False),
-            flat,
-            current_loss,
-            jnp.asarray(0.0, dtype=flat.dtype),
-            jnp.asarray(False),
-            jnp.full((len(_STEP_SCALES),), jnp.nan, dtype=flat.dtype),
-            jnp.full((len(_STEP_SCALES),), jnp.nan, dtype=flat.dtype),
-            jnp.zeros((len(_STEP_SCALES),), dtype=bool),
-        ),
-    )
-    evidence = dict(
-        direction_finite=direction_finite,
-        trust_shrink=shrink,
-        trial_evaluations=count,
-        trial_losses=losses,
-        trial_predicted=predictions,
-        trial_finite=valid,
-        selected_alpha=jnp.where(accepted, scales[count - 1], 0.0),
-    )
-    finite = conditioning_finite & direction_finite & trial_finite
-    return unpack(trial), current_loss, trial_loss, predicted, finite, evidence
-
-
-def _proposal_report(current, conditioning_finite, evidence):
-    """Keep only the bounded scalar decision record, using null for nonfinite data."""
-
-    def number(value):
-        value = float(value)
-        return value if np.isfinite(value) else None
-
-    evidence = jax.tree.map(np.asarray, evidence)
-    count = int(evidence["trial_evaluations"])
-    return dict(
-        current_loss=number(current),
-        conditioning_finite=bool(conditioning_finite),
-        direction_finite=bool(evidence["direction_finite"]),
-        trust_shrink=number(evidence["trust_shrink"]),
-        trials=[
-            dict(
-                alpha=alpha,
-                loss=number(evidence["trial_losses"][index]),
-                predicted_reduction=number(evidence["trial_predicted"][index]),
-                finite=bool(evidence["trial_finite"][index]),
-            )
-            for index, alpha in enumerate(_STEP_SCALES[:count])
-        ],
-        selected_alpha=float(evidence["selected_alpha"]),
-        trial_evaluations=count,
-    )
-
-
-def _validate_proposal_report(report):
-    """Validate the saved scalar decision without rerunning the model or optimizer."""
-
-    def number(value):
-        return type(value) is float and np.isfinite(value)
-
-    if (
-        not isinstance(report, dict)
-        or set(report)
-        != {
-            "current_loss",
-            "conditioning_finite",
-            "direction_finite",
-            "trust_shrink",
-            "trials",
-            "selected_alpha",
-            "trial_evaluations",
-        }
-        or any(
-            type(report[key]) is not bool
-            for key in ("conditioning_finite", "direction_finite")
-        )
-        or type(report["trial_evaluations"]) is not int
-        or not 1 <= report["trial_evaluations"] <= len(_STEP_SCALES)
-        or not isinstance(report["trials"], list)
-        or len(report["trials"]) != report["trial_evaluations"]
-        or not number(report["selected_alpha"])
-    ):
-        raise ValueError("invalid online proposal evidence")
-    current, shrink = report["current_loss"], report["trust_shrink"]
-    if (
-        (current is not None and (not number(current) or current < 0))
-        or (shrink is not None and (not number(shrink) or not 0 <= shrink <= 1))
-        or (report["direction_finite"] and (current is None or shrink is None))
-    ):
-        raise ValueError("invalid online proposal direction evidence")
-    selected = 0.0
-    for index, trial in enumerate(report["trials"]):
-        if (
-            not isinstance(trial, dict)
-            or set(trial) != {"alpha", "loss", "predicted_reduction", "finite"}
-            or not number(trial["alpha"])
-            or trial["alpha"] != _STEP_SCALES[index]
-            or type(trial["finite"]) is not bool
-            or any(
-                value is not None and not number(value)
-                for value in (trial["loss"], trial["predicted_reduction"])
-            )
-            or (trial["loss"] is not None and trial["loss"] < 0)
-            or (
-                trial["finite"]
-                and (trial["loss"] is None or trial["predicted_reduction"] is None)
-            )
-        ):
-            raise ValueError("invalid online backtracking trial evidence")
-        eligible = (
-            report["conditioning_finite"]
-            and report["direction_finite"]
-            and trial["finite"]
-        )
-        if eligible and trial["predicted_reduction"] > 0 and trial["loss"] < current:
-            gain = (current - trial["loss"]) / trial["predicted_reduction"]
-            if gain >= 0.1:
-                if index != len(report["trials"]) - 1:
-                    raise ValueError("online backtracking continued after acceptance")
-                selected = trial["alpha"]
-    if report["selected_alpha"] != selected or (
-        not selected and len(report["trials"]) != len(_STEP_SCALES)
-    ):
-        raise ValueError("online backtracking decision differs from trial evidence")
-    return bool(selected)
+def _windows(states, inputs, origins, history, horizon):
+    return dict(zip(_FIELDS, (
+        np.stack([states[index - history : index + 1] for index in origins]),
+        np.stack([inputs[index - history : index] for index in origins]),
+        np.stack([inputs[index : index + horizon] for index in origins]),
+        np.stack([states[index + 1 : index + horizon + 1] for index in origins]),
+    )))
 
 
 def _full_cache(bootstrap, recent):
@@ -529,58 +56,247 @@ def _full_cache(bootstrap, recent):
     for windows in (bootstrap, recent):
         count = len(windows["past_states"])
         if not count:
-            raise ValueError("a proposal requires a real window in each role")
+            raise ValueError("a readout update needs a window in each role")
         indices = np.arange(32) % count
-        blocks.append({k: windows[k][indices] for k in _FIELDS})
+        blocks.append({key: windows[key][indices] for key in _FIELDS})
         role_weights.append(np.where(np.arange(32) < count, 0.5 / count, 0.0))
     return (
-        tuple(np.concatenate((blocks[0][k], blocks[1][k])) for k in _FIELDS),
+        tuple(np.concatenate((blocks[0][key], blocks[1][key])) for key in _FIELDS),
         np.concatenate(role_weights),
     )
 
 
-def _windows(states, inputs, origins, history, horizon):
-    return dict(
-        zip(
-            _FIELDS,
-            (
-                np.stack([states[i - history : i + 1] for i in origins]),
-                np.stack([inputs[i - history : i] for i in origins]),
-                np.stack([inputs[i : i + horizon] for i in origins]),
-                np.stack([states[i + 1 : i + horizon + 1] for i in origins]),
-            ),
-        )
-    )
-
-
 def _scale(windows):
-    """Fixed scalar per physical group, expressed in the 15 residual coordinates."""
+    """Fixed physical-group residual scales from the causal bootstrap."""
     origins = windows["past_states"][:, -1:]
     targets = windows["future_states"]
     scales = []
-    for a, b, factor in ((0, 3, 1.0), (3, 6, 1.0), (6, 15, 0.5)):
-        origin = origins[..., a:b]
+    for beginning, end, factor in ((0, 3, 1.0), (3, 6, 1.0), (6, 15, 0.5)):
+        origin = origins[..., beginning:end]
         change = np.sqrt(
-            factor * np.mean(np.sum((origin - targets[..., a:b]) ** 2, axis=-1), axis=0)
+            factor * np.mean(np.sum((origin - targets[..., beginning:end]) ** 2, axis=-1), axis=0)
         )
         spread = np.sqrt(
             factor * np.mean(np.sum((origin - origin.mean(axis=0)) ** 2, axis=-1))
         )
         group = np.maximum(change, 0.01 * max(float(spread), 1e-4))
-        scales.append(np.repeat((group / np.sqrt(factor))[:, None], b - a, axis=1))
+        scales.append(np.repeat((group / np.sqrt(factor))[:, None], end - beginning, axis=1))
     return np.concatenate(scales, axis=1)
 
 
-class OnlineFit:
-    """Mutable prefix-only training session; predictions use issued commands.
+def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
+    """Physical quadratic-head penalty on measured support."""
+    past, past_inputs, future_inputs, targets = data
+    states = jnp.concatenate((past, targets[:, :-1]), axis=1)
+    commands = jnp.concatenate((past_inputs, future_inputs), axis=1)
+    current = current_features(states, commands, commands, norms)[:, delay:]
+    rms = jnp.sqrt(
+        jnp.sum(weights[:, None, None] * current**2, axis=(0, 1)) / current.shape[1]
+    )
+    count = commands.shape[-1]
+    issued = jnp.maximum(1.0, rms[9 : 9 + count])
+    domain = jnp.concatenate((
+        jnp.maximum(1.0, rms[:6]),
+        1.0 / norms["body_scale"][6:9],
+        issued, issued,
+    ))
+    first, second = jnp.triu_indices(domain.shape[0])
+    factor = jnp.where(first == second, 2.0, jnp.sqrt(2.0)) * domain[first] * domain[second]
+    coefficient = (
+        factor[:, None] * dt_s * norms["output_scale"][None, :]
+        / (norms["quadratic_scale"][:, None] * scale[0, :3])
+    )
+    return (0.005 * coefficient**2).reshape(-1)
 
-    ``prefix`` is one real contiguous recording. ``cursor`` names the next
-    absolute command row. ``observe(cursor, command, next_observation)`` consumes
-    that transition once, after its prediction has been scored by the caller.
-    Initialization retains 0.5 s context plus 0.25 s completed transitions.
-    Numerical replay storage and optimization per observation are bounded.
-    This session has no calibrated error envelope or control-readiness claim.
-    """
+
+def readout_matrix(params):
+    return np.concatenate(
+        (params["linear"], params["quadratic"], params["bias"][None], params["w2"])
+    )
+
+
+def with_readout(model, matrix, rate):
+    feature, quadratic = len(model.params["linear"]), len(model.params["quadratic"])
+    params = dict(
+        model.params,
+        linear=matrix[:feature],
+        quadratic=matrix[feature : feature + quadratic],
+        bias=matrix[feature + quadratic],
+        w2=matrix[feature + quadratic + 1 :],
+        rate=rate,
+    )
+    return VehicleSequenceModel(
+        model.dt_s, model.history_steps, model.delay_steps, params, model.norms
+    )
+
+
+def readout_features(params, norms, current, history, hidden):
+    sampled, quadratic, compact = additive_readout_features(
+        current, history, hidden
+    )
+    return jnp.concatenate(
+        (
+            sampled / norms["feature_scale"],
+            quadratic / norms["quadratic_scale"],
+            jnp.ones((*current.shape[:-1], 1), dtype=current.dtype),
+            jnp.tanh(
+                (compact / norms["nonlinear_scale"]) @ params["w1"] + params["b1"]
+            ),
+        ),
+        axis=-1,
+    )
+
+
+def measurement(params, norms, past, inputs, command, following, *, delay, dt_s):
+    applied, history, hidden = _history(
+        params, norms, past[None], inputs[None], delay, dt_s
+    )
+    start = past[-1]
+    rotation = start[6:].reshape(3, 3) @ rotation_exp(
+        dt_s * 0.25 * (start[3:6] + following[3:6])
+    )
+    midpoint = jnp.concatenate(((start[:6] + following[:6]) * 0.5, rotation.reshape(9)))
+    filtered = command + (applied[0] - command) * jnp.exp(
+        -0.5 * dt_s / time_constants(params)
+    )
+    current = current_features(midpoint, command, filtered, norms)
+    phi = readout_features(params, norms, current, history[0], hidden[0])
+    target = rotation.T @ (
+        (following[:3] - start[:3]) / dt_s
+        - jnp.asarray(GRAVITY, dtype=start.dtype)
+    ) / norms["output_scale"]
+    return phi, target
+
+
+def sensitivity_bases(params, norms, delay):
+    current = 9 + 2 * len(norms["input_mean"])
+    size = len(params["linear"])
+    basis = np.zeros((size, 6 * (delay + 1)))
+    basis[:6, :6] = np.eye(6)
+    for lag in range(delay):
+        start = (lag + 1) * current
+        basis[start : start + 6, :6] = -np.eye(6)
+        basis[start : start + 6, (lag + 1) * 6 : (lag + 2) * 6] = np.eye(6)
+    compact = nonlinear_features(basis.T, current, delay, np).T
+    return (
+        basis / norms["feature_scale"][:, None],
+        params["w1"].T @ (compact / norms["nonlinear_scale"][:, None]),
+    )
+
+
+def feature_jacobian(phi, norms, linear, nonlinear):
+    current = 9 + 2 * norms["input_mean"].shape[0]
+    x = phi[:current] * norms["feature_scale"][:current]
+    i, j = jnp.triu_indices(current)
+    axes = jnp.arange(6)
+    retained = ((i < 9) & (j < 9)) | ((i < 3) & (j >= 9))
+    quadratic = (
+        (i[:, None] == axes) * x[j, None] + (j[:, None] == axes) * x[i, None]
+    ) * retained[:, None] / norms["quadratic_scale"][:, None]
+    quadratic = jnp.pad(quadratic, ((0, 0), (0, linear.shape[1] - 6)))
+    hidden = phi[-nonlinear.shape[0] :]
+    return jnp.concatenate(
+        (
+            linear,
+            quadratic,
+            jnp.zeros((1, linear.shape[1])),
+            (1 - hidden[:, None] ** 2) * nonlinear,
+        )
+    )
+
+
+def attitude_derivative(params, norms, past, inputs, command, following, delay, dt_s):
+    applied, history, hidden = _history(
+        params, norms, past[None], inputs[None], delay, dt_s
+    )
+    start = past[-1]
+    rotation = start[6:].reshape(3, 3) @ rotation_exp(
+        dt_s * 0.25 * (start[3:6] + following[3:6])
+    )
+    midpoint = jnp.concatenate(((start[:6] + following[:6]) * 0.5, rotation.reshape(9)))
+    filtered = command + (applied[0] - command) * jnp.exp(
+        -0.5 * dt_s / time_constants(params)
+    )
+
+    def features(theta):
+        perturbed = midpoint.at[6:].set((rotation @ rotation_exp(theta)).reshape(9))
+        current = current_features(perturbed, command, filtered, norms)
+        return readout_features(params, norms, current, history[0], hidden[0])
+
+    return jax.jacfwd(features)(jnp.zeros(3, dtype=past.dtype))
+
+
+@partial(jax.jit, static_argnames=("delay", "dt_s"))
+def update_readout(
+    params, norms, gram, rhs, motion, attitude, bases, count,
+    data, scale, weights, past, inputs, command, following, *, delay, dt_s,
+):
+    phi, target = measurement(
+        params, norms, past, inputs, command, following, delay=delay, dt_s=dt_s
+    )
+    diagonal = _curvature_diagonal(
+        {"quadratic": params["quadratic"]},
+        norms, data, scale, weights, delay=delay, dt_s=dt_s,
+    ).reshape((-1, 3))
+    beta = dt_s * norms["output_scale"][0] / scale[0, 0]
+    feature, quadratic = len(params["linear"]), len(params["quadratic"])
+    penalty = jnp.zeros(len(phi), dtype=phi.dtype).at[feature : feature + quadratic].set(
+        3 * count * diagonal[:, 0] / beta**2
+    )
+    d_motion = feature_jacobian(phi, norms, *bases)
+    d_attitude = attitude_derivative(
+        params, norms, past, inputs, command, following, delay, dt_s
+    )
+    gram = gram + jnp.outer(phi, phi)
+    rhs = rhs + jnp.outer(phi, target)
+    motion = motion + d_motion @ d_motion.T
+    attitude = attitude + d_attitude @ d_attitude.T
+    system = gram + jnp.diag(penalty) + 0.01 * motion + 0.0001 * attitude
+    root = jnp.sqrt(jnp.diag(system))
+    lower = jnp.linalg.cholesky(system / root[:, None] / root[None, :])
+    mean = cho_solve((lower, True), rhs / root[:, None]) / root[:, None]
+    return gram, rhs, motion, attitude, mean
+
+
+@partial(jax.jit, static_argnames=("delay", "dt_s"))
+def trajectory_correction(
+    params, norms, mean, information, count,
+    past, past_inputs, future_inputs, targets, scale, *, delay, dt_s,
+):
+    feature, quadratic = len(params["linear"]), len(params["quadratic"])
+
+    def residual(matrix):
+        trial = dict(
+            params,
+            linear=matrix[:feature],
+            quadratic=matrix[feature : feature + quadratic],
+            bias=matrix[feature + quadratic],
+            w2=matrix[feature + quadratic + 1 :],
+        )
+        forecast = _rollout(trial, norms, past, past_inputs, future_inputs, delay, dt_s)
+        return (forecast - targets) / scale
+
+    error, pullback = jax.vjp(residual, mean)
+    length = error.size
+    gradient = pullback(error)[0] / length
+    root = jnp.sqrt(jnp.diag(information))
+    lower = jnp.linalg.cholesky(information / root[:, None] / root[None, :])
+    direction = cho_solve((lower, True), gradient / root[:, None]) / root[:, None]
+    effect = jax.jvp(residual, (mean,), (direction,))[1]
+    curvature = jnp.sum(direction * (information @ direction))
+    step = count * jnp.sum(error * effect) / (
+        length * curvature + count * jnp.sum(effect * effect)
+    )
+    return mean - step * direction
+
+
+@partial(jax.jit, static_argnames=("delay", "dt_s"))
+def predict(params, norms, past, inputs, future, *, delay, dt_s):
+    return _rollout(params, norms, past, inputs, future, delay, dt_s)
+
+
+class OnlineFit:
+    """Causal mutable fitter whose snapshots use the public dynamics rollout."""
 
     def __init__(self, prefix):
         contract = _contract(prefix)
@@ -591,22 +307,32 @@ class OnlineFit:
         count = max(1, int(np.rint(0.25 / segment.dt_s)))
         horizon = max(1, int(np.rint(0.05 / segment.dt_s)))
         if count < 3 or len(segment.inputs) < history + count:
-            raise ValueError(
-                "online prefix needs real 0.5 s history and at least three 0.25 s transitions"
-            )
+            raise ValueError("online prefix needs 0.5 s history and 0.25 s transitions")
         states = segment.states[-history - count - 1 :].copy()
         inputs = segment.inputs[-history - count :].copy()
         one_step = _windows(states, inputs, range(history, history + count), history, 1)
         with jax.enable_x64(True):
-            self._model = initialize(SequenceBatch(**one_step, dt_s=segment.dt_s))
-        self._bootstrap = _windows(
-            states,
-            inputs,
-            list(range(history, history + count - horizon + 1))[-32:],
-            history,
-            horizon,
+            model = initialize(SequenceBatch(**one_step, dt_s=segment.dt_s))
+        rate_count = min(25, len(segment.inputs))
+        self._rate_states = segment.states[-rate_count - 1 :].copy()
+        self._rate_inputs = segment.inputs[-rate_count:].copy()
+        self._rate_applied_start, self._rate_memory_start = window_initial_memories(
+            segment.states, segment.inputs, segment.dt_s, rate_count
         )
-        self._recent = {k: v[:0].copy() for k, v in self._bootstrap.items()}
+        model = with_readout(
+            model, readout_matrix(model.params),
+            fit_rate(
+                self._rate_states, self._rate_inputs, model.dt_s,
+                initial_applied=self._rate_applied_start,
+                initial_memory=self._rate_memory_start,
+            ),
+        )
+        self._bootstrap = _windows(
+            states, inputs,
+            list(range(history, history + count - horizon + 1))[-32:],
+            history, horizon,
+        )
+        self._recent = {key: value[:0].copy() for key, value in self._bootstrap.items()}
         self._scale = _scale(self._bootstrap)
         self._states = states[-history - horizon - 1 :].copy()
         self._inputs = inputs[-history - horizon :].copy()
@@ -614,17 +340,36 @@ class OnlineFit:
         self._initial_cursor = segment.start_row + len(segment.inputs)
         self._cursor = self._initial_cursor
         self._initial_count, self._horizon = count, horizon
-        self._damping = 1.0
-        self._last_proposal = None
-        self._counts = dict(
-            conditioning_calls=0,
-            optimizer_steps=0,
-            gradient_calls=0,
-            objective_calls=0,
-            accepted_proposals=0,
-            cg_iterations=0,
-            curvature_calls=0,
-        )
+        self._count = 0
+        size = len(readout_matrix(model.params))
+        with jax.enable_x64(True):
+            self._mean = readout_matrix(model.params)
+            ridge = 0.01 * count
+            self._gram = ridge * jnp.eye(size, dtype=jnp.float64)
+            self._rhs = ridge * self._mean
+            self._motion = jnp.zeros_like(self._gram)
+            self._attitude = jnp.zeros_like(self._gram)
+            self._bases = tuple(
+                jnp.asarray(value)
+                for value in sensitivity_bases(model.params, model.norms, model.delay_steps)
+            )
+            trajectory_length = round(0.25 / model.dt_s)
+            size = history + trajectory_length
+            corrected = trajectory_correction(
+                model.params, model.norms, self._mean, self._gram, count,
+                jnp.asarray(states[-size - 1 : -trajectory_length])[None],
+                jnp.asarray(inputs[-size:-trajectory_length])[None],
+                jnp.asarray(inputs[-trajectory_length:])[None],
+                jnp.asarray(states[-trajectory_length:])[None],
+                jnp.asarray(self._scale[-1]),
+                delay=model.delay_steps, dt_s=model.dt_s,
+            )
+            corrected = np.asarray(corrected)
+            if not np.isfinite(corrected).all():
+                raise ValueError("nonfinite initial trajectory readout")
+            self._mean = jnp.asarray(corrected)
+            self._rhs = self._gram @ self._mean
+        self._model = with_readout(model, corrected, model.params["rate"])
 
     @property
     def cursor(self):
@@ -632,10 +377,9 @@ class OnlineFit:
 
     @property
     def model(self):
-        """Independent snapshot; editing its dictionaries cannot affect the session."""
-        m = self._model
+        model = self._model
         return VehicleSequenceModel(
-            m.dt_s, m.history_steps, m.delay_steps, m.params, m.norms
+            model.dt_s, model.history_steps, model.delay_steps, model.params, model.norms
         )
 
     @property
@@ -643,177 +387,107 @@ class OnlineFit:
         return dict(
             recipe=copy.deepcopy(_RECIPE),
             cursor=self.cursor,
-            observations=self.cursor - self._initial_cursor,
+            observations=self._count,
             initialized_transition_count=self._initial_count,
-            initializers=1,
-            ridge_solves=2,
-            bootstrap_windows=len(self._bootstrap["past_states"]),
-            recent_windows=len(self._recent["past_states"]),
-            tail_rows=len(self._states),
             history_steps=self._model.history_steps,
             training_horizon_steps=self._horizon,
-            **self._counts,
-            damping=self._damping,
-            last_proposal=copy.deepcopy(self._last_proposal),
+            bootstrap_windows=len(self._bootstrap["past_states"]),
+            recent_windows=len(self._recent["past_states"]),
             envelope=dict(available=False),
         )
 
     def predict(self, past_states, past_inputs, future_inputs):
-        """Canonical15 means; real history and the fitted sample grid are required.
-
-        This method already uses a cached JIT with dynamic parameters. An outer
-        JIT closing over this mutable session captures its weights at trace time,
-        so it will not follow later observations. Compile an independent ``model``
-        snapshot for a fixed forecast; live integration must pass changing weights
-        as explicit traced arguments.
-        """
-        x, up, uf = map(jnp.asarray, (past_states, past_inputs, future_inputs))
-        m, history = len(self._contract["input_channels"]), self._model.history_steps
+        x, inputs, future = map(jnp.asarray, (past_states, past_inputs, future_inputs))
+        model = self._model
+        channels, history = len(model.norms["input_mean"]), model.history_steps
         if (
             x.ndim not in (2, 3)
-            or up.ndim != x.ndim
-            or uf.ndim != x.ndim
-            or x.shape[:-2] != up.shape[:-2]
-            or x.shape[:-2] != uf.shape[:-2]
+            or inputs.ndim != x.ndim
+            or future.ndim != x.ndim
+            or x.shape[:-2] != inputs.shape[:-2]
+            or x.shape[:-2] != future.shape[:-2]
             or x.shape[-1] != 15
-            or up.shape[-1] != m
-            or uf.shape[-1] != m
-            or x.shape[-2] != up.shape[-2] + 1
-            or up.shape[-2] < history
-            or not 1 <= uf.shape[-2] <= max(1, int(np.rint(1.2 / self._model.dt_s)))
+            or inputs.shape[-1] != channels
+            or future.shape[-1] != channels
+            or x.shape[-2] != inputs.shape[-2] + 1
+            or inputs.shape[-2] < history
+            or not 1 <= future.shape[-2] <= max(1, int(np.rint(1.2 / model.dt_s)))
         ):
-            raise ValueError(
-                "online prediction requires aligned real history and a valid forecast horizon"
-            )
-        if not any(isinstance(v, jax.core.Tracer) for v in (x, up, uf)):
+            raise ValueError("online prediction needs aligned observed history")
+        if not any(isinstance(value, jax.core.Tracer) for value in (x, inputs, future)):
             _validate_rotations(np.asarray(x[..., -history - 1 :, :]))
-            if (
-                not np.isfinite(np.asarray(up)).all()
-                or not np.isfinite(np.asarray(uf)).all()
-            ):
-                raise ValueError("commands must be finite in the inference precision")
+            if not np.isfinite(np.asarray(inputs)).all() or not np.isfinite(np.asarray(future)).all():
+                raise ValueError("commands must be finite")
         single = x.ndim == 2
         if single:
-            x, up, uf = x[None], up[None], uf[None]
-        dtype = jnp.result_type(self._model.norms["state_scale"])
+            x, inputs, future = x[None], inputs[None], future[None]
+        dtype = jnp.result_type(model.norms["state_scale"])
         params, norms = jax.tree.map(
-            lambda a: jnp.asarray(a, dtype=dtype),
-            (self._model.params, self._model.norms),
+            lambda value: jnp.asarray(value, dtype=dtype), (model.params, model.norms)
         )
-        result = _predict(
-            params,
-            norms,
+        result = predict(
+            params, norms,
             jnp.asarray(x[:, -history - 1 :], dtype=dtype),
-            jnp.asarray(up[:, -history:], dtype=dtype),
-            jnp.asarray(uf, dtype=dtype),
-            delay=self._model.delay_steps,
-            dt_s=self._model.dt_s,
+            jnp.asarray(inputs[:, -history:], dtype=dtype),
+            jnp.asarray(future, dtype=dtype),
+            delay=model.delay_steps, dt_s=model.dt_s,
         )
         return result[0] if single else result
 
     def observe(self, index, command, next_observation):
-        """Recondition from measured data, then attempt one curvature proposal.
-
-        Invalid inputs leave the session untouched. Numerical rejection preserves
-        the complete model, including its coordinates, increases damping, and
-        still consumes the valid transition.
-        """
-        if (
-            isinstance(index, (bool, np.bool_))
-            or not isinstance(index, (int, np.integer))
-            or index != self.cursor
-        ):
-            raise ValueError(
-                "observation index must equal the next absolute command row"
-            )
-        command, state = (
-            np.asarray(command, dtype=float),
-            np.asarray(next_observation, dtype=float),
-        )
-        if (
-            command.shape != (len(self._contract["input_channels"]),)
-            or not np.isfinite(command).all()
-            or state.shape != (15,)
-        ):
-            raise ValueError("invalid observed command/state shape or values")
+        if isinstance(index, (bool, np.bool_)) or not isinstance(index, (int, np.integer)) or index != self.cursor:
+            raise ValueError("observation index must equal the next command row")
+        command = np.asarray(command, dtype=float)
+        state = np.asarray(next_observation, dtype=float)
+        if command.shape != (len(self._contract["input_channels"]),) or not np.isfinite(command).all() or state.shape != (15,):
+            raise ValueError("invalid observed command/state")
         _validate_rotations(state)
+        model = self._model
         states = np.concatenate((self._states[1:], state[None]))
         inputs = np.concatenate((self._inputs[1:], command[None]))
-        new = _windows(
-            states,
-            inputs,
-            [self._model.history_steps],
-            self._model.history_steps,
-            self._horizon,
+        new = _windows(states, inputs, [model.history_steps], model.history_steps, self._horizon)
+        recent = {
+            key: np.concatenate((self._recent[key], new[key]))[-32:]
+            for key in _FIELDS
+        }
+        data, weights = _full_cache(self._bootstrap, recent)
+        applied_start, memory_start = self._rate_applied_start, self._rate_memory_start
+        if len(self._rate_inputs) == 25:
+            applied_start, memory_start = step_memories(
+                applied_start, memory_start, self._rate_inputs[0],
+                self._rate_states[0, 3:6], model.dt_s,
+            )
+        rate_states = np.concatenate((self._rate_states, state[None]))[-26:]
+        rate_inputs = np.concatenate((self._rate_inputs, command[None]))[-25:]
+        fitted_rate = fit_rate(
+            rate_states, rate_inputs, model.dt_s,
+            initial_applied=applied_start, initial_memory=memory_start,
         )
-        recent = {k: np.concatenate((self._recent[k], new[k]))[-32:] for k in _FIELDS}
-        counts = self._counts.copy()
         with jax.enable_x64(True):
-            params, norms = jax.tree.map(
-                jnp.asarray, (self._model.params, self._model.norms)
+            values = update_readout(
+                model.params, model.norms,
+                self._gram, self._rhs, self._motion, self._attitude,
+                self._bases, self._count + 1,
+                tuple(jnp.asarray(value) for value in data),
+                jnp.asarray(self._scale), jnp.asarray(weights),
+                jnp.asarray(self._states[-model.history_steps - 1 :]),
+                jnp.asarray(self._inputs[-model.history_steps:]),
+                jnp.asarray(command), jnp.asarray(state),
+                delay=model.delay_steps, dt_s=model.dt_s,
             )
-            data, weights = _full_cache(self._bootstrap, recent)
-            data = tuple(jnp.asarray(v) for v in data)
-            weights = jnp.asarray(weights)
-            params, norms, conditioning_finite = _recondition(
-                params,
-                norms,
-                data,
-                weights,
-                delay=self._model.delay_steps,
-                dt_s=self._model.dt_s,
-            )
-            proposal, current, trial, predicted, finite, evidence = _proposal(
-                params,
-                norms,
-                data,
-                jnp.asarray(self._scale),
-                weights,
-                jnp.asarray(self._damping),
-                delay=self._model.delay_steps,
-                dt_s=self._model.dt_s,
-                conditioning_finite=conditioning_finite,
-            )
-            finite = (
-                bool(conditioning_finite)
-                and bool(finite)
-                and all(
-                    np.isfinite(np.asarray(v)).all()
-                    for v in jax.tree.leaves((proposal, current, trial, predicted))
-                )
-            )
-            current, trial, predicted = map(float, (current, trial, predicted))
-            gain = (
-                (current - trial) / predicted if finite and predicted > 0 else -np.inf
-            )
-            accepted = bool(finite and trial < current and gain >= 0.1)
-            damping = self._damping
-            if not accepted or gain < 0.25:
-                damping *= 4.0
-            elif gain > 0.75:
-                damping *= 0.5
-            damping = float(np.clip(damping, 1e-8, 1e8))
-            model = self._model
-            if accepted:
-                model = VehicleSequenceModel(
-                    model.dt_s,
-                    model.history_steps,
-                    model.delay_steps,
-                    jax.tree.map(np.asarray, proposal),
-                    jax.tree.map(np.asarray, norms),
-                )
-        counts["conditioning_calls"] += 1
-        counts["optimizer_steps"] += 1
-        counts["gradient_calls"] += 1
-        last_proposal = _proposal_report(current, conditioning_finite, evidence)
-        counts["objective_calls"] += 1 + last_proposal["trial_evaluations"]
-        counts["cg_iterations"] += 16
-        counts["curvature_calls"] += 16
-        counts["accepted_proposals"] += int(accepted)
-        self._model, self._damping = model, damping
+            gram, rhs, motion, attitude, mean = values
+            host = np.asarray(mean)
+            if not all(np.isfinite(np.asarray(value)).all() for value in values):
+                raise ValueError("nonfinite online readout")
+        following_model = with_readout(model, host, fitted_rate)
+        self._model = following_model
+        self._gram, self._rhs = gram, rhs
+        self._motion, self._attitude, self._mean = motion, attitude, mean
         self._states, self._inputs, self._recent = states, inputs, recent
-        self._counts, self._cursor = counts, self.cursor + 1
-        self._last_proposal = last_proposal
+        self._rate_states, self._rate_inputs = rate_states, rate_inputs
+        self._rate_applied_start, self._rate_memory_start = applied_start, memory_start
+        self._count += 1
+        self._cursor += 1
 
     def _metadata(self):
         return dict(
@@ -822,23 +496,32 @@ class OnlineFit:
             model=self._model.metadata(),
             contract=copy.deepcopy(self._contract),
             initial_cursor=self._initial_cursor,
-            cursor=self.cursor,
+            cursor=self._cursor,
             initial_count=self._initial_count,
             horizon=self._horizon,
-            counts=self._counts.copy(),
-            damping=self._damping,
-            last_proposal=copy.deepcopy(self._last_proposal),
         )
 
     def _arrays(self):
-        return {
-            **self._model.arrays(),
-            "scale": self._scale,
-            "tail_states": self._states,
-            "tail_inputs": self._inputs,
-            **{f"bootstrap_{k}": v for k, v in self._bootstrap.items()},
-            **{f"recent_{k}": v for k, v in self._recent.items()},
-        }
+        arrays = self._model.arrays()
+        arrays.update(
+            gram=np.asarray(self._gram),
+            rhs=np.asarray(self._rhs),
+            motion=np.asarray(self._motion),
+            attitude=np.asarray(self._attitude),
+            mean=np.asarray(self._mean),
+            basis_linear=np.asarray(self._bases[0]),
+            basis_nonlinear=np.asarray(self._bases[1]),
+            scale=self._scale,
+            tail_states=self._states,
+            tail_inputs=self._inputs,
+            rate_states=self._rate_states,
+            rate_inputs=self._rate_inputs,
+            rate_applied_start=self._rate_applied_start,
+            rate_memory_start=self._rate_memory_start,
+        )
+        for role, windows in (("bootstrap", self._bootstrap), ("recent", self._recent)):
+            arrays.update({f"{role}_{key}": value for key, value in windows.items()})
+        return arrays
 
     def fingerprint(self):
         return array_fingerprint(self._metadata(), self._arrays())
@@ -849,176 +532,147 @@ class OnlineFit:
 
     @classmethod
     def load(cls, path):
-        """Load a checksummed session without fitting or making a prediction."""
         try:
-            meta, arrays = load_arrays(path)
+            metadata, arrays = load_arrays(path)
             if (
-                set(meta)
-                != {
-                    "format",
-                    "recipe",
-                    "model",
-                    "contract",
-                    "initial_cursor",
-                    "cursor",
-                    "initial_count",
-                    "horizon",
-                    "counts",
-                    "damping",
-                    "last_proposal",
-                }
-                or meta["format"] != _FORMAT
-                or meta["recipe"] != _RECIPE
+                set(metadata)
+                != {"format", "recipe", "model", "contract", "initial_cursor", "cursor", "initial_count", "horizon"}
+                or metadata["format"] != _FORMAT
+                or metadata["recipe"] != _RECIPE
             ):
-                raise ValueError("unsupported online session archive")
+                raise ValueError("unsupported online rate-memory archive")
             obj = cls.__new__(cls)
             obj._model = VehicleSequenceModel.from_arrays(
-                meta["model"],
-                {k: v for k, v in arrays.items() if k.startswith(("param_", "norm_"))},
+                metadata["model"],
+                {key: value for key, value in arrays.items() if key.startswith(("param_", "norm_"))},
             )
-            for key in (
-                "contract",
-                "initial_cursor",
-                "cursor",
-                "initial_count",
-                "horizon",
-                "counts",
-                "damping",
-                "last_proposal",
+            obj._contract = copy.deepcopy(metadata["contract"])
+            obj._initial_cursor = metadata["initial_cursor"]
+            obj._cursor = metadata["cursor"]
+            obj._initial_count = metadata["initial_count"]
+            obj._horizon = metadata["horizon"]
+            obj._count = obj._cursor - obj._initial_cursor
+            for attribute, key in (
+                ("_scale", "scale"),
+                ("_states", "tail_states"),
+                ("_inputs", "tail_inputs"),
+                ("_rate_states", "rate_states"),
+                ("_rate_inputs", "rate_inputs"),
+                ("_rate_applied_start", "rate_applied_start"),
+                ("_rate_memory_start", "rate_memory_start"),
             ):
-                setattr(obj, "_" + key, copy.deepcopy(meta[key]))
-            obj._scale, obj._states, obj._inputs = (
-                arrays[k].copy() for k in ("scale", "tail_states", "tail_inputs")
-            )
+                setattr(obj, attribute, arrays[key].copy())
             for role in ("bootstrap", "recent"):
-                setattr(
-                    obj, "_" + role, {k: arrays[f"{role}_{k}"].copy() for k in _FIELDS}
+                setattr(obj, "_" + role, {
+                    key: arrays[f"{role}_{key}"].copy() for key in _FIELDS
+                })
+            with jax.enable_x64(True):
+                for attribute in ("gram", "rhs", "motion", "attitude", "mean"):
+                    setattr(obj, "_" + attribute, jnp.asarray(arrays[attribute]))
+                obj._bases = (
+                    jnp.asarray(arrays["basis_linear"]),
+                    jnp.asarray(arrays["basis_nonlinear"]),
                 )
             if set(arrays) != set(obj._arrays()):
-                raise ValueError("unexpected online session arrays")
+                raise ValueError("unexpected online rate-memory arrays")
             obj._validate()
             return obj
         except (KeyError, TypeError, AttributeError, IndexError) as error:
-            raise ValueError("invalid online session archive") from error
+            raise ValueError("invalid online rate-memory archive") from error
 
     def _validate(self):
         from .learner import STATE_CHANNELS
 
-        model, contract = self._model, self._contract
-        p, h, m = model.history_steps, self._horizon, len(model.norms["input_mean"])
+        model = self._model
+        history, channels = model.history_steps, len(model.norms["input_mean"])
+        expected = steps_for(model.dt_s)
+        contract = self._contract
         if (
             not isinstance(contract, dict)
-            or set(contract)
-            != {"configuration_id", "state_channels", "input_channels", "dt_s"}
+            or set(contract) != {"configuration_id", "state_channels", "input_channels", "dt_s"}
             or not isinstance(contract["configuration_id"], str)
             or not contract["configuration_id"].strip()
             or tuple(contract["state_channels"]) != STATE_CHANNELS
             or not isinstance(contract["input_channels"], list)
-            or len(contract["input_channels"]) != m
-            or any(
-                not isinstance(c, str) or not c.strip()
-                for c in contract["input_channels"]
-            )
-            or len(set(contract["input_channels"])) != m
+            or len(contract["input_channels"]) != channels
+            or any(not isinstance(item, str) or not item.strip() for item in contract["input_channels"])
+            or len(set(contract["input_channels"])) != channels
             or contract["dt_s"] != model.dt_s
-            or isinstance(contract["dt_s"], bool)
-            or any(
-                type(v) is not int
-                for v in (self._cursor, self._initial_cursor, self._initial_count, h)
-            )
+            or any(type(value) is not int for value in (
+                self._cursor, self._initial_cursor, self._initial_count, self._horizon
+            ))
             or self._initial_count != max(1, int(np.rint(0.25 / model.dt_s)))
-            or self._initial_count < 3
-            or h != max(1, int(np.rint(0.05 / model.dt_s)))
-            or p != steps_for(model.dt_s)["history"]
-            or model.delay_steps != steps_for(model.dt_s)["delay"]
-            or model.params["b1"].shape != (32,)
-            or model.params["memory_bias"].shape != (8,)
-            or not np.array_equal(model.norms["feature_scale"][-8:], np.ones(8))
-            or not np.array_equal(model.norms["nonlinear_scale"][-8:], np.ones(8))
-            or self._initial_cursor < p + self._initial_count
-            or self.cursor < self._initial_cursor
+            or self._horizon != max(1, int(np.rint(0.05 / model.dt_s)))
+            or history != expected["history"]
+            or model.delay_steps != expected["delay"]
+            or self._initial_cursor < history + self._initial_count
+            or self._cursor < self._initial_cursor
         ):
-            raise ValueError("invalid online timing or signal contract")
-        observations = self.cursor - self._initial_cursor
-        expected = dict(
-            conditioning_calls=observations,
-            optimizer_steps=observations,
-            gradient_calls=observations,
-            cg_iterations=16 * observations,
-            curvature_calls=16 * observations,
-        )
+            raise ValueError("invalid online rate-memory timing or contract")
+        arrays = self._arrays()
+        if any(value.dtype != np.dtype("float64") or not np.isfinite(value).all() for value in arrays.values()):
+            raise ValueError("online rate-memory arrays must be finite float64")
+        size = len(readout_matrix(model.params))
+        lag = 6 * (model.delay_steps + 1)
         if (
-            not isinstance(self._counts, dict)
-            or set(self._counts) != {*expected, "objective_calls", "accepted_proposals"}
-            or any(type(v) is not int or v < 0 for v in self._counts.values())
-            or any(self._counts[k] != v for k, v in expected.items())
-            or self._counts["accepted_proposals"] > observations
-            or not 2 * observations
-            <= self._counts["objective_calls"]
-            <= 6 * observations
-            or type(self._damping) is not float
-            or not np.isfinite(self._damping)
-            or not 1e-8 <= self._damping <= 1e8
-            or (not observations and self._damping != 1.0)
+            self._gram.shape != (size, size)
+            or self._rhs.shape != (size, 3)
+            or self._motion.shape != (size, size)
+            or self._attitude.shape != (size, size)
+            or self._mean.shape != (size, 3)
+            or self._bases[0].shape != (len(model.params["linear"]), lag)
+            or self._bases[1].shape != (len(model.params["b1"]), lag)
+            or not np.array_equal(np.asarray(self._mean), readout_matrix(model.params))
+            or self._count != self._cursor - self._initial_cursor
         ):
-            raise ValueError("invalid online optimizer accounting or damping")
-        if not observations:
-            if self._last_proposal is not None:
-                raise ValueError("unobserved online session has proposal evidence")
-        else:
-            accepted = _validate_proposal_report(self._last_proposal)
-            previous_calls = (
-                self._counts["objective_calls"]
-                - 1
-                - self._last_proposal["trial_evaluations"]
+            raise ValueError("online readout state differs from model")
+        bases = sensitivity_bases(model.params, model.norms, model.delay_steps)
+        if any(not np.array_equal(np.asarray(saved), actual) for saved, actual in zip(self._bases, bases)):
+            raise ValueError("online sensitivity basis differs from model")
+        if (
+            self._states.shape != (history + self._horizon + 1, 15)
+            or self._inputs.shape != (history + self._horizon, channels)
+            or self._scale.shape != (self._horizon, 15)
+            or not np.array_equal(self._scale, _scale(self._bootstrap))
+            or self._rate_states.ndim != 2
+            or self._rate_states.shape[-1] != 15
+            or self._rate_inputs.ndim != 2
+            or self._rate_inputs.shape[-1] != channels
+            or self._rate_states.shape[0] != self._rate_inputs.shape[0] + 1
+            or not 1 <= len(self._rate_inputs) <= 25
+            or self._rate_applied_start.shape != (channels,)
+            or self._rate_memory_start.shape != (3,)
+            or not np.array_equal(
+                self._states[-min(len(self._states), len(self._rate_states)):],
+                self._rate_states[-min(len(self._states), len(self._rate_states)):],
             )
-            previous_accepted = self._counts["accepted_proposals"] - int(accepted)
-            if not (
-                2 * (observations - 1) <= previous_calls <= 6 * (observations - 1)
-                and 0 <= previous_accepted <= observations - 1
-            ):
-                raise ValueError(
-                    "online final proposal differs from optimizer accounting"
-                )
-        if any(
-            v.dtype != np.dtype("float64") or not np.isfinite(v).all()
-            for v in self._arrays().values()
+            or not np.array_equal(
+                self._inputs[-min(len(self._inputs), len(self._rate_inputs)):],
+                self._rate_inputs[-min(len(self._inputs), len(self._rate_inputs)):],
+            )
         ):
-            raise ValueError("online arrays must be finite float64")
+            raise ValueError("online observed tail differs from rate window")
+        _validate_rotations(self._states)
+        _validate_rotations(self._rate_states)
+        recovered = fit_rate(
+            self._rate_states, self._rate_inputs, model.dt_s,
+            initial_applied=self._rate_applied_start,
+            initial_memory=self._rate_memory_start,
+        )
+        if not np.allclose(recovered, model.params["rate"], rtol=1e-10, atol=1e-10):
+            raise ValueError("saved angular readout differs from retained observations")
         shapes = dict(
-            past_states=(p + 1, 15),
-            past_inputs=(p, m),
-            future_inputs=(h, m),
-            future_states=(h, 15),
+            past_states=(history + 1, 15),
+            past_inputs=(history, channels),
+            future_inputs=(self._horizon, channels),
+            future_states=(self._horizon, 15),
         )
         for windows, count in (
-            (self._bootstrap, min(32, self._initial_count - h + 1)),
-            (self._recent, min(32, observations)),
+            (self._bootstrap, min(32, self._initial_count - self._horizon + 1)),
+            (self._recent, min(32, self._count)),
         ):
-            if any(windows[k].shape != (count, *shape) for k, shape in shapes.items()):
-                raise ValueError("online replay storage differs from recipe")
-            _validate_rotations(windows["past_states"])
-            _validate_rotations(windows["future_states"])
-        if (
-            self._states.shape != (p + h + 1, 15)
-            or self._inputs.shape != (p + h, m)
-            or self._scale.shape != (h, 15)
-            or not np.array_equal(self._scale, _scale(self._bootstrap))
-        ):
-            raise ValueError("online tail or fixed loss scale differs")
-        _validate_rotations(self._states)
-        tail = _windows(self._states, self._inputs, [p], p, h)
-        windows = {
-            k: np.concatenate((self._bootstrap[k], self._recent[k], tail[k]))
-            for k in _FIELDS
-        }
-        nb, nr = len(self._bootstrap["past_states"]), len(self._recent["past_states"])
-        origins = [
-            *range(self._initial_cursor - h + 1 - nb, self._initial_cursor - h + 1),
-            *range(self.cursor - h + 1 - nr, self.cursor - h + 1),
-            self.cursor - h,
-        ]
-        keys = [WindowKey("stream", "contiguous", i) for i in origins]
-        validate_window_consistency(
-            SequenceBatch(**windows, dt_s=model.dt_s), keys, origins
-        )
+            if any(windows[key].shape != (count, *shape) for key, shape in shapes.items()):
+                raise ValueError("online replay windows differ from recipe")
+            if count:
+                _validate_rotations(windows["past_states"])
+                _validate_rotations(windows["future_states"])

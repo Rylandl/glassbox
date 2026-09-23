@@ -47,6 +47,10 @@ RECIPE = {
     "memory_dynamics": "stable_nonlinear_driven_accumulators",
     "memory_projection_initial_scale": "inverse_sqrt_full_head_feature_count",
     "memory_initial_time_range_s": [0.01, 0.5],
+    "angular_head": "episode_fitted_command_response_and_nonnegative_rate_memory",
+    "command_time_constant_s": 0.08,
+    "angular_memory_time_constant_s": 0.1,
+    "force_head_outputs": 3,
     "learning_rate": 0.002,
     "ridge_fraction": 0.01,
     "seed": 0,
@@ -56,7 +60,7 @@ RECIPE = {
     "objective": "fixed_initial_training_channel_balance",
     "fitter_wall_time_limit_s": 7200,
 }
-_FORMAT = "glassbox-temporal-dynamics-v1"
+_FORMAT = "glassbox-rate-memory-dynamics-v2"
 _ARRAYS = ("past_states", "past_inputs", "future_inputs", "future_states")
 
 

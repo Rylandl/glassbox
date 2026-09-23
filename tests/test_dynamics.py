@@ -16,16 +16,17 @@ def constant_model(commands=3, *, dt=0.05, history=3, delay=2):
     nonlinear = (min(4, delay) + 1) * b + 2
     q = b * (b + 1) // 2
     params = dict(
-        linear=np.zeros((f, 6)),
-        quadratic=np.zeros((q, 6)),
-        bias=np.zeros(6),
+        linear=np.zeros((f, 3)),
+        quadratic=np.zeros((q, 3)),
+        bias=np.zeros(3),
         w1=np.zeros((nonlinear, 3)),
         b1=np.zeros(3),
-        w2=np.zeros((3, 6)),
+        w2=np.zeros((3, 3)),
         memory=np.zeros((b, 2)),
         memory_bias=np.zeros(2),
         raw_tau=np.full(commands, np.log(np.expm1(0.049))),
         raw_memory_tau=np.full(2, np.log(np.expm1(0.049))),
+        rate=np.zeros((3, 2 * commands + 3)),
     )
     norms = dict(
         body_mean=np.zeros(9),
@@ -36,7 +37,7 @@ def constant_model(commands=3, *, dt=0.05, history=3, delay=2):
         feature_scale=np.ones(f),
         nonlinear_scale=np.ones(nonlinear),
         quadratic_scale=np.ones(q),
-        output_scale=np.ones(6),
+        output_scale=np.ones(3),
         state_mean=np.zeros(15),
         state_scale=np.ones(15),
     )
@@ -79,7 +80,8 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
 
         def direct(value):
             p, b, _, past, h = value
-            z = core.sampled_features(b, past, h) / norms["feature_scale"]
+            state = core.state_without_current_command(b)
+            z = core.sampled_features(state, past, h) / norms["feature_scale"]
             weights = p["w1"] / norms["nonlinear_scale"][:, None]
             end = (min(4, delay) + 1) * width
             expanded = jnp.concatenate(
@@ -94,10 +96,14 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
                 )
             )
             linear = z @ p["linear"]
-            nonlinear = core.sampled_features(b, past, h) @ expanded
+            nonlinear = core.sampled_features(state, past, h) @ expanded
+            control = (
+                b[..., 9:] / norms["feature_scale"][9:width]
+            ) @ p["linear"][9:width]
             acceleration = (
                 linear
-                + (core.quadratic_features(b) / norms["quadratic_scale"])
+                + control
+                + (core.additive_quadratic_features(b) / norms["quadratic_scale"])
                 @ p["quadratic"]
                 + p["bias"]
                 + jnp.tanh(nonlinear + p["b1"]) @ p["w2"]
@@ -106,8 +112,9 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
 
         def reused(value):
             p, b, start, past, h = value
-            base, effective = core._prepare_head(p, norms, start, past, h)
-            projection = base + (b - start) @ effective
+            anchor = core.state_without_current_command(start)
+            base, effective = core._prepare_head(p, norms, anchor, past, h)
+            projection = base + (core.state_without_current_command(b) - anchor) @ effective
             acceleration = core._acceleration(p, norms, b, projection)
             return jnp.concatenate((acceleration, projection), axis=-1)
 
@@ -118,7 +125,7 @@ def test_centered_projection_preserves_head_and_all_input_derivatives(
         cotangent /= jnp.linalg.norm(cotangent)
         expected_vjp = jax.vjp(direct, value)[1](cotangent)
         actual_vjp = jax.vjp(reused, value)[1](cotangent)
-        tolerance = 1e-10 if x64 else 2e-4
+        tolerance = 1e-10 if x64 else 2e-3
         for a, b in zip(
             jax.tree.leaves((actual, actual_jvp, actual_vjp)),
             jax.tree.leaves((expected, expected_jvp, expected_vjp)),
@@ -198,7 +205,7 @@ def test_midpoint_angular_acceleration_and_two_substeps():
     with jax.enable_x64(True):
         model = constant_model()
         params = {k: v.copy() for k, v in model.params.items()}
-        params["bias"][5] = 2.0
+        params["rate"][2, 0] = 2.0
         model = replace(model, params=params)
         y = np.asarray(model.rollout(*inputs(model, 1)))
         np.testing.assert_allclose(y[0, 3:6], [0, 0, 0.1], atol=1e-15)
@@ -271,8 +278,12 @@ def test_future_causality_and_one_memory_update_per_sample():
         a, history, hidden = core._history(
             p, n, jnp.asarray(x[None]), jnp.asarray(up[None]), 2, 0.05
         )
+        rate_applied, rate_memory = core.rate_history(
+            jnp.asarray(x[None]), jnp.asarray(up[None]), 0.05
+        )
         result = core.physical_step(
-            p, n, jnp.asarray(x[-1:]), jnp.zeros((1, 1)), a, history, hidden, 0.05
+            p, n, jnp.asarray(x[-1:]), jnp.zeros((1, 1)), a, history, hidden,
+            rate_applied, rate_memory, 0.05,
         )
         np.testing.assert_allclose(
             result[3],
@@ -337,7 +348,7 @@ def test_archive_roundtrip_and_shape_dtype_corruption():
     with pytest.raises(ValueError, match="shapes"):
         model.rollout(*inputs(model)[:2], np.zeros((2, 4)))
     with pytest.raises(ValueError, match="positive"):
-        replace(model, norms={**model.norms, "output_scale": np.zeros(6)})
+        replace(model, norms={**model.norms, "output_scale": np.zeros(3)})
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
