@@ -1,0 +1,9 @@
+{
+  "files": {
+    "benchmark.json": "a0ec9086ade9398a7683d1d80e2c5d6ca61da46e414d9eb68b9c1ef681e1047d",
+    "binding.json": "6255accf1bbc3f9d640dc9c68470c28ae88129f24b06600b403f99cfc38ac26b",
+    "quad-arm-085-heldout.npz": "181b074dc8cd74cd24836d2adfeb7360c00e087c509f768f184b6942a8c9f019",
+    "quad-arm-140-heldout.npz": "e44b6722d7040362bd6f85d381058e4122c2642d8e22d11d38016a094dd56c34"
+  },
+  "format": "high-spin-response-v1-truth"
+}

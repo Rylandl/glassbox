@@ -10,6 +10,8 @@
   command response, runtime, verification and limits.
 - [Held-out Crazyflow arms](heldout-quad.md): two new arm configurations and the
   high-spin angular failure that sets the next gap.
+- [High-spin angular diagnosis](high-spin-angular.md): sealed counterfactual
+  response truth, rejected structural screens, and the remaining recurrence gap.
 - [Cold-start readout screen](cold-readout.md): rejected fast linear estimator,
   preserved speed/accuracy evidence and the next isolated experiment.
 - [Readout structural screen](readout-structure.md): learned gravity-path
