@@ -171,6 +171,81 @@ def verify_saved(name, output):
     return summarize(rows)
 
 
+def response_score(candidate, public, truth):
+    assert candidate.shape == public.shape == truth.shape
+    denominator = np.linalg.norm(truth, axis=(1, 2))
+    return {
+        "origins": [
+            int(row)
+            for row in source_case(read(SPEC), "quad-arm-125", "full")["response"][
+                "rows"
+            ]
+        ],
+        "candidate_relative": (
+            np.linalg.norm(candidate - truth, axis=(1, 2)) / denominator
+        ).tolist(),
+        "public_relative": (
+            np.linalg.norm(public - truth, axis=(1, 2)) / denominator
+        ).tolist(),
+    }
+
+
+def response_probe(output, verify=False):
+    case = source_case(read(SPEC), "quad-arm-125", "full")
+    public = np.load(PUBLIC / "quad-arm-125.npz")["response"]
+    rows = case["response"]["rows"]
+    truth = case["response"]["truth"]
+    if verify:
+        saved = np.load(output / "response.npz")
+        assert np.array_equal(saved["origins"], rows)
+        result = response_score(saved["jacobian"], public, truth)
+        assert result == json.loads((output / "response.json").read_text())
+        return result
+
+    states, commands, dt = case["states"], case["commands"], case["dt"]
+    epsilon = case["response"]["epsilon"]
+    jacobians = []
+    for origin in rows:
+        origin = int(origin)
+        prefix, training = states[: origin + 1], commands[:origin]
+        J = fit_inertia(prefix, training, dt)
+        detail, _, _ = fit(prefix, training, case["begin"], origin, dt, J)
+        _, q, coeff, _, _, _, Cf, Ct, _ = detail
+        issued = commands[: origin + 1]
+        columns = []
+        for channel in range(commands.shape[1]):
+            low, high = issued.copy(), issued.copy()
+            low[origin, channel] = np.clip(low[origin, channel] - epsilon, 0, 1)
+            high[origin, channel] = np.clip(high[origin, channel] + epsilon, 0, 1)
+            minus = full_state_forecast(
+                states[origin],
+                latent_trace(low, q, coeff, dt),
+                origin,
+                J,
+                Cf,
+                Ct,
+                dt,
+            )[0, 3:6]
+            plus = full_state_forecast(
+                states[origin],
+                latent_trace(high, q, coeff, dt),
+                origin,
+                J,
+                Cf,
+                Ct,
+                dt,
+            )[0, 3:6]
+            columns.append(
+                (plus - minus) / (high[origin, channel] - low[origin, channel])
+            )
+        jacobians.append(np.stack(columns, axis=-1))
+    candidate = np.asarray(jacobians)
+    result = response_score(candidate, public, truth)
+    np.savez_compressed(output / "response.npz", origins=rows, jacobian=candidate)
+    (output / "response.json").write_text(json.dumps(result, indent=2) + "\n")
+    return result
+
+
 def highspin_case():
     from screen_causal_relaxation import ROOT
 
@@ -225,7 +300,13 @@ if __name__ == "__main__":
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument("--response", action="store_true")
     args = parser.parse_args()
+    if args.response:
+        assert args.output is not None
+        args.output.mkdir(parents=True, exist_ok=True)
+        print(response_probe(args.output, args.verify))
+        raise SystemExit(0)
     if args.full:
         assert args.output is not None
         args.output.mkdir(parents=True, exist_ok=True)
