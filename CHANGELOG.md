@@ -17,8 +17,13 @@ session archive formats change, so older archives require their source checkout
 or a fresh fit.
 
 The corrected [matched-prefix and publication qualification](docs/causal-publication.md)
-records full-state errors, command response, fit
-and publication timing, and known regressions. Superseded implementations,
-experiments, tests and narrative have been removed from the working tree;
-Git retains earlier history. No live Throw/Dart controller success or unseen-
-configuration accuracy is claimed by this release.
+records full-state errors, command response, fit and publication timing, and
+known regressions. [New Crazyflow flights](docs/causal-heldout.md) expose an
+early-data lag-identification failure on a 1.55-arm vehicle. A weak,
+data-decaying prior on rise/fall rate asymmetry sharply reduces that error and
+retains the larger known-suite result, with measured high-spin regressions.
+Those new flights informed the prior and are development evidence for it;
+independent validation remains open. Superseded implementations, experiments,
+tests and narrative have been removed from the working tree; Git retains
+earlier history. No live Throw/Dart controller success or unseen vehicle-class
+accuracy is claimed by this release.
