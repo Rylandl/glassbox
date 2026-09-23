@@ -77,7 +77,7 @@ def main() -> None:
     model.save(args.output / "model.npz")
     model = LearnedDynamics.load(args.output / "model.npz")
     segment = held_out.segments[0]
-    p, h = model.history_steps, model.horizon_steps
+    p, h = len(segment.inputs) // 2, model.horizon_steps
     prediction = model.predict(
         segment.states[: p + 1], segment.inputs[:p], segment.inputs[p : p + h]
     )
