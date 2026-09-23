@@ -94,8 +94,7 @@ def evaluate_case(name, suite, output):
     case = source_case(read(SPEC), name, suite)
     frozen = np.load(PUBLIC / f"{name}.npz")
     assert np.array_equal(frozen["origins"][: len(case["origins"])], case["origins"])
-    forecasts, responses, fit_seconds = [], [], []
-    response_rows = set(case["response"]["rows"]) if case["response"] else set()
+    forecasts, fit_seconds = [], []
     for origin in case["origins"]:
         origin = int(origin)
         model, report = _fit(case, origin)
@@ -108,8 +107,13 @@ def evaluate_case(name, suite, output):
         assert forecast.shape == (case["horizon"], 15) and np.isfinite(forecast).all()
         forecasts.append(forecast)
         fit_seconds.append(report["fit_seconds"])
-        if origin in response_rows:
+    responses, response_fit_seconds = [], []
+    if case["response"] is not None:
+        for origin in case["response"]["rows"]:
+            origin = int(origin)
+            model, report = _fit(case, origin)
             responses.append(_response(case, origin, model))
+            response_fit_seconds.append(report["fit_seconds"])
     prediction = np.stack(forecasts)
     np.savez_compressed(
         output / f"{name}.npz",
@@ -117,6 +121,10 @@ def evaluate_case(name, suite, output):
         forecast=prediction,
         fit_seconds=np.asarray(fit_seconds),
         response=np.asarray(responses),
+        response_origins=(
+            case["response"]["rows"] if case["response"] else np.empty(0, dtype=int)
+        ),
+        response_fit_seconds=np.asarray(response_fit_seconds),
     )
     return _score(case, prediction, frozen["forecast"][: len(case["origins"])])
 
@@ -133,6 +141,8 @@ def verify_case(name, suite, output):
         truth = case["response"]["truth"]
         candidate = saved["response"]
         public = frozen["response"][: len(truth)]
+        assert np.array_equal(saved["response_origins"], case["response"]["rows"])
+        assert len(saved["response_fit_seconds"]) == len(truth)
         assert candidate.shape == public.shape == truth.shape
 
         def relative(a):
@@ -148,6 +158,8 @@ def verify_case(name, suite, output):
         }
     else:
         assert saved["response"].shape == (0,)
+        assert saved["response_origins"].shape == (0,)
+        assert saved["response_fit_seconds"].shape == (0,)
         response = None
     return (
         _score(case, saved["forecast"], frozen["forecast"][: len(case["origins"])]),
