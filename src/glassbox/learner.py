@@ -9,7 +9,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from ._causal_actuator import CausalActuatorModel
+from ._causal_actuator import CausalActuatorModel, latent_trace
 from ._causal_fit import fit_segments
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
 from .recordings import SequenceCollection, SequenceSegment
@@ -201,6 +201,20 @@ class LearnedDynamics:
         if x.ndim == 2:
             return self._model.forecast(x[-1], past, future)
         return jax.vmap(self._model.forecast)(x[:, -1], past, future)
+
+    def _predict_origins(self, segment, origins, horizon):
+        """Reuse one causal actuator trace for held-out forecast origins."""
+        rows = jnp.asarray(tuple(origins), dtype=jnp.int32)
+        states = jnp.asarray(segment.states)
+        commands = jnp.asarray(segment.inputs)
+        trace = latent_trace(
+            commands,
+            jnp.asarray(self._model.q, dtype=states.dtype),
+            jnp.asarray(self._model.coeff, dtype=states.dtype),
+            self.dt_s,
+        )
+        windows = trace[rows[:, None] + jnp.arange(horizon + 1)[None, :]]
+        return jax.vmap(self._model.forecast_from_trace)(states[rows], windows)
 
     def envelope(self, horizon_steps=None):
         raise ValueError("this revision has no calibrated envelope")

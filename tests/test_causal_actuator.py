@@ -80,6 +80,27 @@ def test_command_jacobian_matches_symmetric_perturbation():
     np.testing.assert_allclose(response, difference, rtol=1e-5, atol=1e-7)
 
 
+def test_history_derivative_survives_internal_length_bucketing():
+    with np.load(FIXTURES / "causal-highspin-085-row150.npz") as saved:
+        data = {key: saved[key] for key in saved.files}
+    model = CausalActuatorModel(
+        float(data["dt_s"]),
+        data["q"],
+        data["coeff"],
+        data["inertia"],
+        data["force"],
+        data["torque"],
+    )
+    history = data["past_inputs"][:7]
+    future = data["future_inputs"][:1]
+    with jax.enable_x64(True):
+        derivative = jax.jacfwd(
+            lambda past: model.forecast(data["start"], past, future)[0, 3:6]
+        )(jnp.asarray(history))
+    assert np.isfinite(derivative).all()
+    assert np.linalg.norm(derivative) > 0
+
+
 def test_nonphysical_inertia_is_rejected():
     with np.load(FIXTURES / "causal-fixedwing-80-row31.npz") as saved:
         data = {key: saved[key] for key in saved.files}

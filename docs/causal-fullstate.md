@@ -54,7 +54,7 @@ eight-case table.
 At the six frozen arm-125 counterfactual probes, relative 10 ms body-rate
 command-Jacobian error averages **0.072** for the candidate versus **0.331**
 for the public model. The underexcited first probe improves from 1.071 to
-0.106; all six improve. The [high-spin response screen](high-spin-angular.md)
+0.106; all six improve. The historical high-spin response screen
 also found a large 0.85-arm improvement. Fixed-wing counterfactual truth is
 still absent.
 

@@ -85,6 +85,30 @@ def test_single_recording_fit_uses_all_available_observations():
     assert model.report["optimization"]["completed_transitions"] == 40
 
 
+@pytest.mark.parametrize("x64", [False, True])
+def test_recording_forecasts_share_one_trace_without_changing_predictions(x64):
+    source = recordings(count=1)
+    model = fit(source)
+    segment = source.segments[0]
+    origins = (10, 20, 30)
+    horizon = 3
+    with jax.enable_x64(x64):
+        fast = np.asarray(model._predict_origins(segment, origins, horizon))
+        direct = np.stack(
+            [
+                np.asarray(
+                    model.predict(
+                        segment.states[: origin + 1],
+                        segment.inputs[:origin],
+                        segment.inputs[origin : origin + horizon],
+                    )
+                )
+                for origin in origins
+            ]
+        )
+    np.testing.assert_allclose(fast, direct, rtol=0, atol=2e-12 if x64 else 2e-5)
+
+
 def test_rechecksummed_parameter_tampering_is_rejected(tmp_path):
     model = fit(recordings())
     path = tmp_path / "good.npz"

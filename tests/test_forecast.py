@@ -59,6 +59,18 @@ class LinearForecast(LearnedDynamics):
         increment[:, :2] = np.arange(1, 3)[:, None] * [1, 2]
         return past_states[-1:] + increment
 
+    def _predict_origins(self, segment, origins, horizon):
+        return np.stack(
+            [
+                self.predict(
+                    segment.states[: origin + 1],
+                    segment.inputs[:origin],
+                    segment.inputs[origin : origin + horizon],
+                )
+                for origin in origins
+            ]
+        )
+
     def fingerprint(self):
         return "analytic-fixture"
 

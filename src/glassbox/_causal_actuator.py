@@ -5,6 +5,7 @@ the applied-command state from issued commands since the start of the segment.
 """
 
 from dataclasses import dataclass
+from functools import partial
 
 import jax
 import jax.numpy as jnp
@@ -63,6 +64,11 @@ def latent_trace(commands, q, coeff, dt_s):
     return jnp.concatenate((targets[0][None, :], following), axis=0)
 
 
+@partial(jax.jit, static_argnames=("dt_s",))
+def _compiled_latent_trace(commands, q, coeff, dt_s):
+    return latent_trace(commands, q, coeff, dt_s)
+
+
 def _step(state, applied, following, J, Cf, Ct, dt_s):
     v, w, R = state[:3], state[3:6], state[6:].reshape(3, 3)
     m = applied.shape[0]
@@ -106,6 +112,16 @@ def _step(state, applied, following, J, Cf, Ct, dt_s):
     w_next = w + dt_s * angular_derivative(w_mid, middle)
     R_next = R @ rotation_exp(dt_s * w_mid)
     return jnp.concatenate((v_next, w_next, R_next.reshape(9)))
+
+
+@partial(jax.jit, static_argnames=("dt_s",))
+def _compiled_rollout(start, trace, J, Cf, Ct, dt_s):
+    def advance(state, pair):
+        following = _step(state, pair[0], pair[1], J, Cf, Ct, dt_s)
+        return following, following
+
+    _, forecast = jax.lax.scan(advance, start, (trace[:-1], trace[1:]))
+    return forecast
 
 
 @dataclass(frozen=True)
@@ -174,25 +190,45 @@ class CausalActuatorModel:
                 "forecast needs state and complete aligned command history"
             )
         dtype = x.dtype
+        bucket = 1 << (len(past) - 1).bit_length()
+        if bucket > len(past):
+            if isinstance(past, jax.core.Tracer):
+                past = jnp.concatenate(
+                    (jnp.repeat(past[:1], bucket - len(past), axis=0), past)
+                )
+            else:
+                values = np.asarray(past)
+                past = jnp.asarray(
+                    np.concatenate(
+                        (np.repeat(values[:1], bucket - len(values), axis=0), values)
+                    ),
+                    dtype=dtype,
+                )
         commands = jnp.concatenate((past, future))
-        trace = latent_trace(
+        trace = _compiled_latent_trace(
             commands,
             jnp.asarray(self.q, dtype=dtype),
             jnp.asarray(self.coeff, dtype=dtype),
             self.dt_s,
         )
+        return self.forecast_from_trace(x, trace[len(past) :])
+
+    def forecast_from_trace(self, start, applied):
+        """Integrate from a precomputed applied-command trace of length H+1."""
+        x, trace = map(jnp.asarray, (start, applied))
+        if (
+            x.shape != (15,)
+            or trace.ndim != 2
+            or trace.shape[1] != self.input_count
+            or len(trace) < 2
+        ):
+            raise ValueError("forecast needs a state and H+1 applied commands")
+        dtype = x.dtype
         J, Cf, Ct = (
             jnp.asarray(a, dtype=dtype) for a in (self.inertia, self.force, self.torque)
         )
 
-        def advance(state, pair):
-            following = _step(state, pair[0], pair[1], J, Cf, Ct, self.dt_s)
-            return following, following
-
-        _, forecast = jax.lax.scan(
-            advance, x, (trace[len(past) : -1], trace[len(past) + 1 :])
-        )
-        return forecast
+        return _compiled_rollout(x, trace, J, Cf, Ct, self.dt_s)
 
     def arrays(self):
         return {

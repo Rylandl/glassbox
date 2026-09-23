@@ -26,7 +26,7 @@ from glassbox.workflows import evaluate
 
 def recording(name: str, seed: int) -> SequenceSegment:
     rng = np.random.default_rng(seed)
-    dt, steps = 0.02, 400
+    dt, steps = 0.02, 120
     t = np.arange(steps) * dt
     phases = rng.uniform(-np.pi, np.pi, 6)
     commands = np.sin(t[:, None] * np.linspace(0.7, 1.8, 6) + phases)

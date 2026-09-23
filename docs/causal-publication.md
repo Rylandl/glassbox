@@ -63,6 +63,11 @@ The paired flights are gentle; their angular losses are small in absolute units
 but consistently favor the incumbent. No held-out vehicle class, measurement
 noise, live Throw/Dart catch or calibrated uncertainty is established here.
 
+A second paced run of the timing-sensitive fixedwing-80, quad-arm-125 and
+quad-arm-135 cases gave respectively 0.348/0.301, 0.043/0.177 and 0.802/0.828
+m/s / rad/s velocity/body-rate RMSE. These preserve the same engineering
+conclusion while showing timing variation on the longer quad stream.
+
 The matched-prefix evaluator was frozen in commits `4c90242` and `9146af0`;
 the timed-publication evaluator in `15d93a5`. The generic force-offset change
 and fixed-wing early regression are in `9c5f849`; the public lifecycle source

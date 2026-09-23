@@ -1,39 +1,92 @@
-"""Run one reusable, causal online-readout benchmark."""
+"""Read the frozen online readout cases without fitting or historical code."""
 
-import argparse
 import hashlib
-import importlib
 import json
-import subprocess
-import time
 from pathlib import Path
 
 import numpy as np
-from collect_throw import authenticate, seal
-from evaluate_online import metrics
-from verify_baseline import arrays, observed, require
-
-from glassbox import STATE_CHANNELS, SequenceCollection, SequenceSegment
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "docs/online-readout-benchmark.json"
-GIT = "/opt/homebrew/Caskroom/miniconda/base/bin/git"
-HORIZONS = (50, 100, 150, 200, 250)
+_AUTHENTICATED = set()
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
 
 
 def read(path):
     return json.loads(Path(path).read_text())
 
 
-def write(path, value):
-    Path(path).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+def arrays(path):
+    with np.load(path, allow_pickle=False) as data:
+        return {key: data[key].copy() for key in data.files}
 
 
-def sha(path):
+def _digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _authenticate_sources(spec):
+    for source in spec["sources"].values():
+        root = Path(source["path"])
+        identity = (str(root), source["manifest_sha256"])
+        if identity in _AUTHENTICATED:
+            continue
+        manifest_path = root / "manifest.json"
+        require(_digest(manifest_path) == identity[1], "frozen manifest differs")
+        manifest = read(manifest_path)
+        expected = manifest["files"]
+        actual = {
+            str(path.relative_to(root))
+            for path in root.rglob("*")
+            if path.is_file() and path != manifest_path
+        }
+        require(set(expected) == actual, "frozen artifact inventory differs")
+        for name, wanted in expected.items():
+            relative = Path(name)
+            require(
+                not relative.is_absolute() and ".." not in relative.parts,
+                "unsafe frozen artifact path",
+            )
+            require(
+                _digest(root / relative) == wanted, f"frozen artifact differs: {name}"
+            )
+        _AUTHENTICATED.add(identity)
+
+
+def rotation(quaternion):
+    q = np.asarray(quaternion)
+    q = q / np.linalg.norm(q, axis=-1, keepdims=True)
+    w, x, y, z = np.moveaxis(q, -1, 0)
+    return np.stack(
+        (
+            1 - 2 * (y * y + z * z),
+            2 * (x * y - z * w),
+            2 * (x * z + y * w),
+            2 * (x * y + z * w),
+            1 - 2 * (x * x + z * z),
+            2 * (y * z - x * w),
+            2 * (x * z - y * w),
+            2 * (y * z + x * w),
+            1 - 2 * (x * x + y * y),
+        ),
+        axis=-1,
+    ).reshape(q.shape[:-1] + (3, 3))
+
+
+def observed(states):
+    states = np.asarray(states)
+    return np.concatenate(
+        (states[:, 3:6], states[:, 10:13], rotation(states[:, 6:10]).reshape(-1, 9)),
+        axis=1,
+    )
+
+
 def source_case(spec, name, suite):
+    _authenticate_sources(spec)
     roots = {key: Path(value["path"]) for key, value in spec["sources"].items()}
     direct_root = roots["direct"] / name
     previous = arrays(direct_root / "predictions.npz")
@@ -74,9 +127,7 @@ def source_case(spec, name, suite):
     )
     require(origins[-1] + horizon < len(states), "missing 250 ms truth")
     require(end_row + 1 <= len(states), "missing one-step truth")
-    truth = np.stack(
-        [states[row + 1 : row + horizon + 1] for row in origins]
-    )
+    truth = np.stack([states[row + 1 : row + horizon + 1] for row in origins])
     response = None
     if name in spec.get("response_probes", {}):
         probe = spec["response_probes"][name]
@@ -112,297 +163,3 @@ def source_case(spec, name, suite):
         full_one=full_one[: end_row - first],
         response=response,
     )
-
-
-def scores(case, forecast, one):
-    one_step = None
-    if one is not None:
-        actual_one = case["states"][case["origins"][0] + 1 : case["end_row"] + 1]
-        one_step = metrics(one, actual_one)
-    result = {"one_step": one_step, "horizons": {}, "origins": {}}
-    for ms in HORIZONS:
-        step = round(ms / 1000 / case["dt"]) - 1
-        result["horizons"][str(ms)] = metrics(
-            forecast[:, step], case["truth"][:, step]
-        )
-    terminal_error = forecast[:, -1, 3:6] - case["truth"][:, -1, 3:6]
-    result["worst_250_rate_rad_s"] = float(
-        np.max(np.linalg.norm(terminal_error, axis=1))
-    )
-    for index in range(len(case["origins"])):
-        result["origins"][str(index)] = {}
-        for ms in HORIZONS:
-            step = round(ms / 1000 / case["dt"]) - 1
-            result["origins"][str(index)][str(ms)] = metrics(
-                forecast[index, step : step + 1],
-                case["truth"][index, step : step + 1],
-            )
-    return result
-
-
-def response_scores(truth, jacobian):
-    require(jacobian.shape == truth.shape, "response shape")
-    require(np.isfinite(jacobian).all(), "nonfinite response")
-    relative = np.linalg.norm(jacobian - truth, axis=(1, 2)) / np.linalg.norm(
-        truth, axis=(1, 2)
-    )
-    return dict(relative_error=relative.tolist(), mean_relative_error=float(np.mean(relative)))
-
-
-def response_jacobian(session, past, inputs, command, epsilon):
-    columns = []
-    for channel in range(len(command)):
-        low, high = command.copy(), command.copy()
-        low[channel] = max(0.0, low[channel] - epsilon)
-        high[channel] = min(1.0, high[channel] + epsilon)
-        minus = np.asarray(session.predict(past, inputs, low[None]))[0, 3:6]
-        plus = np.asarray(session.predict(past, inputs, high[None]))[0, 3:6]
-        columns.append((plus - minus) / (high[channel] - low[channel]))
-    return np.stack(columns, axis=1)
-
-
-def run_case(case, factory, output):
-    first, end_row = int(case["origins"][0]), case["end_row"]
-    prefix = SequenceCollection(
-        (
-            SequenceSegment(
-                case["identity"],
-                "prefix",
-                case["states"][case["begin"] : first + 1],
-                case["commands"][case["begin"] : first],
-                case["dt"],
-                case["begin"],
-            ),
-        ),
-        case["identity"],
-        STATE_CHANNELS,
-        case["names"],
-    )
-    started = time.perf_counter()
-    fit = factory(prefix)
-    initialization_s = time.perf_counter() - started
-    predictions, one, update_s, response = [], [], [], []
-    first_prediction_s = None
-    origin_rows = set(case["origins"].tolist())
-    for row in range(first, end_row + 1):
-        model = fit.session.model
-        h = model.history_steps
-        past = case["states"][row - h : row + 1]
-        inputs = case["commands"][row - h : row]
-        if row in origin_rows:
-            prediction_started = time.perf_counter()
-            forecast = np.asarray(
-                fit.session.predict(
-                    past,
-                    inputs,
-                    case["commands"][row : row + case["horizon"]],
-                )
-            )
-            require(
-                forecast.shape == (case["horizon"], 15)
-                and np.isfinite(forecast).all(),
-                "invalid conditional forecast",
-            )
-            if row == first:
-                first_prediction_s = time.perf_counter() - prediction_started
-            predictions.append(forecast)
-        if case["response"] is not None and row in case["response"]["rows"]:
-            response.append(
-                response_jacobian(
-                    fit.session,
-                    past,
-                    inputs,
-                    case["commands"][row],
-                    case["response"]["epsilon"],
-                )
-            )
-        if row == end_row:
-            break
-        step = np.asarray(
-            fit.session.predict(past, inputs, case["commands"][row : row + 1])
-        )[0]
-        require(step.shape == (15,) and np.isfinite(step).all(), "invalid one-step")
-        one.append(step)
-        started = time.perf_counter()
-        fit.observe(row, case["commands"][row], case["states"][row + 1])
-        update_s.append(time.perf_counter() - started)
-    forecast, one, update_s = map(np.asarray, (predictions, one, update_s))
-    response = np.asarray(response)
-    np.savez_compressed(
-        output / f"{case['name']}.npz",
-        origins=case["origins"],
-        forecast=forecast,
-        one=one,
-        update_s=update_s,
-        initialization_s=np.asarray(initialization_s),
-        first_prediction_s=np.asarray(first_prediction_s),
-        response=response,
-    )
-    return dict(
-        candidate=scores(case, forecast, one),
-        direct=scores(case, case["direct"], case["direct_one"]),
-        full=scores(case, case["full"], case["full_one"]),
-        initialization_s=initialization_s,
-        first_prediction_s=first_prediction_s,
-        first_update_s=float(update_s[0]),
-        warm_update_median_s=float(np.median(update_s[1:])),
-        updates=len(one),
-        response=(
-            response_scores(case["response"]["truth"], response)
-            if case["response"] is not None else None
-        ),
-    )
-
-
-def verify_case(case, output, result):
-    saved = arrays(output / f"{case['name']}.npz")
-    require(np.array_equal(saved["origins"], case["origins"]), "origin mismatch")
-    require(
-        saved["forecast"].shape == (len(case["origins"]), case["horizon"], 15),
-        "forecast shape",
-    )
-    require(
-        saved["one"].shape == (case["end_row"] - case["origins"][0], 15),
-        "one-step shape",
-    )
-    require(result["candidate"] == scores(case, saved["forecast"], saved["one"]),
-            "candidate score mismatch")
-    require(result["direct"] == scores(case, case["direct"], case["direct_one"]),
-            "direct score mismatch")
-    require(result["full"] == scores(case, case["full"], case["full_one"]),
-            "full score mismatch")
-    require(result["updates"] == len(saved["update_s"]), "update count mismatch")
-    if case["response"] is not None:
-        require(
-            result["response"] == response_scores(case["response"]["truth"], saved["response"]),
-            "response score mismatch",
-        )
-    require(
-        result["initialization_s"] == float(saved["initialization_s"])
-        and result["first_prediction_s"] == float(saved["first_prediction_s"])
-        and result["first_update_s"] == float(saved["update_s"][0]),
-        "cold timing mismatch",
-    )
-    require(
-        result["warm_update_median_s"] == float(np.median(saved["update_s"][1:])),
-        "timing mismatch",
-    )
-
-
-def table(cases, results):
-    lines = [
-        "Errors are candidate / direct / full. Rate is rad/s; velocity is m/s.",
-        "",
-        "| Case | Origins | First rate | Native one-step rate RMSE | 250 ms rate RMSE | 250 ms velocity RMSE | Worst rate | Cold forecast s / first update ms / warm ms |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for name in cases:
-        result = results[name]
-        arms = [result[arm] for arm in ("candidate", "direct", "full")]
-
-        def triple(selector, values=arms):
-            return " / ".join(f"{selector(arm):.3f}" for arm in values)
-
-        lines.append(
-            f"| {name} | "
-            f"{len(arms[0]['origins'])} | "
-            f"{triple(lambda arm: arm['origins']['0']['250']['body_rate_rmse_rad_s'])} | "
-            f"{triple(lambda arm: arm['one_step']['body_rate_rmse_rad_s'])} | "
-            f"{triple(lambda arm: arm['horizons']['250']['body_rate_rmse_rad_s'])} | "
-            f"{triple(lambda arm: arm['horizons']['250']['velocity_rmse_m_s'])} | "
-            f"{triple(lambda arm: arm['worst_250_rate_rad_s'])} | "
-            f"{result['initialization_s'] + result['first_prediction_s']:.2f} / "
-            f"{result['first_update_s'] * 1000:.2f} / "
-            f"{result['warm_update_median_s'] * 1000:.2f} |"
-        )
-    if any(results[name].get("response") is not None for name in cases):
-        lines.extend(("", "Counterfactual next-step body-rate response error, relative Frobenius norm:"))
-        for name in cases:
-            score = results[name].get("response")
-            if score is not None:
-                values = ", ".join(f"{value:.3f}" for value in score["relative_error"])
-                lines.append(f"{name}: {values} (mean {score['mean_relative_error']:.3f})")
-    return "\n".join(lines) + "\n"
-
-
-def authenticate_sources(spec):
-    for source in spec["sources"].values():
-        authenticate(Path(source["path"]), source["manifest_sha256"])
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("run", "verify"))
-    parser.add_argument("--candidate", help="module:factory with session.predict and observe")
-    parser.add_argument("--suite", choices=("smoke", "full"), default="full")
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--manifest-sha256")
-    args = parser.parse_args()
-    if args.mode == "verify":
-        authenticate(args.output, args.manifest_sha256)
-        spec = read(args.output / "benchmark.json")
-        authenticate_sources(spec)
-        summary = read(args.output / "summary.json")
-        for name in summary["cases"]:
-            verify_case(
-                source_case(spec, name, summary["suite"]),
-                args.output,
-                summary["results"][name],
-            )
-        require(
-            summary["total_updates"]
-            == sum(value["updates"] for value in summary["results"].values()),
-            "total update count mismatch",
-        )
-        require(
-            summary["total_origins"]
-            == sum(len(value["candidate"]["origins"]) for value in summary["results"].values()),
-            "total origin count mismatch",
-        )
-        require((args.output / "table.md").read_text() == table(summary["cases"], summary["results"]), "table mismatch")
-        print("Verified saved forecasts, controls, responses, scores and table without fitting.")
-        return
-    require(args.candidate and ":" in args.candidate, "supply module:factory")
-    spec = read(SPEC)
-    authenticate_sources(spec)
-    module_name, factory_name = args.candidate.split(":", 1)
-    module = importlib.import_module(module_name)
-    factory = getattr(module, factory_name)
-    source_path = Path(module.__file__).resolve()
-    cases = spec[f"{args.suite}_cases"]
-    args.output.mkdir(parents=True, exist_ok=False)
-    (args.output / "benchmark.json").write_bytes(SPEC.read_bytes())
-    write(args.output / "binding.json", dict(
-        candidate=args.candidate,
-        candidate_file=str(source_path),
-        candidate_sha256=sha(source_path),
-        benchmark_sha256=sha(SPEC),
-        runner_sha256=sha(__file__),
-        git_head=subprocess.check_output([GIT, "rev-parse", "HEAD"], text=True).strip(),
-    ))
-    try:
-        case_data = {name: source_case(spec, name, args.suite) for name in cases}
-        results = {
-            name: run_case(case_data[name], factory, args.output) for name in cases
-        }
-        summary = dict(
-            suite=args.suite,
-            cases=cases,
-            total_updates=sum(value["updates"] for value in results.values()),
-            total_origins=sum(len(value["candidate"]["origins"]) for value in results.values()),
-            results=results,
-        )
-        write(args.output / "summary.json", summary)
-        (args.output / "table.md").write_text(table(cases, results))
-        for name in cases:
-            verify_case(case_data[name], args.output, results[name])
-    except BaseException as error:
-        write(args.output / "failure.json", dict(error=repr(error)))
-        raise
-    finally:
-        print("manifest_sha256", seal(args.output, spec["id"]))
-    print((args.output / "table.md").read_text())
-
-
-if __name__ == "__main__":
-    main()

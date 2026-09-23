@@ -1,6 +1,10 @@
 # First held-out Crazyflow arm configurations
 
-The [frozen protocol](harness/heldout-quad-v1.json) requested two Crazyflow arm
+**Historical prior-model evidence.** This experiment used the previous public
+learner. Its frozen protocol and replay source remain in Git history; the arm
+recordings are useful for the [next held-out iteration](status.md).
+
+The frozen historical protocol requested two Crazyflow arm
 lengths absent from the model-development recordings: 0.85 and 1.40 times the
 base geometry. The pinned pass6 controller generated each flight independently
 of the candidate. The public `OnlineFit` started fresh from each flight's own
@@ -45,8 +49,7 @@ process, so its short startup timings are not independent cold-start evidence.
 No live new-model controller, counterfactual command-response truth, fixed-wing
 held-out configuration or new vehicle class was tested.
 
-The sealed [source](../artifacts/heldout-quad-v1/source/manifest.json) and
-[evaluation](../artifacts/heldout-quad-v1/evaluation/manifest.json) packs retain
+The sealed local source and evaluation packs retain
 both flights, all forecast origins, one-step predictions, timings and per-origin
 errors. The harness was committed at `51cf2a6` before either flight was
 collected. The final evaluator replay from the copied source pack produced

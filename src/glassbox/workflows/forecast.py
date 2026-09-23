@@ -46,26 +46,23 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
     totals = empty()
     by_recording = {name: empty() for name in sorted(content)}
     for segment in recordings.segments:
-        for origin in range(1, len(segment.states) - horizon):
-            past_states = segment.states[: origin + 1]
-            past_inputs = segment.inputs[:origin]
-            future_inputs = segment.inputs[origin : origin + horizon]
-            truth = segment.states[origin + 1 : origin + horizon + 1]
-            prediction = np.asarray(
-                model.predict(past_states, past_inputs, future_inputs)
+        origins = np.arange(1, len(segment.states) - horizon)
+        if not len(origins):
+            continue
+        truth = np.stack([segment.states[t + 1 : t + horizon + 1] for t in origins])
+        prediction = np.asarray(model._predict_origins(segment, origins, horizon))
+        if prediction.shape != truth.shape or not np.isfinite(prediction).all():
+            raise ValueError(
+                "model produced a nonfinite or misaligned evaluation forecast"
             )
-            if prediction.shape != truth.shape or not np.isfinite(prediction).all():
-                raise ValueError(
-                    "model produced a nonfinite or misaligned evaluation forecast"
-                )
-            error = prediction - truth
-            hold_error = past_states[-1:] - truth
-            for target in (totals, by_recording[segment.recording_id]):
-                target["windows"] += 1
-                target["squared"] += error**2
-                target["hold"] += hold_error**2
-                if envelope is not None:
-                    target["covered"] += np.abs(error) <= envelope
+        error = prediction - truth
+        hold_error = segment.states[origins, None, :] - truth
+        for target in (totals, by_recording[segment.recording_id]):
+            target["windows"] += len(origins)
+            target["squared"] += np.sum(error**2, axis=0)
+            target["hold"] += np.sum(hold_error**2, axis=0)
+            if envelope is not None:
+                target["covered"] += np.sum(np.abs(error) <= envelope, axis=0)
     missing = [name for name, value in by_recording.items() if value["windows"] == 0]
     if missing:
         raise ValueError(
