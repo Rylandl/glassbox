@@ -263,8 +263,9 @@ physics and be screened on fixed-wing as well as quad data.
 
 ## Causal nonlinear relaxation screen, 2026-09-23
 
-The [committed research screen](../scripts/screen_causal_relaxation.py) at
-`2ba4f70` tested one shared actuator state. A monotone signed command warp
+The research screen in `scripts/screen_causal_relaxation.py` on the
+`codex/causal-relaxation-screen` branch at `2ba4f70` tested one shared actuator
+state. A monotone signed command warp
 feeds a positive-rate nonlinear relaxation with learned rise/fall coefficients;
 the same latent state enters the observed-force and rigid-body moment solves.
 The moment equation contains Euler inertial coupling and a per-input angular
