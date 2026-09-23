@@ -4,7 +4,8 @@ import jax
 import numpy as np
 import pytest
 
-from glassbox import OnlineFit, STATE_CHANNELS, SequenceCollection, SequenceSegment
+from glassbox import STATE_CHANNELS, OnlineFit, SequenceCollection, SequenceSegment
+from glassbox._learner_arrays import load_arrays, save_arrays
 from glassbox._rate import (
     COMMAND_TAU_S,
     RATE_MEMORY_TAU_S,
@@ -104,3 +105,36 @@ def test_online_snapshot_derivative_and_save_resume(tmp_path):
         session.observe(session.cursor, commands[row], states[row + 1])
         resumed.observe(resumed.cursor, commands[row], states[row + 1])
     assert resumed.fingerprint() == session.fingerprint()
+
+
+def test_online_rejects_invalid_observations_without_mutating_the_fit():
+    states, commands, prefix = _stream()
+    session = OnlineFit(prefix)
+    before = session.fingerprint()
+    invalid = [
+        (session.cursor - 1, commands[75], states[76]),
+        (session.cursor + 1, commands[75], states[76]),
+        (session.cursor, np.full(4, np.nan), states[76]),
+        (session.cursor, commands[75, :3], states[76]),
+        (session.cursor, commands[75], np.r_[np.inf, states[76, 1:]]),
+    ]
+    for args in invalid:
+        with pytest.raises((ValueError, TypeError)):
+            session.observe(*args)
+        assert session.fingerprint() == before
+    session.observe(session.cursor, commands[75], states[76])
+    assert len(session._rate_inputs) <= 25
+    assert len(session._recent["past_states"]) == 1
+
+
+def test_rechecksummed_archive_cannot_change_fitted_rate(tmp_path):
+    _, _, prefix = _stream()
+    session = OnlineFit(prefix)
+    original = tmp_path / "original.npz"
+    changed = tmp_path / "changed.npz"
+    session.save(original)
+    metadata, arrays = load_arrays(original)
+    arrays["param_rate"][0, 0] += 1
+    save_arrays(changed, metadata, arrays)
+    with pytest.raises(ValueError, match="angular readout"):
+        OnlineFit.load(changed)
