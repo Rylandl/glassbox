@@ -87,18 +87,58 @@ constant changed high-spin errors by tens of rad/s and sometimes made learned
 inertia nearly singular. That constant cannot be selected using the future
 forecast being scored.
 
-The next architecture should represent rigid-body angular momentum and
-unobserved actuator response in one episode-fitted formulation, while keeping
-constant physical parameters separate from changing disturbances. Positive-
-definite inertia and one shared actuator state must be learned from the causal
-prefix, with trajectory error and command-response error evaluated together.
-The recent command window is poorly conditioned and the following commands
-change substantially; absent independent input excitation, the learner must
-retain uncertainty rather than infer a precise torque map. The method cannot
-require a passive prelude, vehicle metadata, a pretrained prior, or a
-per-platform rule. Screen causal 50–250 ms response and forecast on the frozen
-known suite, then collect new high-spin configurations before adoption. A
-single favorable 0.85 endpoint is insufficient.
+The [frozen independent-input replay](harness/high-spin-excitation-v1.json)
+then tested whether the current episode supplies enough information. Starting
+from the same pinned simulator state at row 100, it added balanced, independent
+perturbations of amplitude 0.15 to the four issued commands through row 149.
+The unexcited replay exactly reproduced the source and sealed public baseline.
+The [slower 60 ms pattern](harness/high-spin-excitation-v2.json) was frozen
+separately. Both change the vehicle's state, so direct branch-to-branch
+forecast errors do not isolate the effect of the training data.
+
+The [matched-state comparison](harness/high-spin-cross-state-v1.json) fits a
+fresh public learner on each saved prefix, then forecasts from the **same
+original row-150 state, observed history and future commands**. The separate
+prefixes are a simulator diagnostic, not one physically continuous Throw
+episode or fleet pretraining. Body-rate errors are at 250 ms; response errors
+are relative to the simulator's 50 ms command Jacobian.
+
+| Prefix used for fit | 0.85 rate, rad/s | 0.85 response | 1.40 rate, rad/s | 1.40 response |
+| --- | ---: | ---: | ---: | ---: |
+| Original | 27.360 | 0.247 | 1.189 | 0.137 |
+| Independent 10 ms perturbations | 11.642 | 0.151 | 0.845 | 0.139 |
+| Independent 60 ms perturbations | 13.928 | 0.172 | 2.937 | 0.143 |
+
+The shared target rules out an easier forecast starting state as the reason
+for the improvement. The training prefixes also contain different state
+trajectories, so this does not isolate the command perturbations from every
+other change in the training data. The fast-pattern fit nearly reaches the
+original hold-rate error of 11.516 rad/s but does not beat it at 250 ms. Using
+50 rather than 25 completed angular transitions with that excited fit reduced
+the 0.85 endpoint
+to 8.52 rad/s and kept its 50 ms response error near 0.16. A fixed 50-row
+public-model smoke run, however, worsened the first two frozen origins of
+fixedwing-80 (0.122 to 0.340 rad/s 250 ms RMSE), arm-125 (2.635 to 3.396),
+and arm-135 (5.300 to 6.515). Thus simply lengthening the public window is
+not a general replacement. A causal trajectory-loss prototype likewise cut
+the worst factual endpoint while raising its 50 ms response error from 0.16
+to 0.49. Both screens remained exploratory; the public learner is unchanged.
+
+All three simulator packs verify from saved predictions and truth without
+refitting. Their manifest SHA-256 values are `d41d08de98ff02f4480a1c79150711d530935eed3a467d80ff25345f1e09247e`,
+`6913661d2530baba01fc1c3e19b123a3d4707721083d3a1b8097106e4ff7c054`,
+and `54ca6159bb60fa9e9053efb0688d5e4981868f338f0946ae2a3849b70dd281a5`.
+
+The next model iteration should retain control-effect information across the
+episode without treating a fixed 25- or 50-row window as a physical law. A
+single regularized, state-aware torque map can accumulate independently
+excited directions while a compact state residual adapts to changing flight
+conditions; a positive-definite inertia and causal actuator state remain
+shared physical structure. Fit and evaluate command response alongside
+trajectories so a lower factual error cannot hide a wrong control effect.
+No passive prelude, vehicle metadata, pretrained prior or platform branch is
+allowed. Test on the existing frozen suite and both replay packs, then qualify
+on fresh high-spin configurations before adoption.
 
 The truth and baseline evaluation are small sealed packs:
 
