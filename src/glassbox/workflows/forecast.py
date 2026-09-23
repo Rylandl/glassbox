@@ -7,11 +7,9 @@ import numpy as np
 from glassbox.learner import LearnedDynamics, _contract, _recording_content
 from glassbox.recordings import SequenceCollection
 
-_BATCH_SIZE = 256
-
 
 def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
-    """Measure each complete context/horizon window without fitting or updating.
+    """Measure each complete causal-prefix/horizon window without fitting.
 
     Every reported array is [horizon step, observation channel], in the order
     declared by the model. Errors are in each channel's own units. Coverage
@@ -30,7 +28,7 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
         raise ValueError(
             "evaluation requires recording identities and content outside fitting"
         )
-    history, horizon = model.history_steps, model.horizon_steps
+    horizon = model.horizon_steps
     shape = (horizon, len(model.contract["state_channels"]))
     calibration = model.report.get("envelope")
     if calibration is not None and calibration.get("available") is False:
@@ -48,38 +46,27 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
     totals = empty()
     by_recording = {name: empty() for name in sorted(content)}
     for segment in recordings.segments:
-        origins = range(history, len(segment.states) - horizon)
-        for offset in range(0, len(origins), _BATCH_SIZE):
-            selected = origins[offset : offset + _BATCH_SIZE]
-            past_states = np.stack(
-                [segment.states[t - history : t + 1] for t in selected]
+        origins = np.arange(1, len(segment.states) - horizon)
+        if not len(origins):
+            continue
+        truth = np.stack([segment.states[t + 1 : t + horizon + 1] for t in origins])
+        prediction = np.asarray(model._predict_origins(segment, origins, horizon))
+        if prediction.shape != truth.shape or not np.isfinite(prediction).all():
+            raise ValueError(
+                "model produced a nonfinite or misaligned evaluation forecast"
             )
-            past_inputs = np.stack([segment.inputs[t - history : t] for t in selected])
-            future_inputs = np.stack(
-                [segment.inputs[t : t + horizon] for t in selected]
-            )
-            truth = np.stack(
-                [segment.states[t + 1 : t + horizon + 1] for t in selected]
-            )
-            prediction = np.asarray(
-                model.predict(past_states, past_inputs, future_inputs)
-            )
-            if prediction.shape != truth.shape or not np.isfinite(prediction).all():
-                raise ValueError(
-                    "model produced a nonfinite or misaligned evaluation forecast"
-                )
-            error = prediction - truth
-            hold_error = past_states[:, -1:, :] - truth
-            for target in (totals, by_recording[segment.recording_id]):
-                target["windows"] += len(selected)
-                target["squared"] += np.sum(error**2, axis=0)
-                target["hold"] += np.sum(hold_error**2, axis=0)
-                if envelope is not None:
-                    target["covered"] += np.sum(np.abs(error) <= envelope, axis=0)
+        error = prediction - truth
+        hold_error = segment.states[origins, None, :] - truth
+        for target in (totals, by_recording[segment.recording_id]):
+            target["windows"] += len(origins)
+            target["squared"] += np.sum(error**2, axis=0)
+            target["hold"] += np.sum(hold_error**2, axis=0)
+            if envelope is not None:
+                target["covered"] += np.sum(np.abs(error) <= envelope, axis=0)
     missing = [name for name, value in by_recording.items() if value["windows"] == 0]
     if missing:
         raise ValueError(
-            f"recordings have no complete model context/horizon window: {missing}"
+            f"recordings have no complete causal-prefix/horizon window: {missing}"
         )
 
     def metrics(value):
@@ -97,7 +84,8 @@ def evaluate(model: LearnedDynamics, recordings: SequenceCollection) -> dict:
         format="glassbox-motion-forecast-evaluation-v1",
         model_fingerprint=model.fingerprint(),
         contract=model.contract,
-        history_steps=history,
+        history_steps=None,
+        history_policy="complete_segment",
         horizon_steps=horizon,
         horizons_s=(np.arange(1, horizon + 1) * model.contract["dt_s"]).tolist(),
         nominal_coverage=(

@@ -1,5 +1,10 @@
 # Public angular-rate memory result
 
+**Historical incumbent.** The maintained learner is now the causal actuator
+model described in [status](status.md). This report's original replay commands
+require its recorded historical checkout; its saved forecasts remain the
+frozen comparison in the current qualification.
+
 The single public dynamics model now uses a learned three-axis force readout and
 an episode-fitted angular readout. Its angular equation is
 

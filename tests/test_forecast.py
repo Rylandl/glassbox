@@ -21,7 +21,7 @@ class LinearForecast(LearnedDynamics):
 
     def __init__(self):
         self._seen = {}
-        self.batch_sizes = []
+        self.history_lengths = []
         self.calibrated = True
         self.absent_calibration = None
 
@@ -43,10 +43,6 @@ class LinearForecast(LearnedDynamics):
         }
 
     @property
-    def history_steps(self):
-        return 2
-
-    @property
     def horizon_steps(self):
         return 2
 
@@ -55,13 +51,25 @@ class LinearForecast(LearnedDynamics):
         return np.full((2, 15), 0.5)
 
     def predict(self, past_states, past_inputs, future_inputs):
-        self.batch_sizes.append(len(past_states))
-        assert past_states.shape[1:] == (3, 15)
-        assert past_inputs.shape[1:] == (2, 1)
-        assert future_inputs.shape[1:] == (2, 1)
+        self.history_lengths.append(len(past_inputs))
+        assert past_states.shape == (len(past_inputs) + 1, 15)
+        assert past_inputs.shape[1:] == (1,)
+        assert future_inputs.shape == (2, 1)
         increment = np.zeros((2, 15))
         increment[:, :2] = np.arange(1, 3)[:, None] * [1, 2]
-        return past_states[:, -1:, :] + increment
+        return past_states[-1:] + increment
+
+    def _predict_origins(self, segment, origins, horizon):
+        return np.stack(
+            [
+                self.predict(
+                    segment.states[: origin + 1],
+                    segment.inputs[:origin],
+                    segment.inputs[origin : origin + horizon],
+                )
+                for origin in origins
+            ]
+        )
 
     def fingerprint(self):
         return "analytic-fixture"
@@ -105,9 +113,9 @@ def test_scores_every_origin_with_per_channel_per_horizon_equations():
     assert report["horizons_s"] == [0.1, 0.2]
     assert report["nominal_coverage"] == 0.9
     for actual, wanted in (
-        (report["per_recording"]["a"], expected(range(2, 6))),
-        (report["per_recording"]["b"], expected(range(2, 8))),
-        (report["aggregate"], expected([*range(2, 6), *range(2, 8)])),
+        (report["per_recording"]["a"], expected(range(1, 6))),
+        (report["per_recording"]["b"], expected(range(1, 8))),
+        (report["aggregate"], expected([*range(1, 6), *range(1, 8)])),
     ):
         for name, value in wanted.items():
             np.testing.assert_allclose(actual[name], value, rtol=0, atol=1e-12)
@@ -115,14 +123,16 @@ def test_scores_every_origin_with_per_channel_per_horizon_equations():
     json.dumps(report, allow_nan=False)
 
 
-def test_predictions_are_bounded_and_windows_do_not_cross_gaps():
+def test_complete_histories_do_not_cross_gaps():
     model = LinearForecast()
     report = evaluate(
         model, collection(recording("a", 600), recording("a", 20, 700, "after-gap"))
     )
-    assert max(model.batch_sizes) <= 256
-    assert sum(model.batch_sizes) == 596 + 16
-    assert report["aggregate"]["windows"] == 612
+    assert min(model.history_lengths) == 1
+    assert max(model.history_lengths) == 597
+    assert len(model.history_lengths) == 597 + 17
+    assert report["aggregate"]["windows"] == 614
+    assert report["history_policy"] == "complete_segment"
 
 
 @pytest.mark.parametrize("role", ["training", "development"])
@@ -136,7 +146,7 @@ def test_fit_and_development_identity_or_content_cannot_be_evaluated(role, renam
     )
     with pytest.raises(ValueError, match="outside fitting"):
         evaluate(model, tested)
-    assert model.batch_sizes == []
+    assert model.history_lengths == []
 
 
 def test_contract_mismatch_and_empty_recordings_are_rejected():
@@ -147,7 +157,7 @@ def test_contract_mismatch_and_empty_recordings_are_rejected():
             replace(collection(recording("a")), input_channels=("other command",)),
         )
     with pytest.raises(ValueError, match="no complete"):
-        evaluate(model, collection(recording("too-short", 4)))
+        evaluate(model, collection(recording("too-short", 3)))
 
 
 @pytest.mark.parametrize(
@@ -164,7 +174,7 @@ def test_uncalibrated_revision_has_no_invented_coverage(metadata):
     assert report["calibration_provenance"] is None
     assert report["known_recording_count"] == 0
     np.testing.assert_array_equal(
-        report["aggregate"]["rmse"], expected(range(2, 6))["rmse"]
+        report["aggregate"]["rmse"], expected(range(1, 6))["rmse"]
     )
 
 
@@ -172,7 +182,7 @@ def test_uncalibrated_revision_has_no_invented_coverage(metadata):
 def test_unusable_predictions_are_rejected(invalid):
     model = LinearForecast()
     model.predict = lambda *args: np.full(
-        (4, 2, 15 if invalid == "nonfinite" else 14), np.nan
+        (2, 15 if invalid == "nonfinite" else 14), np.nan
     )
     with pytest.raises(ValueError, match="nonfinite or misaligned"):
         evaluate(model, collection(recording("a")))

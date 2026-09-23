@@ -5,7 +5,7 @@ from itertools import pairwise
 
 import numpy as np
 
-from ._training import SequenceBatch, validate_window_consistency
+from ._windows import SequenceBatch, validate_window_consistency
 
 
 def _positive_int(value):
