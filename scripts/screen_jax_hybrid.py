@@ -30,12 +30,8 @@ def joint_step(params, norms, state, command, force_applied, history, hidden,
     force_tau = time_constants(params)
     gravity = jnp.asarray(GRAVITY, dtype=state.dtype)
     m = command.shape[0]
-    if coefficient.shape[1] == 2 * m + 2:
-        damping = coefficient[:, -1]
-        memory_gain = jnp.zeros_like(damping)
-    else:
-        damping = coefficient[:, -2]
-        memory_gain = coefficient[:, -1]
+    damping = coefficient[:, -2]
+    memory_gain = coefficient[:, -1]
     start = current_features(state, command, force_applied, norms)
     start_state = state_without_current_command(start)
     base, effective = _prepare_head(params, norms, start_state, history, hidden)
@@ -147,10 +143,10 @@ class JaxRateSession:
                 jnp.asarray(inputs),
                 jnp.asarray(future),
                 jnp.asarray(self.owner.applied[-1]),
-                jnp.asarray(getattr(self.owner, "rate_memory", past[-1, 3:6])),
+                jnp.asarray(self.owner.rate_memory),
                 jnp.asarray(self.owner.rate_coefficients),
                 jnp.asarray(self.owner.tau),
-                jnp.asarray(getattr(self.owner, "memory_tau", 0.1)),
+                jnp.asarray(self.owner.memory_tau),
                 delay=model.delay_steps,
                 dt_s=model.dt_s,
             )
