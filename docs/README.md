@@ -4,6 +4,8 @@
   error evidence.
 - [Current status](status.md): measured performance, remaining gaps and the next
   iteration.
+- [Causal full-state result](causal-fullstate.md): complete frozen forecasts,
+  command response and the selected architecture for integration.
 - [Charter](charter.md): product scope and evaluation rules.
 - [Development guide](../CONTRIBUTING.md): tests, packaging and changes.
 - [Public rate-memory result](public-rate-memory.md): current online accuracy,
