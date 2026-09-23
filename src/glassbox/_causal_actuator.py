@@ -130,7 +130,7 @@ class CausalActuatorModel:
             not np.isfinite(self.dt_s)
             or self.dt_s <= 0
             or q.shape != ()
-            or not 1e-7 <= q <= 10
+            or not 0 < q <= 10
             or coeff.shape != (4,)
             or np.any(coeff <= 0)
             or inertia.shape != (3, 3)
