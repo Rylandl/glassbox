@@ -23,11 +23,10 @@ from screen_causal_rate import CausalRateFit
 
 
 def joint_step(params, norms, state, command, force_applied, history, hidden,
-               rate_applied, coefficient, dt_s):
+               rate_applied, coefficient, rate_tau, dt_s):
     count = max(1, math.ceil(dt_s / MAX_SUBSTEP_S))
     duration = dt_s / count
     force_tau = time_constants(params)
-    rate_tau = 8.0 * dt_s
     gravity = jnp.asarray(GRAVITY, dtype=state.dtype)
     m = command.shape[0]
     start = current_features(state, command, force_applied, norms)
@@ -92,7 +91,7 @@ def joint_step(params, norms, state, command, force_applied, history, hidden,
 
 @partial(jax.jit, static_argnames=("delay", "dt_s"))
 def joint_rollout(params, norms, past, past_inputs, future, rate_applied,
-                  coefficient, *, delay, dt_s):
+                  coefficient, rate_tau, *, delay, dt_s):
     force_applied, history, hidden = _history(
         params, norms, past[None], past_inputs[None], delay, dt_s
     )
@@ -101,7 +100,7 @@ def joint_rollout(params, norms, past, past_inputs, future, rate_applied,
         state, force_applied, history, hidden, rate_applied = carry
         following = joint_step(
             params, norms, state, command, force_applied, history, hidden,
-            rate_applied, coefficient, dt_s
+            rate_applied, coefficient, rate_tau, dt_s
         )
         return following, following[0]
 
@@ -129,6 +128,7 @@ class JaxRateSession:
                 jnp.asarray(future),
                 jnp.asarray(self.owner.applied[-1]),
                 jnp.asarray(self.owner.rate_coefficients),
+                jnp.asarray(self.owner.tau),
                 delay=model.delay_steps,
                 dt_s=model.dt_s,
             )
