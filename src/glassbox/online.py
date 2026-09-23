@@ -20,6 +20,7 @@ from ._dynamics import (
     quadratic_features,
     time_constants,
 )
+from ._rate import fit_rate
 from ._learner_arrays import array_fingerprint, load_arrays, save_arrays
 from ._training import SequenceBatch, validate_window_consistency
 from .learner import _contract, _validate_rotations, steps_for
@@ -165,10 +166,7 @@ def _recondition(params, norms, data, weights, *, delay, dt_s):
         GRAVITY, dtype=states.dtype
     )
     body_force = jnp.einsum("...ji,...j->...i", rotation, world_force)
-    angular = (targets[..., 3:6] - preceding[..., 3:6]) / dt_s
-    output_scale = jnp.maximum(
-        norms["output_scale"], rms(jnp.concatenate((body_force, angular), axis=-1))
-    )
+    output_scale = jnp.maximum(norms["output_scale"], rms(body_force))
     sf = feature_scale / norms["feature_scale"]
     sn = nonlinear_scale / norms["nonlinear_scale"]
     sq = quadratic_scale / norms["quadratic_scale"]
@@ -238,7 +236,7 @@ def _curvature_diagonal(params, norms, data, scale, weights, *, delay, dt_s):
         factor[:, None]
         * dt_s
         * norms["output_scale"][None, :]
-        / (norms["quadratic_scale"][:, None] * scale[0, :6])
+        / (norms["quadratic_scale"][:, None] * scale[0, :3])
     )
     diagonal = jax.tree.map(jnp.zeros_like, params)
     diagonal["quadratic"] = 0.005 * coefficient**2
@@ -264,13 +262,18 @@ def _proposal(
     weights include the role weight and 1/(horizon*3); each group's IRLS factor
     and the measured prior domain stay fixed throughout the proposal.
     """
-    flat, unpack = ravel_pytree(params)
+    adjustable = {key: value for key, value in params.items() if key != "rate"}
+    flat, unpack = ravel_pytree(adjustable)
+
+    def combined(value):
+        return dict(params, **unpack(value))
+
     prior = _curvature_diagonal(
-        params, norms, data, scale, weights, delay=delay, dt_s=dt_s
+        adjustable, norms, data, scale, weights, delay=delay, dt_s=dt_s
     )
     preconditioner = damping + prior
     raw, push = jax.linearize(
-        lambda value: _residual(unpack(value), norms, data, scale, delay, dt_s), flat
+        lambda value: _residual(combined(value), norms, data, scale, delay, dt_s), flat
     )
     pull = jax.linear_transpose(push, jnp.zeros_like(flat))
     weight = weights[:, None, None] / (raw.shape[1] * 3)
@@ -356,7 +359,7 @@ def _proposal(
         index, _, _, _, _, _, losses, predictions, finite_trials = carry
         alpha = scales[index]
         trial = flat + alpha * delta
-        trial_raw = _residual(unpack(trial), norms, data, scale, delay, dt_s)
+        trial_raw = _residual(combined(trial), norms, data, scale, delay, dt_s)
         loss = jnp.sum(weight * _huber(trial_raw)) + 0.5 * jnp.vdot(
             trial, prior * trial
         )
@@ -419,7 +422,7 @@ def _proposal(
         selected_alpha=jnp.where(accepted, scales[count - 1], 0.0),
     )
     finite = conditioning_finite & direction_finite & trial_finite
-    return unpack(trial), current_loss, trial_loss, predicted, finite, evidence
+    return combined(trial), current_loss, trial_loss, predicted, finite, evidence
 
 
 def _proposal_report(current, conditioning_finite, evidence):
@@ -599,6 +602,17 @@ class OnlineFit:
         one_step = _windows(states, inputs, range(history, history + count), history, 1)
         with jax.enable_x64(True):
             self._model = initialize(SequenceBatch(**one_step, dt_s=segment.dt_s))
+        rate_count = min(25, len(segment.inputs))
+        self._rate_states = segment.states[-rate_count - 1 :].copy()
+        self._rate_inputs = segment.inputs[-rate_count:].copy()
+        initial_rate = fit_rate(self._rate_states, self._rate_inputs, segment.dt_s)
+        self._model = VehicleSequenceModel(
+            self._model.dt_s,
+            self._model.history_steps,
+            self._model.delay_steps,
+            dict(self._model.params, rate=initial_rate),
+            self._model.norms,
+        )
         self._bootstrap = _windows(
             states,
             inputs,
@@ -747,11 +761,15 @@ class OnlineFit:
             self._horizon,
         )
         recent = {k: np.concatenate((self._recent[k], new[k]))[-32:] for k in _FIELDS}
+        rate_states = np.concatenate((self._rate_states, state[None]))[-26:]
+        rate_inputs = np.concatenate((self._rate_inputs, command[None]))[-25:]
+        fitted_rate = fit_rate(rate_states, rate_inputs, self._model.dt_s)
         counts = self._counts.copy()
         with jax.enable_x64(True):
             params, norms = jax.tree.map(
                 jnp.asarray, (self._model.params, self._model.norms)
             )
+            params = dict(params, rate=jnp.asarray(fitted_rate))
             data, weights = _full_cache(self._bootstrap, recent)
             data = tuple(jnp.asarray(v) for v in data)
             weights = jnp.asarray(weights)
@@ -793,15 +811,19 @@ class OnlineFit:
             elif gain > 0.75:
                 damping *= 0.5
             damping = float(np.clip(damping, 1e-8, 1e8))
-            model = self._model
-            if accepted:
-                model = VehicleSequenceModel(
-                    model.dt_s,
-                    model.history_steps,
-                    model.delay_steps,
-                    jax.tree.map(np.asarray, proposal),
-                    jax.tree.map(np.asarray, norms),
-                )
+            source = self._model
+            selected_params = (
+                jax.tree.map(np.asarray, proposal)
+                if accepted else dict(source.params, rate=fitted_rate)
+            )
+            selected_norms = jax.tree.map(np.asarray, norms) if accepted else source.norms
+            model = VehicleSequenceModel(
+                source.dt_s,
+                source.history_steps,
+                source.delay_steps,
+                selected_params,
+                selected_norms,
+            )
         counts["conditioning_calls"] += 1
         counts["optimizer_steps"] += 1
         counts["gradient_calls"] += 1
@@ -812,6 +834,7 @@ class OnlineFit:
         counts["accepted_proposals"] += int(accepted)
         self._model, self._damping = model, damping
         self._states, self._inputs, self._recent = states, inputs, recent
+        self._rate_states, self._rate_inputs = rate_states, rate_inputs
         self._counts, self._cursor = counts, self.cursor + 1
         self._last_proposal = last_proposal
 
