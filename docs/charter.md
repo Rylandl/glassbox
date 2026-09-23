@@ -28,10 +28,11 @@ learner; its results do not qualify cold-start Throw performance.
 
 The model is the product. Its public workflow is `fit(recordings)`,
 `model.predict(...)` and `model.update(recordings)`, with fingerprinted save/load
-and immutable revisions. `OnlineFit` assimilates contiguous observations into
-that same dynamics formulation; its mutable optimizer state is separate from
-saved immutable revisions. Assimilation may run in the background and publish
-new immutable revisions intermittently. Prediction uses a published revision;
+and immutable revisions. A session may collect contiguous observations for the
+same dynamics formulation without completing a fit at every observation. Its
+mutable fitting state is separate from saved immutable revisions. A background
+fit may publish new immutable revisions intermittently. Prediction uses a
+published revision;
 publication time and the causal data available at publication are part of
 fresh-start evaluation. Other projects own controllers, planners and simulators.
 Glassbox retains a small generic motion adapter and a saved-evidence verifier;
