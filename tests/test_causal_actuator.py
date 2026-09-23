@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from glassbox._causal_actuator import CausalActuatorModel
+from glassbox._causal_fit import BackgroundFit, fit_episode, fit_segments
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -47,21 +48,30 @@ def test_command_jacobian_matches_symmetric_perturbation():
     with np.load(FIXTURES / "causal-highspin-085-row150.npz") as saved:
         data = {key: saved[key] for key in saved.files}
     model = CausalActuatorModel(
-        float(data["dt_s"]), data["q"], data["coeff"], data["inertia"],
-        data["force"], data["torque"],
+        float(data["dt_s"]),
+        data["q"],
+        data["coeff"],
+        data["inertia"],
+        data["force"],
+        data["torque"],
     )
     start, past, command = data["start"], data["past_inputs"], data["future_inputs"][0]
     with jax.enable_x64(True):
-        response = jax.jacfwd(
-            lambda u: model.forecast(start, past, u[None])[0, 3:6]
-        )(jnp.asarray(command))
+        response = jax.jacfwd(lambda u: model.forecast(start, past, u[None])[0, 3:6])(
+            jnp.asarray(command)
+        )
         epsilon = 1e-5
         difference = np.column_stack(
             [
                 (
-                    np.asarray(model.forecast(start, past, (command + epsilon * axis)[None]))[0, 3:6]
-                    - np.asarray(model.forecast(start, past, (command - epsilon * axis)[None]))[0, 3:6]
-                ) / (2 * epsilon)
+                    np.asarray(
+                        model.forecast(start, past, (command + epsilon * axis)[None])
+                    )[0, 3:6]
+                    - np.asarray(
+                        model.forecast(start, past, (command - epsilon * axis)[None])
+                    )[0, 3:6]
+                )
+                / (2 * epsilon)
                 for axis in np.eye(len(command))
             ]
         )
@@ -76,6 +86,62 @@ def test_nonphysical_inertia_is_rejected():
     data["inertia"] = -np.eye(3)
     with pytest.raises(ValueError, match="invalid causal"):
         CausalActuatorModel(
-            float(data["dt_s"]), data["q"], data["coeff"], data["inertia"],
-            data["force"], data["torque"],
+            float(data["dt_s"]),
+            data["q"],
+            data["coeff"],
+            data["inertia"],
+            data["force"],
+            data["torque"],
         )
+
+
+def _analytic_segment(reverse=False):
+    dt_s, count = 0.02, 40
+    time = np.arange(count) * dt_s
+    commands = np.stack(
+        (0.3 + 0.1 * np.sin(2 * time), 0.2 + 0.1 * np.cos(3 * time)), axis=-1
+    )
+    if reverse:
+        commands = commands[::-1].copy()
+    states = np.zeros((count + 1, 15))
+    states[:, 6:] = np.eye(3).ravel()
+    for row, command in enumerate(commands):
+        states[row + 1, :3] = states[row, :3] + dt_s * np.array(
+            [2 * command[0], command[1], -9.80665]
+        )
+    return states, commands, dt_s
+
+
+def test_one_recipe_fits_multiple_reset_segments():
+    states, commands, dt_s = _analytic_segment()
+    other_states, other_commands, _ = _analytic_segment(reverse=True)
+    single, _ = fit_episode(states, commands, dt_s)
+    one_segment, _ = fit_segments(((states, commands, 0),), dt_s)
+    joint, report = fit_segments(
+        ((states, commands, 0), (other_states, other_commands, 0)), dt_s
+    )
+    assert single.fingerprint == one_segment.fingerprint
+    assert joint.input_count == 2
+    assert report["fit_segments"] == 2
+    assert report["completed_transitions"] == 80
+
+
+def test_background_fit_publishes_immutable_revisions():
+    states, commands, dt_s = _analytic_segment()
+    session = BackgroundFit(states[:31], commands[:30], dt_s)
+    try:
+        old = session.model
+        old_fingerprint = old.fingerprint
+        for row in (30, 31):
+            session.observe(row, commands[row], states[row + 1])
+        assert session.cursor == 32
+        for _ in range(2):
+            session.wait_for_publication(timeout=3)
+        assert session.published_cursor == 32
+        assert session.model.fingerprint != old_fingerprint
+        assert old.fingerprint == old_fingerprint
+        with pytest.raises(ValueError, match="observation"):
+            session.observe(32, np.array([np.nan, 0.0]), states[33])
+        assert session.cursor == 32
+    finally:
+        session.close()
